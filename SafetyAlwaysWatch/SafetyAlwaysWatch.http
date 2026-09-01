@@ -1,0 +1,6 @@
+@SafetyAlwaysWatch_HostAddress = http://localhost:5275
+
+GET {{SafetyAlwaysWatch_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
