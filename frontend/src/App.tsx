@@ -13,6 +13,7 @@ import {
 import { Activity, ChevronRight, LockKeyhole, LogOut } from "lucide-react";
 
 import { Button } from "./components/ui/button";
+import { createMockSawService, type OverviewData, type SawService } from "./services/saw-service";
 
 type Role = "admin" | "supervisor" | "hrd";
 
@@ -228,6 +229,93 @@ function Page({ title }: { title: string }) {
   );
 }
 
+function Metric({ value, suffix = "" }: { suffix?: string; value: number }) {
+  const [displayedValue, setDisplayedValue] = useState(value);
+  const previousValue = useRef(value);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || previousValue.current === value) {
+      setDisplayedValue(value);
+      previousValue.current = value;
+      return undefined;
+    }
+
+    const metric = { value: previousValue.current };
+    const animation = animate(metric, {
+      value,
+      duration: 220,
+      ease: "outQuad",
+      onUpdate: () => setDisplayedValue(Math.round(metric.value)),
+    });
+    previousValue.current = value;
+    return () => {
+      animation.pause();
+    };
+  }, [value]);
+
+  return <strong className="mt-3 block text-3xl font-semibold tracking-tight text-slate-950">{displayedValue}{suffix}</strong>;
+}
+
+function Overview({ service }: { service: SawService }) {
+  const [overview, setOverview] = useState<OverviewData | null>();
+  const [error, setError] = useState<string>();
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    service.getOverview().then((nextOverview) => {
+      if (active) setOverview(nextOverview);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Data demo SAW tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshKey, service]);
+
+  const retryLoad = () => {
+    setError(undefined);
+    setOverview(undefined);
+    setRefreshKey((key) => key + 1);
+  };
+
+  const resetDemoData = async () => {
+    const nextOverview = await service.resetDemoData();
+    setOverview(nextOverview);
+    setConfirmingReset(false);
+  };
+
+  if (error) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Data demo tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p><Button className="mt-4" onClick={retryLoad} variant="outline">Coba lagi</Button></div></section>;
+  }
+
+  if (overview === undefined) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><p className="mt-6 text-slate-600">Memuat ringkasan keselamatan…</p></section>;
+  }
+
+  if (overview === null) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium">Belum ada data demo</p><p className="mt-1 text-sm text-slate-600">Tambahkan data SAW untuk melihat ringkasan keselamatan.</p></div></section>;
+  }
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Ringkasan operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><p className="mt-2 text-sm text-slate-600">Kondisi keselamatan SAW saat ini.</p></div>
+        <Button onClick={() => setConfirmingReset(true)} variant="outline">Reset data demo</Button>
+      </div>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Sumber Kamera aktif</p><Metric suffix={` / ${overview.totalCameras}`} value={overview.activeCameras} /></article>
+        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Pelanggaran aktif</p><Metric value={overview.activeViolations} /></article>
+        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Kepatuhan APD hari ini</p><Metric suffix="%" value={overview.apdCompliance} /></article>
+        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Karyawan di bawah Ambang Eskalasi</p><Metric value={overview.employeesBelowEscalationThreshold} /></article>
+      </div>
+      {confirmingReset && <div aria-labelledby="reset-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-md bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold" id="reset-title">Reset data demo?</h2><p className="mt-2 text-sm leading-6 text-slate-600">Semua perubahan demo akan dikembalikan ke seed awal.</p><div className="mt-6 flex justify-end gap-3"><Button onClick={() => setConfirmingReset(false)} variant="outline">Batal</Button><Button onClick={() => void resetDemoData()}>Reset data</Button></div></div></div>}
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -240,12 +328,13 @@ function RestrictedAccess({ persona }: { persona: Persona }) {
   );
 }
 
-function ProtectedPage({ persona, allowedRoles, title }: { persona: Persona; allowedRoles: Role[]; title: string }) {
+function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Persona; allowedRoles: Role[]; service: SawService; title: string }) {
   if (!allowedRoles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
+  if (title === "Overview") return <Overview service={service} />;
   return <Page title={title} />;
 }
 
-function RoutedApplication({ initialPersona }: { initialPersona?: Role }) {
+function RoutedApplication({ initialPersona, service }: { initialPersona?: Role; service: SawService }) {
   const [role, setRole] = useState<Role | undefined>(initialPersona);
   const navigate = useNavigate();
   const persona = role ? getPersona(role) : undefined;
@@ -269,14 +358,16 @@ function RoutedApplication({ initialPersona }: { initialPersona?: Role }) {
       <Routes>
         <Route path="/login" element={<Navigate replace to={persona.landingPath} />} />
         <Route path="/" element={<Navigate replace to={persona.landingPath} />} />
-        {pages.map((page) => <Route element={<ProtectedPage allowedRoles={page.roles} persona={persona} title={page.title} />} key={page.path} path={page.path} />)}
+        {pages.map((page) => <Route element={<ProtectedPage allowedRoles={page.roles} persona={persona} service={service} title={page.title} />} key={page.path} path={page.path} />)}
         <Route path="*" element={<Navigate replace to={persona.landingPath} />} />
       </Routes>
     </ApplicationShell>
   );
 }
 
-export function App({ initialEntries, initialPersona }: { initialEntries?: string[]; initialPersona?: Role }) {
-  if (initialEntries) return <MemoryRouter initialEntries={initialEntries}><RoutedApplication initialPersona={initialPersona} /></MemoryRouter>;
-  return <BrowserRouter><RoutedApplication initialPersona={initialPersona} /></BrowserRouter>;
+const defaultService = createMockSawService();
+
+export function App({ initialEntries, initialPersona, service = defaultService }: { initialEntries?: string[]; initialPersona?: Role; service?: SawService }) {
+  if (initialEntries) return <MemoryRouter initialEntries={initialEntries}><RoutedApplication initialPersona={initialPersona} service={service} /></MemoryRouter>;
+  return <BrowserRouter><RoutedApplication initialPersona={initialPersona} service={service} /></BrowserRouter>;
 }
