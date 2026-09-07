@@ -10,10 +10,30 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { Activity, ChevronRight, LockKeyhole, LogOut } from "lucide-react";
+import {
+  Activity,
+  Camera as CameraIcon,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  LockKeyhole,
+  LogOut,
+  MapPin,
+  Search,
+  TriangleAlert,
+  WifiOff,
+} from "lucide-react";
 
 import { Button } from "./components/ui/button";
-import { createMockSawService, type OverviewData, type SawService } from "./services/saw-service";
+import {
+  createMockSawService,
+  type Camera,
+  type CameraMetadata,
+  type CameraScope,
+  type CameraStatus,
+  type OverviewData,
+  type SawService,
+} from "./services/saw-service";
 
 type Role = "admin" | "supervisor" | "hrd";
 
@@ -22,6 +42,7 @@ type Persona = {
   name: string;
   description: string;
   landingPath: string;
+  assignedArea?: string;
 };
 
 type Page = {
@@ -43,6 +64,7 @@ const personas: Persona[] = [
     name: "Supervisor Area",
     description: "Pantau kondisi Zona Berbahaya yang menjadi tanggung jawab Anda.",
     landingPath: "/monitoring/live",
+    assignedArea: "Produksi",
   },
   {
     role: "hrd",
@@ -66,7 +88,7 @@ const pages: Page[] = [
   { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"] },
   { group: "Safety Operations", path: "/pelanggaran", title: "Pelanggaran", roles: ["admin", "supervisor", "hrd"] },
   { group: "Safety Operations", path: "/karyawan", title: "Karyawan", roles: ["admin", "supervisor", "hrd"] },
-  { group: "Configuration", path: "/konfigurasi/kamera", title: "Sumber Kamera", roles: ["admin"] },
+  { group: "Configuration", path: "/konfigurasi/kamera", title: "Sumber Kamera", roles: ["admin", "supervisor"] },
   { group: "Configuration", path: "/konfigurasi/zona", title: "Zona Berbahaya", roles: ["admin"] },
   { group: "Configuration", path: "/konfigurasi/apd", title: "Kelas APD", roles: ["admin"] },
   { group: "Administration", path: "/administrasi/parameter", title: "Parameter Sistem", roles: ["admin"] },
@@ -316,6 +338,195 @@ function Overview({ service }: { service: SawService }) {
   );
 }
 
+const cameraStatusDetails: Record<CameraStatus, {
+  label: string;
+  Icon: typeof CheckCircle2;
+  className: string;
+}> = {
+  online: { label: "Aktif", Icon: CheckCircle2, className: "text-emerald-700" },
+  degraded: { label: "Terganggu", Icon: TriangleAlert, className: "text-amber-700" },
+  offline: { label: "Offline", Icon: WifiOff, className: "text-slate-600" },
+};
+
+function formatWib(timestamp: string) {
+  return `${new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+    hour12: false,
+  }).format(new Date(timestamp))} WIB`;
+}
+
+function ConnectionStatus({ status }: { status: CameraStatus }) {
+  const { Icon, label, className } = cameraStatusDetails[status];
+
+  return (
+    <span aria-label={`Status koneksi: ${label}`} className={`inline-flex items-center gap-1.5 text-sm font-medium ${className}`}>
+      <Icon aria-label={`Ikon status ${label}`} className="size-4" role="img" />
+      {label}
+    </span>
+  );
+}
+
+function CameraDetail({
+  camera,
+  canEdit,
+  onSaved,
+}: {
+  camera: Camera;
+  canEdit: boolean;
+  onSaved: (metadata: CameraMetadata) => void;
+}) {
+  const [draft, setDraft] = useState<CameraMetadata>({ name: camera.name, location: camera.location });
+  const [validationError, setValidationError] = useState<string>();
+
+  const updateDraft = (field: keyof CameraMetadata, value: string) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+    setValidationError(undefined);
+  };
+
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft.name.trim() || !draft.location.trim()) {
+      setValidationError("Nama dan lokasi Sumber Kamera wajib diisi.");
+      return;
+    }
+    onSaved({ name: draft.name.trim(), location: draft.location.trim() });
+  };
+
+  return (
+    <section aria-labelledby="camera-detail-title" className="border border-slate-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Metadata operasional</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950" id="camera-detail-title">Detail Sumber Kamera</h2>
+        </div>
+        <ConnectionStatus status={camera.status} />
+      </div>
+      {canEdit ? (
+        <form className="mt-6 space-y-4" onSubmit={submit}>
+          <label className="block text-sm font-medium text-slate-800">
+            Nama Sumber Kamera
+            <input
+              className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              onChange={(event) => updateDraft("name", event.target.value)}
+              value={draft.name}
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-800">
+            Lokasi
+            <input
+              className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              onChange={(event) => updateDraft("location", event.target.value)}
+              value={draft.location}
+            />
+          </label>
+          {validationError && <p className="text-sm text-red-700" role="alert">{validationError}</p>}
+          <Button type="submit">Simpan metadata demo</Button>
+        </form>
+      ) : (
+        <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
+          <div><dt className="text-slate-500">Nama Sumber Kamera</dt><dd className="mt-1 font-medium text-slate-950">{camera.name}</dd></div>
+          <div><dt className="text-slate-500">Lokasi</dt><dd className="mt-1 font-medium text-slate-950">{camera.location}</dd></div>
+        </dl>
+      )}
+      <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2">
+        <div><dt className="text-slate-500">ID sumber</dt><dd className="mt-1 font-mono text-slate-950">{camera.id}</dd></div>
+        <div><dt className="text-slate-500">Cakupan Supervisor Area</dt><dd className="mt-1 text-slate-950">{camera.supervisorArea}</dd></div>
+        <div><dt className="text-slate-500">Zona terkait</dt><dd className="mt-1 text-slate-950">{camera.zoneIds.join(", ")}</dd></div>
+        <div><dt className="text-slate-500">Pembaruan terakhir</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(camera.lastUpdatedAt)}</dd></div>
+      </dl>
+      <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Detail koneksi hanya menampilkan metadata aman untuk demo.</p>
+    </section>
+  );
+}
+
+function CameraCard({ camera, onSelect }: { camera: Camera; onSelect: () => void }) {
+  return (
+    <article aria-label={camera.name} className="border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CameraIcon aria-hidden="true" className="size-5 text-slate-500" />
+            <h2 className="font-semibold text-slate-950">{camera.name}</h2>
+          </div>
+          <p className="mt-1 font-mono text-xs text-slate-500">{camera.id}</p>
+        </div>
+        <ConnectionStatus status={camera.status} />
+      </div>
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+        <div className="flex gap-2"><MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-400" /><span><dt className="text-slate-500">Lokasi</dt><dd className="mt-0.5 text-slate-900">{camera.location}</dd></span></div>
+        <div><dt className="text-slate-500">Zona terkait</dt><dd className="mt-0.5 text-slate-900">{camera.zoneIds.join(", ")}</dd></div>
+        <div className="flex gap-2"><Clock3 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-400" /><span><dt className="text-slate-500">Pembaruan terakhir</dt><dd className="mt-0.5 font-mono text-xs text-slate-900">{formatWib(camera.lastUpdatedAt)}</dd></span></div>
+      </dl>
+      <Button className="mt-5" onClick={onSelect} variant="outline">Lihat detail {camera.name}</Button>
+    </article>
+  );
+}
+
+function Cameras({ persona, service }: { persona: Persona; service: SawService }) {
+  const [cameras, setCameras] = useState<Camera[]>();
+  const [error, setError] = useState<string>();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<CameraStatus | "all">("all");
+  const [selectedCameraId, setSelectedCameraId] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+
+  useEffect(() => {
+    let active = true;
+    const scope: CameraScope = persona.role === "supervisor" ? { type: "supervisor-area", area: persona.assignedArea ?? "" } : "all";
+    service.getCameras(scope).then((nextCameras) => {
+      if (active) setCameras(nextCameras);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Sumber Kamera tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [persona.assignedArea, persona.role, service]);
+
+  const filteredCameras = (cameras ?? []).filter((camera) => {
+    const query = searchTerm.trim().toLowerCase();
+    const matchesSearch = !query || [camera.name, camera.location, camera.id, ...camera.zoneIds]
+      .some((value) => value.toLowerCase().includes(query));
+    return matchesSearch && (statusFilter === "all" || camera.status === statusFilter);
+  });
+  const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
+
+  const saveMetadata = async (camera: Camera, metadata: CameraMetadata) => {
+    const savedCamera = await service.updateCameraMetadata(camera.id, metadata);
+    setCameras((current) => current?.map((item) => item.id === savedCamera.id ? savedCamera : item));
+    setNotice("Metadata Sumber Kamera diperbarui.");
+  };
+
+  if (error) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sumber Kamera</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Sumber Kamera tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+  if (cameras === undefined) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sumber Kamera</h1><p className="mt-6 text-slate-600">Memuat Sumber Kamera…</p></section>;
+  }
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Konfigurasi operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sumber Kamera</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Pantau sumber video pilot, lokasi, zona yang diamati, dan kesegaran data.</p></div>
+        <span className="inline-flex items-center gap-2 border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"><CameraIcon aria-hidden="true" className="size-4" />{cameras.length} sumber terdaftar</span>
+      </div>
+      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+        <label className="block text-sm font-medium text-slate-800">Cari Sumber Kamera<div className="relative mt-1"><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" /><input aria-label="Cari Sumber Kamera" className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setSearchTerm(event.target.value)} placeholder="Nama, lokasi, ID, atau zona" value={searchTerm} /></div></label>
+        <label className="block text-sm font-medium text-slate-800">Filter status<select aria-label="Filter status" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setStatusFilter(event.target.value as CameraStatus | "all")} value={statusFilter}><option value="all">Semua status</option><option value="online">Aktif</option><option value="degraded">Terganggu</option><option value="offline">Offline</option></select></label>
+      </div>
+      <p className="mt-4 text-sm text-slate-600">Menampilkan {filteredCameras.length} dari {cameras.length} Sumber Kamera</p>
+      {notice && <p aria-live="polite" className="mt-3 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+      {cameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang terdaftar</p><p className="mt-1 text-sm text-slate-600">Tambahkan sumber kamera untuk mulai memantau cakupan.</p></div> : filteredCameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang cocok.</p><p className="mt-1 text-sm text-slate-600">Ubah kata pencarian atau filter status.</p></div> : <div aria-label="Daftar Sumber Kamera" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{filteredCameras.map((camera) => <CameraCard camera={camera} key={camera.id} onSelect={() => { setSelectedCameraId(camera.id); setNotice(undefined); }} />)}</div>}
+      {selectedCamera && <div className="mt-6"><CameraDetail camera={selectedCamera} canEdit={persona.role === "admin"} key={selectedCamera.id} onSaved={(metadata) => void saveMetadata(selectedCamera, metadata)} /></div>}
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -331,6 +542,7 @@ function RestrictedAccess({ persona }: { persona: Persona }) {
 function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Persona; allowedRoles: Role[]; service: SawService; title: string }) {
   if (!allowedRoles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
   if (title === "Overview") return <Overview service={service} />;
+  if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
   return <Page title={title} />;
 }
 
