@@ -1,8 +1,22 @@
 export type ServiceScenario = "ready" | "loading" | "empty" | "error";
 
-type Camera = { id: string; status: "online" | "offline" };
+export type CameraStatus = "online" | "degraded" | "offline";
+
+export type Camera = {
+  id: string;
+  name: string;
+  location: string;
+  zoneIds: string[];
+  status: CameraStatus;
+  lastUpdatedAt: string;
+  supervisorArea: string;
+};
+
+export type CameraMetadata = Pick<Camera, "name" | "location">;
+export type CameraScope = "all" | { type: "supervisor-area"; area: string };
+
 type Employee = { id: string; departmentId: string; safetyScore: number };
-type DemoData = {
+export type DemoData = {
   cameras: Camera[];
   compliance: { compliantObservations: number; totalObservations: number };
   departments: string[];
@@ -23,6 +37,8 @@ export type OverviewData = {
 export interface SawService {
   getOverview(): Promise<OverviewData | null>;
   resetDemoData(): Promise<OverviewData>;
+  getCameras(scope?: CameraScope): Promise<Camera[]>;
+  updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
 }
 
 type MockServiceOptions = {
@@ -35,8 +51,24 @@ const storageKey = "saw-demo-data";
 
 const seedData: DemoData = {
   cameras: [
-    { id: "CAM-01", status: "online" },
-    { id: "CAM-02", status: "offline" },
+    {
+      id: "CAM-01",
+      name: "Gerbang Produksi",
+      location: "Lini Produksi Utama",
+      zoneIds: ["ZON-01", "ZON-02"],
+      status: "online",
+      lastUpdatedAt: "2026-09-08T08:15:00+07:00",
+      supervisorArea: "Produksi",
+    },
+    {
+      id: "CAM-02",
+      name: "Gudang Bahan Baku",
+      location: "Gudang Bahan Baku",
+      zoneIds: ["ZON-03", "ZON-04"],
+      status: "offline",
+      lastUpdatedAt: "2026-09-08T07:48:00+07:00",
+      supervisorArea: "Gudang",
+    },
   ],
   zones: ["ZON-01", "ZON-02", "ZON-03", "ZON-04"],
   departments: ["Produksi", "Gudang", "Pemeliharaan"],
@@ -107,6 +139,26 @@ export function createMockSawService({
       const data = clone(seedData);
       persist(data);
       return calculateOverview(data);
+    },
+    async getCameras(scope = "all") {
+      if (scenario === "loading") return new Promise<Camera[]>(() => undefined);
+      if (scenario === "error") throw new Error("Sumber Kamera tidak dapat dimuat.");
+      if (scenario === "empty") return [];
+
+      const cameras = readData().cameras;
+      return clone(typeof scope === "object"
+        ? cameras.filter((camera) => camera.supervisorArea === scope.area)
+        : cameras);
+    },
+    async updateCameraMetadata(id, metadata) {
+      const data = readData();
+      const camera = data.cameras.find((item) => item.id === id);
+      if (!camera) throw new Error("Sumber Kamera tidak ditemukan.");
+
+      camera.name = metadata.name.trim();
+      camera.location = metadata.location.trim();
+      persist(data);
+      return clone(camera);
     },
   };
 }
