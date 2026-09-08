@@ -296,4 +296,131 @@ describe("SAW application", () => {
 
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
+
+  it("menampilkan direktori Karyawan dengan pencarian, filter, sorting, dan pagination", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("Menampilkan 1–5 dari 12 Karyawan")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Karyawan" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 01" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Karyawan Produksi 01" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Ikon status skor Aman" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "Ikon status skor Waspada" }).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Halaman berikutnya" }));
+    expect(screen.getByText("Menampilkan 6–10 dari 12 Karyawan")).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Karyawan Gudang 01" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Halaman berikutnya" }));
+    expect(screen.getByText("Menampilkan 11–12 dari 12 Karyawan")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Ikon status skor Kritis" }).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Halaman sebelumnya" }));
+    await user.click(screen.getByRole("button", { name: "Halaman sebelumnya" }));
+    await user.type(screen.getByRole("textbox", { name: "Cari Karyawan" }), "Gudang 02");
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 02" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Karyawan Produksi 01" })).not.toBeInTheDocument();
+
+    await user.clear(screen.getByRole("textbox", { name: "Cari Karyawan" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter departemen" }), "Gudang");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter status skor" }), "critical");
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 03" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Karyawan Gudang 02" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Urutkan Karyawan" }), "score-asc");
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 03" })).toHaveTextContent("55");
+  });
+
+  it("menampilkan detail Karyawan dan tindakan enrollment yang aman", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("Menampilkan 1–5 dari 12 Karyawan")).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Cari Karyawan" }), "Produksi 01");
+    await user.click(screen.getByRole("button", { name: "Lihat detail Karyawan Produksi 01" }));
+
+    const detail = screen.getByRole("region", { name: "Detail Karyawan" });
+    expect(within(detail).getByRole("heading", { name: "Detail Karyawan" })).toBeInTheDocument();
+    expect(within(detail).getByText("Departemen")).toBeInTheDocument();
+    expect(within(detail).getByText("Supervisor Area")).toBeInTheDocument();
+    expect(within(detail).getByText("Skor Keselamatan")).toBeInTheDocument();
+    expect(within(detail).getByText("Ambang Eskalasi")).toBeInTheDocument();
+    expect(within(detail).getByText("Terdaftar")).toBeInTheDocument();
+    expect(within(detail).getByText("Ringkasan audit")).toBeInTheDocument();
+    expect(within(detail).getByRole("button", { name: "Mulai enrollment Karyawan Produksi 01" })).toBeInTheDocument();
+    expect(within(detail).getByText(/memerlukan integrasi backend/i)).toBeInTheDocument();
+    expect(within(detail).queryByText(/webcam|capture|berhasil terdaftar/i)).not.toBeInTheDocument();
+  });
+
+  it("membatasi direktori Supervisor Area dan memberi HRD akses baca tanpa Live Monitoring", async () => {
+    render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="supervisor"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("Menampilkan 1–4 dari 4 Karyawan")).toBeInTheDocument();
+    expect(await screen.findByRole("article", { name: "Karyawan Produksi 01" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Karyawan Gudang 01" })).not.toBeInTheDocument();
+  });
+
+  it("memberi HRD akses baca ke skor dan audit tanpa navigasi Live Monitoring", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="hrd"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("Menampilkan 1–5 dari 12 Karyawan")).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 01" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Live Monitoring" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Lihat detail Karyawan Gudang 01" }));
+    const detail = screen.getByRole("region", { name: "Detail Karyawan" });
+    expect(within(detail).getByText("Skor Keselamatan")).toBeInTheDocument();
+    expect(within(detail).getByText("Ringkasan audit")).toBeInTheDocument();
+  });
+
+  it("menyediakan empty state dan no-result state yang dapat dibersihkan", async () => {
+    const user = userEvent.setup();
+    const emptyRender = render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="admin"
+        service={createMockSawService({ scenario: "empty", storage: null })}
+      />,
+    );
+    expect(await screen.findByText("Belum ada Karyawan")).toBeInTheDocument();
+    emptyRender.unmount();
+
+    render(
+      <App
+        initialEntries={["/karyawan"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+    await user.type(await screen.findByRole("textbox", { name: "Cari Karyawan" }), "tidak ada");
+    expect(screen.getByText("Tidak ada Karyawan yang cocok.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Bersihkan filter Karyawan" }));
+    expect(screen.getByRole("article", { name: "Karyawan Gudang 01" })).toBeInTheDocument();
+  });
 });

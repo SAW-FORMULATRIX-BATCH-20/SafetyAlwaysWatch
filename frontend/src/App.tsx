@@ -12,15 +12,21 @@ import {
 } from "react-router-dom";
 import {
   Activity,
+  ArrowDownUp,
   Camera as CameraIcon,
   CheckCircle2,
   ChevronRight,
+  ChevronLeft,
   Clock3,
   LockKeyhole,
   LogOut,
   MapPin,
   Search,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   TriangleAlert,
+  UserRound,
   WifiOff,
 } from "lucide-react";
 
@@ -31,6 +37,9 @@ import {
   type CameraMetadata,
   type CameraScope,
   type CameraStatus,
+  type Employee,
+  type EmployeeDirectoryData,
+  type EmployeeScope,
   type OverviewData,
   type SawService,
 } from "./services/saw-service";
@@ -527,6 +536,197 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
   );
 }
 
+type ScoreStatus = "safe" | "warning" | "critical";
+
+const scoreStatusDetails: Record<ScoreStatus, {
+  label: string;
+  Icon: typeof ShieldCheck;
+  className: string;
+}> = {
+  safe: { label: "Aman", Icon: ShieldCheck, className: "text-emerald-700" },
+  warning: { label: "Waspada", Icon: ShieldAlert, className: "text-amber-700" },
+  critical: { label: "Kritis", Icon: ShieldX, className: "text-red-700" },
+};
+
+function getScoreStatus(score: number, escalationThreshold: number): ScoreStatus {
+  if (score < escalationThreshold) return "critical";
+  if (score < 80) return "warning";
+  return "safe";
+}
+
+function employeeName(employee: Employee) {
+  return employee.name ?? `Karyawan ${employee.id}`;
+}
+
+function EmployeeScoreStatus({ score, escalationThreshold }: { score: number; escalationThreshold: number }) {
+  const status = getScoreStatus(score, escalationThreshold);
+  const { Icon, label, className } = scoreStatusDetails[status];
+
+  return (
+    <span aria-label={`Status skor: ${label}`} className={`inline-flex items-center gap-1.5 text-sm font-medium ${className}`}>
+      <Icon aria-label={`Ikon status skor ${label}`} className="size-4" role="img" />
+      {label}
+    </span>
+  );
+}
+
+const enrollmentLabels: Record<NonNullable<Employee["enrollmentStatus"]>, string> = {
+  enrolled: "Terdaftar",
+  pending: "Menunggu integrasi",
+  "not-enrolled": "Belum terdaftar",
+};
+
+function EmployeeDetail({
+  employee,
+  escalationThreshold,
+}: {
+  employee: Employee;
+  escalationThreshold: number;
+}) {
+  const [notice, setNotice] = useState<string>();
+  const enrollmentStatus = employee.enrollmentStatus ?? "not-enrolled";
+  const auditSummary = employee.auditSummary ?? { violationCount: 0, resetCount: 0 };
+
+  return (
+    <section aria-labelledby="employee-detail-title" className="border border-slate-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Profil operasional</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950" id="employee-detail-title">Detail Karyawan</h2>
+          <p className="mt-1 text-sm text-slate-600">{employeeName(employee)} · {employee.id}</p>
+        </div>
+        <EmployeeScoreStatus score={employee.safetyScore} escalationThreshold={escalationThreshold} />
+      </div>
+      <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <div><dt className="text-slate-500">Departemen</dt><dd className="mt-1 font-medium text-slate-950">{employee.departmentId}</dd></div>
+        <div><dt className="text-slate-500">Supervisor Area</dt><dd className="mt-1 font-medium text-slate-950">{employee.supervisorArea ?? employee.departmentId}</dd></div>
+        <div><dt className="text-slate-500">Skor Keselamatan</dt><dd className="mt-1 font-mono font-medium text-slate-950">{employee.safetyScore}</dd></div>
+        <div><dt className="text-slate-500">Ambang Eskalasi</dt><dd className="mt-1 font-mono font-medium text-slate-950">{escalationThreshold}</dd></div>
+        <div><dt className="text-slate-500">Status enrollment</dt><dd className="mt-1 font-medium text-slate-950">{enrollmentLabels[enrollmentStatus]}</dd></div>
+        <div><dt className="text-slate-500">Audit terakhir</dt><dd className="mt-1 font-mono text-slate-950">{employee.lastAuditAt ? formatWib(employee.lastAuditAt) : "Belum ada audit"}</dd></div>
+      </dl>
+      <div className="mt-6 border-t border-slate-100 pt-5">
+        <h3 className="font-medium text-slate-950">Ringkasan audit</h3>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <div><dt className="text-slate-500">Episode Pelanggaran</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.violationCount}</dd></div>
+          <div><dt className="text-slate-500">Reset Skor</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.resetCount}</dd></div>
+        </dl>
+      </div>
+      <div className="mt-6 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">
+        <p>Enrollment memerlukan integrasi backend dan tidak dilakukan di browser demo.</p>
+        <Button className="mt-3" onClick={() => setNotice("Integrasi enrollment backend diperlukan untuk melanjutkan.")} variant="outline">
+          Mulai enrollment {employeeName(employee)}
+        </Button>
+        {notice && <p aria-live="polite" className="mt-3 text-amber-800">{notice}</p>}
+      </div>
+    </section>
+  );
+}
+
+function EmployeeCard({ employee, escalationThreshold, onSelect }: { employee: Employee; escalationThreshold: number; onSelect: () => void }) {
+  const name = employeeName(employee);
+
+  return (
+    <article aria-label={name} className="border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><UserRound aria-hidden="true" className="size-5" /></span>
+          <div><h2 className="font-semibold text-slate-950">{name}</h2><p className="mt-1 font-mono text-xs text-slate-500">{employee.id}</p></div>
+        </div>
+        <EmployeeScoreStatus score={employee.safetyScore} escalationThreshold={escalationThreshold} />
+      </div>
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+        <div><dt className="text-slate-500">Departemen</dt><dd className="mt-0.5 text-slate-900">{employee.departmentId}</dd></div>
+        <div><dt className="text-slate-500">Skor Keselamatan</dt><dd className="mt-0.5 font-mono text-slate-900">{employee.safetyScore}</dd></div>
+        <div><dt className="text-slate-500">Enrollment</dt><dd className="mt-0.5 text-slate-900">{enrollmentLabels[employee.enrollmentStatus ?? "not-enrolled"]}</dd></div>
+      </dl>
+      <Button className="mt-5" onClick={onSelect} variant="outline">Lihat detail {name}</Button>
+    </article>
+  );
+}
+
+type EmployeeSort = "name-asc" | "name-desc" | "score-desc" | "score-asc";
+
+function Employees({ persona, service }: { persona: Persona; service: SawService }) {
+  const [directory, setDirectory] = useState<EmployeeDirectoryData>();
+  const [error, setError] = useState<string>();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [scoreFilter, setScoreFilter] = useState<ScoreStatus | "all">("all");
+  const [sort, setSort] = useState<EmployeeSort>("name-asc");
+  const [page, setPage] = useState(1);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>();
+  const pageSize = 5;
+
+  useEffect(() => {
+    let active = true;
+    const scope: EmployeeScope = persona.role === "supervisor" ? { type: "supervisor-area", area: persona.assignedArea ?? "" } : "all";
+    service.getEmployeeDirectory(scope).then((nextDirectory) => {
+      if (active) setDirectory(nextDirectory);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Direktori Karyawan tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [persona.assignedArea, persona.role, service]);
+
+  const employees = directory?.employees ?? [];
+  const departments = [...new Set(employees.map((employee) => employee.departmentId))].sort((a, b) => a.localeCompare(b));
+  const query = searchTerm.trim().toLowerCase();
+  const filteredEmployees = employees.filter((employee) => {
+    const searchable = [employeeName(employee), employee.id, employee.departmentId, employee.supervisorArea ?? ""].join(" ").toLowerCase();
+    const matchesSearch = !query || searchable.includes(query);
+    const matchesDepartment = departmentFilter === "all" || employee.departmentId === departmentFilter;
+    const matchesScore = scoreFilter === "all" || getScoreStatus(employee.safetyScore, directory?.escalationThreshold ?? 60) === scoreFilter;
+    return matchesSearch && matchesDepartment && matchesScore;
+  }).sort((a, b) => {
+    if (sort === "score-asc") return a.safetyScore - b.safetyScore;
+    if (sort === "score-desc") return b.safetyScore - a.safetyScore;
+    const comparison = employeeName(a).localeCompare(employeeName(b));
+    return sort === "name-desc" ? -comparison : comparison;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visibleEmployees = filteredEmployees.slice(pageStart, pageStart + pageSize);
+  const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDepartmentFilter("all");
+    setScoreFilter("all");
+    setSort("name-asc");
+    setSelectedEmployeeId(undefined);
+  };
+
+  if (error) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Karyawan</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Direktori Karyawan tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+  if (directory === undefined) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Karyawan</h1><p className="mt-6 text-slate-600">Memuat Direktori Karyawan…</p></section>;
+  }
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Direktori operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Karyawan</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Temukan Karyawan, posisi Skor Keselamatan, dan konteks audit tanpa capture biometrik.</p></div>
+        <span className="inline-flex items-center gap-2 border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"><UserRound aria-hidden="true" className="size-4" />{employees.length} Karyawan</span>
+      </div>
+      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_12rem_12rem_13rem]">
+        <label className="block text-sm font-medium text-slate-800">Cari Karyawan<div className="relative mt-1"><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" /><input aria-label="Cari Karyawan" className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSearchTerm(event.target.value); setPage(1); }} placeholder="Nama, ID, departemen, atau area" value={searchTerm} /></div></label>
+        <label className="block text-sm font-medium text-slate-800">Filter departemen<select aria-label="Filter departemen" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setDepartmentFilter(event.target.value); setPage(1); }} value={departmentFilter}><option value="all">Semua departemen</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Filter status skor<select aria-label="Filter status skor" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setScoreFilter(event.target.value as ScoreStatus | "all"); setPage(1); }} value={scoreFilter}><option value="all">Semua status</option><option value="safe">Aman</option><option value="warning">Waspada</option><option value="critical">Kritis</option></select></label>
+        <label className="block text-sm font-medium text-slate-800"><span className="inline-flex items-center gap-1">Urutkan Karyawan <ArrowDownUp aria-hidden="true" className="size-3.5" /></span><select aria-label="Urutkan Karyawan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSort(event.target.value as EmployeeSort); setPage(1); }} value={sort}><option value="name-asc">Nama A–Z</option><option value="name-desc">Nama Z–A</option><option value="score-desc">Skor tertinggi</option><option value="score-asc">Skor terendah</option></select></label>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600"><p>{filteredEmployees.length === 0 ? "Menampilkan 0 Karyawan" : `Menampilkan ${pageStart + 1}–${Math.min(pageStart + pageSize, filteredEmployees.length)} dari ${filteredEmployees.length} Karyawan`}</p>{filteredEmployees.length > 0 && (query || departmentFilter !== "all" || scoreFilter !== "all" || sort !== "name-asc") && <Button onClick={clearFilters} size="sm" variant="outline">Bersihkan filter Karyawan</Button>}</div>
+      {employees.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Belum ada Karyawan</p><p className="mt-1 text-sm text-slate-600">Tambahkan data Karyawan melalui integrasi backend.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter Karyawan</Button></div> : filteredEmployees.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Karyawan yang cocok.</p><p className="mt-1 text-sm text-slate-600">Bersihkan filter untuk melihat seluruh direktori.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter Karyawan</Button></div> : <div aria-label="Daftar Karyawan" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{visibleEmployees.map((employee) => <EmployeeCard employee={employee} escalationThreshold={directory.escalationThreshold} key={employee.id} onSelect={() => setSelectedEmployeeId(employee.id)} />)}</div>}
+      {filteredEmployees.length > pageSize && <nav aria-label="Pagination Karyawan" className="mt-5 flex items-center justify-between"><Button disabled={currentPage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} size="sm" variant="outline"><ChevronLeft aria-hidden="true" className="mr-1 size-4" />Halaman sebelumnya</Button><span className="font-mono text-xs text-slate-500">Halaman {currentPage} dari {totalPages}</span><Button disabled={currentPage === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} size="sm" variant="outline">Halaman berikutnya<ChevronRight aria-hidden="true" className="ml-1 size-4" /></Button></nav>}
+      {selectedEmployee && <div className="mt-6"><EmployeeDetail employee={selectedEmployee} escalationThreshold={directory.escalationThreshold} /></div>}
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -543,6 +743,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (!allowedRoles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
   if (title === "Overview") return <Overview service={service} />;
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
+  if (title === "Karyawan") return <Employees persona={persona} service={service} />;
   return <Page title={title} />;
 }
 

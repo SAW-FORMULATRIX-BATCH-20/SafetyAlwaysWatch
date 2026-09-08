@@ -14,8 +14,28 @@ export type Camera = {
 
 export type CameraMetadata = Pick<Camera, "name" | "location">;
 export type CameraScope = "all" | { type: "supervisor-area"; area: string };
+export type EmployeeEnrollmentStatus = "enrolled" | "pending" | "not-enrolled";
 
-type Employee = { id: string; departmentId: string; safetyScore: number };
+export type Employee = {
+  id: string;
+  departmentId: string;
+  safetyScore: number;
+  name?: string;
+  supervisorArea?: string;
+  enrollmentStatus?: EmployeeEnrollmentStatus;
+  lastAuditAt?: string;
+  auditSummary?: {
+    violationCount: number;
+    resetCount: number;
+  };
+};
+
+export type EmployeeScope = "all" | { type: "supervisor-area"; area: string };
+export type EmployeeDirectoryData = {
+  employees: Employee[];
+  escalationThreshold: number;
+};
+
 export type DemoData = {
   cameras: Camera[];
   compliance: { compliantObservations: number; totalObservations: number };
@@ -39,6 +59,7 @@ export interface SawService {
   resetDemoData(): Promise<OverviewData>;
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
+  getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
 }
 
 type MockServiceOptions = {
@@ -73,18 +94,18 @@ const seedData: DemoData = {
   zones: ["ZON-01", "ZON-02", "ZON-03", "ZON-04"],
   departments: ["Produksi", "Gudang", "Pemeliharaan"],
   employees: [
-    { id: "EMP-01", departmentId: "Produksi", safetyScore: 92 },
-    { id: "EMP-02", departmentId: "Produksi", safetyScore: 84 },
-    { id: "EMP-03", departmentId: "Produksi", safetyScore: 58 },
-    { id: "EMP-04", departmentId: "Produksi", safetyScore: 77 },
-    { id: "EMP-05", departmentId: "Gudang", safetyScore: 68 },
-    { id: "EMP-06", departmentId: "Gudang", safetyScore: 96 },
-    { id: "EMP-07", departmentId: "Gudang", safetyScore: 55 },
-    { id: "EMP-08", departmentId: "Gudang", safetyScore: 73 },
-    { id: "EMP-09", departmentId: "Pemeliharaan", safetyScore: 88 },
-    { id: "EMP-10", departmentId: "Pemeliharaan", safetyScore: 90 },
-    { id: "EMP-11", departmentId: "Pemeliharaan", safetyScore: 79 },
-    { id: "EMP-12", departmentId: "Pemeliharaan", safetyScore: 65 },
+    { id: "EMP-01", name: "Karyawan Produksi 01", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 92, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T09:20:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
+    { id: "EMP-02", name: "Karyawan Produksi 02", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 84, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T14:10:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-03", name: "Karyawan Produksi 03", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 58, enrollmentStatus: "pending", lastAuditAt: "2026-09-05T11:40:00+07:00", auditSummary: { violationCount: 3, resetCount: 0 } },
+    { id: "EMP-04", name: "Karyawan Produksi 04", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 77, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-04T08:15:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-05", name: "Karyawan Gudang 01", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 68, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T10:05:00+07:00", auditSummary: { violationCount: 2, resetCount: 1 } },
+    { id: "EMP-06", name: "Karyawan Gudang 02", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 96, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T15:25:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
+    { id: "EMP-07", name: "Karyawan Gudang 03", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 55, enrollmentStatus: "not-enrolled", lastAuditAt: "2026-09-03T13:45:00+07:00", auditSummary: { violationCount: 4, resetCount: 0 } },
+    { id: "EMP-08", name: "Karyawan Gudang 04", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 73, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-02T09:50:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-09", name: "Karyawan Pemeliharaan 01", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 88, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T16:30:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
+    { id: "EMP-10", name: "Karyawan Pemeliharaan 02", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 90, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T11:10:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
+    { id: "EMP-11", name: "Karyawan Pemeliharaan 03", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 79, enrollmentStatus: "pending", lastAuditAt: "2026-08-31T10:00:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-12", name: "Karyawan Pemeliharaan 04", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 65, enrollmentStatus: "enrolled", lastAuditAt: "2026-08-30T08:40:00+07:00", auditSummary: { violationCount: 2, resetCount: 0 } },
   ],
   escalationThreshold: 60,
   violations: [
@@ -159,6 +180,17 @@ export function createMockSawService({
       camera.location = metadata.location.trim();
       persist(data);
       return clone(camera);
+    },
+    async getEmployeeDirectory(scope = "all") {
+      if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
+      if (scenario === "error") throw new Error("Direktori Karyawan tidak dapat dimuat.");
+      if (scenario === "empty") return { employees: [], escalationThreshold: readData().escalationThreshold };
+
+      const data = readData();
+      const employees = typeof scope === "object"
+        ? data.employees.filter((employee) => (employee.supervisorArea ?? employee.departmentId) === scope.area)
+        : data.employees;
+      return { employees: clone(employees), escalationThreshold: data.escalationThreshold };
     },
   };
 }
