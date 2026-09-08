@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "./components/ui/button";
+import industrialMonitoringScene from "./assets/industrial-monitoring.svg";
 import {
   createMockSawService,
   type Camera,
@@ -115,6 +116,12 @@ const pages: Page[] = [
 
 function getPersona(role: Role) {
   return personas.find((persona) => persona.role === role)!;
+}
+
+function cameraScopeFor(persona: Persona): CameraScope {
+  return persona.role === "supervisor"
+    ? { type: "supervisor-area", area: persona.assignedArea ?? "" }
+    : "all";
 }
 
 function Login({ onLogin }: { onLogin: (role: Role) => void }) {
@@ -495,8 +502,7 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
 
   useEffect(() => {
     let active = true;
-    const scope: CameraScope = persona.role === "supervisor" ? { type: "supervisor-area", area: persona.assignedArea ?? "" } : "all";
-    service.getCameras(scope).then((nextCameras) => {
+    service.getCameras(cameraScopeFor(persona)).then((nextCameras) => {
       if (active) setCameras(nextCameras);
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : "Sumber Kamera tidak dapat dimuat.");
@@ -504,7 +510,7 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
     return () => {
       active = false;
     };
-  }, [persona.assignedArea, persona.role, service]);
+  }, [persona, service]);
 
   const filteredCameras = (cameras ?? []).filter((camera) => {
     const query = searchTerm.trim().toLowerCase();
@@ -541,6 +547,81 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
       {notice && <p aria-live="polite" className="mt-3 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
       {cameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang terdaftar</p><p className="mt-1 text-sm text-slate-600">Tambahkan sumber kamera untuk mulai memantau cakupan.</p></div> : filteredCameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang cocok.</p><p className="mt-1 text-sm text-slate-600">Ubah kata pencarian atau filter status.</p></div> : <div aria-label="Daftar Sumber Kamera" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{filteredCameras.map((camera) => <CameraCard camera={camera} key={camera.id} onSelect={() => { setSelectedCameraId(camera.id); setNotice(undefined); }} />)}</div>}
       {selectedCamera && <div className="mt-6"><CameraDetail camera={selectedCamera} canEdit={persona.role === "admin"} key={selectedCamera.id} onSaved={(metadata) => void saveMetadata(selectedCamera, metadata)} /></div>}
+    </section>
+  );
+}
+
+function LiveMonitoring({ persona, service }: { persona: Persona; service: SawService }) {
+  const [cameras, setCameras] = useState<Camera[]>();
+  const [selectedCameraId, setSelectedCameraId] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let active = true;
+    service.getCameras(cameraScopeFor(persona)).then((nextCameras) => {
+      if (!active) return;
+      setCameras(nextCameras);
+      setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current) ? current : nextCameras[0]?.id);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Live Monitoring tidak dapat dimuat.");
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [persona, service]);
+
+  const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
+
+  if (error) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Live Monitoring tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+
+  if (cameras === undefined) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-6 text-slate-600">Memuat Sumber Kamera…</p></section>;
+  }
+
+  if (!selectedCamera) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera dalam cakupan Anda</p><p className="mt-1 text-sm text-slate-600">Pilih area tanggung jawab yang memiliki Sumber Kamera untuk memulai pemantauan.</p></div></section>;
+  }
+
+  const isOffline = selectedCamera.status === "offline";
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Pemantauan operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Tampilan simulasi untuk memantau Zona Berbahaya dan Orang Terdeteksi tanpa terhubung ke kamera atau RTSP nyata.</p></div>
+        <span className="inline-flex items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</span>
+      </div>
+
+      <label className="mt-8 block max-w-md text-sm font-medium text-slate-800">Pilih Sumber Kamera
+        <select aria-label="Pilih Sumber Kamera" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setSelectedCameraId(event.target.value)} value={selectedCamera.id}>
+          {cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name} · {camera.location}</option>)}
+        </select>
+      </label>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <section aria-label={`Stage Live Monitoring ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-sm text-slate-200"><span className="font-medium">{selectedCamera.name}</span><span className="font-mono text-xs text-slate-400">{selectedCamera.id}</span></div>
+          <div className="relative aspect-video overflow-hidden bg-slate-900">
+            <img alt={isOffline ? "Ilustrasi area industri fiktif - frame terakhir diredupkan" : "Ilustrasi area industri fiktif"} className={`h-full w-full object-cover ${isOffline ? "opacity-35 grayscale" : ""}`} src={industrialMonitoringScene} />
+            <span className="absolute right-4 top-4 border border-amber-300 bg-slate-950/90 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-amber-200">SIMULASI</span>
+            {isOffline ? (
+              <div className="absolute inset-0 grid place-items-center bg-slate-950/30 p-6 text-center"><div className="border border-slate-400 bg-slate-950/90 px-5 py-4 text-slate-100"><p className="font-mono text-sm font-medium tracking-[0.14em]">KAMERA OFFLINE</p><p className="mt-2 text-sm text-slate-300">Pembaruan terakhir: {formatWib(selectedCamera.lastUpdatedAt)}</p></div></div>
+            ) : (
+              <>
+                <div className="absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 border-emerald-400" aria-label="Orang Terdeteksi"><span className="absolute -top-7 left-0 whitespace-nowrap bg-emerald-500 px-2 py-1 text-xs font-medium text-slate-950">Orang Terdeteksi · 96%</span></div>
+                <div className="absolute bottom-4 left-4 border border-slate-500 bg-slate-950/90 px-3 py-2 text-xs text-slate-100"><p>Pembaruan terakhir: {formatWib(selectedCamera.lastUpdatedAt)}</p></div>
+              </>
+            )}
+          </div>
+        </section>
+        <aside className="border border-slate-200 bg-white p-5">
+          <ConnectionStatus status={selectedCamera.status} />
+          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Lokasi</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Zona Berbahaya</dt><dd className="mt-2 flex flex-wrap gap-2">{selectedCamera.zoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>)}</dd></div><div><dt className="text-slate-500">Cakupan Supervisor Area</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
+          {isOffline && <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Overlay deteksi dihentikan saat kamera offline agar frame lama tidak dibaca sebagai kondisi saat ini.</p>}
+        </aside>
+      </div>
     </section>
   );
 }
@@ -1228,6 +1309,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (!allowedRoles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
   if (title === "Overview") return <Overview service={service} />;
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
+  if (title === "Live Monitoring") return <LiveMonitoring persona={persona} service={service} />;
   if (title === "Karyawan") return <Employees persona={persona} service={service} />;
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
   if (title === "Reset Skor") return <SafetyScoreReset service={service} />;

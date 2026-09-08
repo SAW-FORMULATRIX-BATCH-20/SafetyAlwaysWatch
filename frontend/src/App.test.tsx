@@ -60,6 +60,45 @@ describe("SAW application", () => {
     expect(screen.queryByRole("link", { name: "Live Monitoring" })).not.toBeInTheDocument();
   });
 
+  it("menampilkan Live Monitoring simulasi yang hanya memuat Sumber Kamera area Supervisor", async () => {
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="supervisor"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect((await screen.findAllByText("SIMULASI")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Live Monitoring" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Pilih Sumber Kamera" })).toHaveTextContent("Gerbang Produksi");
+    expect(screen.getByRole("combobox", { name: "Pilih Sumber Kamera" })).not.toHaveTextContent("Gudang Bahan Baku");
+    expect(screen.getByLabelText("Orang Terdeteksi")).toBeInTheDocument();
+    expect(screen.getByText("ZON-01")).toBeInTheDocument();
+    expect(screen.getByText(/Pembaruan terakhir/i)).toBeInTheDocument();
+  });
+
+  it("menghentikan overlay saat Sumber Kamera offline tanpa menyamarkan pembaruan terakhir", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    const selector = await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    await user.selectOptions(selector, "CAM-02");
+
+    expect(screen.getByText("KAMERA OFFLINE")).toBeInTheDocument();
+    expect(screen.getByText(/Pembaruan terakhir/i)).toBeInTheDocument();
+    expect(screen.getByText(/WIB/)).toBeInTheDocument();
+    expect(screen.getAllByText("SIMULASI").length).toBeGreaterThan(1);
+    expect(screen.getByRole("img", { name: /frame terakhir diredupkan/i })).toBeInTheDocument();
+    expect(screen.queryByText("Orang Terdeteksi")).not.toBeInTheDocument();
+  });
+
   it("menampilkan kelompok navigasi sesuai hak akses Admin/Safety Officer", () => {
     render(
       <App initialEntries={["/overview"]} initialPersona="admin" />,
