@@ -76,6 +76,7 @@ export type Employee = {
   id: string;
   departmentId: string;
   safetyScore: number;
+  safetyScorePeriodStartedAt?: string;
   name?: string;
   supervisorArea?: string;
   enrollmentStatus?: EmployeeEnrollmentStatus;
@@ -92,6 +93,80 @@ export type EmployeeDirectoryData = {
   escalationThreshold: number;
 };
 
+export const safetyScoreResetReasons = [
+  "TeguranBriefingDiberikan",
+  "TrainingSelesai",
+  "InvestigasiDitutup",
+  "PerbaikanFisikZona",
+  "Lainnya",
+] as const;
+
+export type SafetyScoreResetReason = (typeof safetyScoreResetReasons)[number];
+
+export const safetyScoreResetReasonLabels: Record<SafetyScoreResetReason, string> = {
+  TeguranBriefingDiberikan: "Teguran dan briefing telah diberikan",
+  TrainingSelesai: "Pelatihan telah selesai",
+  InvestigasiDitutup: "Investigasi telah ditutup",
+  PerbaikanFisikZona: "Perbaikan fisik Zona Berbahaya telah selesai",
+  Lainnya: "Lainnya",
+};
+
+export type SafetyScorePeriod = {
+  id: string;
+  employeeId: string;
+  startedAt: string;
+  closedAt: string;
+  finalScoreBeforeReset: number;
+  totalViolations: number;
+  violationsByCanonicalApdClass: Record<string, number>;
+  trigger: "Manual";
+  resetReason: SafetyScoreResetReason;
+  note?: string;
+  closedBy: string;
+};
+
+export type SafetyScoreLedgerEntry = {
+  id: string;
+  employeeId: string;
+  periodId: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  recordedAt: string;
+  actor: string;
+};
+
+export type SafetyScoreResetLog = {
+  id: string;
+  employeeId: string;
+  periodId: string;
+  ledgerEntryId: string;
+  trigger: "Manual";
+  reason: SafetyScoreResetReason;
+  note?: string;
+  actor: string;
+  occurredAt: string;
+};
+
+export type SafetyScoreAudit = {
+  periods: SafetyScorePeriod[];
+  ledger: SafetyScoreLedgerEntry[];
+  resetLogs: SafetyScoreResetLog[];
+};
+
+export type SafetyScoreResetRequest = {
+  employeeId: string;
+  reason: SafetyScoreResetReason;
+  note?: string;
+  actor: string;
+};
+
+export type SafetyScoreResetResult = {
+  employee: Employee;
+  closedPeriod: SafetyScorePeriod;
+  ledgerEntry: SafetyScoreLedgerEntry;
+  resetLog: SafetyScoreResetLog;
+};
+
 export type DemoData = {
   cameras: Camera[];
   compliance: { compliantObservations: number; totalObservations: number };
@@ -100,6 +175,9 @@ export type DemoData = {
   escalationThreshold: number;
   safetySettings?: SafetySettings;
   canonicalApdClassConfiguration?: CanonicalApdClassConfiguration;
+  scorePeriods?: SafetyScorePeriod[];
+  safetyScoreLedger?: SafetyScoreLedgerEntry[];
+  safetyScoreResetLogs?: SafetyScoreResetLog[];
   violations: Array<{ id: string; status: "confirmed" | "cleared" }>;
   zones: string[];
 };
@@ -118,6 +196,8 @@ export interface SawService {
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
+  getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
+  resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
   getSafetySettings(): Promise<SafetySettings>;
   updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
   getCanonicalApdClassConfiguration(): Promise<CanonicalApdClassConfiguration>;
@@ -214,10 +294,17 @@ function normalizeCanonicalApdClassConfiguration(
 
 function normalizeData(input: DemoData): DemoData {
   const data = clone(input);
+  data.employees = data.employees.map((employee) => ({
+    ...employee,
+    safetyScorePeriodStartedAt: employee.safetyScorePeriodStartedAt ?? "2026-09-01T00:00:00+07:00",
+  }));
   data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
     escalationThreshold: data.escalationThreshold,
   });
   data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(data.canonicalApdClassConfiguration);
+  data.scorePeriods = data.scorePeriods ?? [];
+  data.safetyScoreLedger = data.safetyScoreLedger ?? [];
+  data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
 }
@@ -295,6 +382,83 @@ export function createMockSawService({
         ? data.employees.filter((employee) => (employee.supervisorArea ?? employee.departmentId) === scope.area)
         : data.employees;
       return { employees: clone(employees), escalationThreshold: data.escalationThreshold };
+    },
+    async getSafetyScoreAudit(employeeId) {
+      const data = readData();
+      return {
+        periods: clone(data.scorePeriods?.filter((period) => period.employeeId === employeeId) ?? []),
+        ledger: clone(data.safetyScoreLedger?.filter((entry) => entry.employeeId === employeeId) ?? []),
+        resetLogs: clone(data.safetyScoreResetLogs?.filter((log) => log.employeeId === employeeId) ?? []),
+      };
+    },
+    async resetSafetyScore(request) {
+      const note = request.note?.trim();
+      if (!safetyScoreResetReasons.includes(request.reason)) throw new Error("Alasan Reset Skor tidak valid.");
+      if (request.reason === "Lainnya" && !note) throw new Error("Catatan wajib diisi untuk alasan Lainnya.");
+
+      const data = readData();
+      const employee = data.employees.find((item) => item.id === request.employeeId);
+      if (!employee) throw new Error("Karyawan tidak ditemukan.");
+
+      const timestamp = new Date().toISOString();
+      const scoreBefore = employee.safetyScore;
+      const scoreAfter = data.safetySettings?.initialScore ?? defaultSafetySettings.initialScore;
+      const sequence = (data.scorePeriods?.length ?? 0) + 1;
+      const periodId = `PER-${String(sequence).padStart(4, "0")}`;
+      const ledgerEntryId = `LED-${String(sequence).padStart(4, "0")}`;
+      const resetLogId = `RSL-${String(sequence).padStart(4, "0")}`;
+      const closedPeriod: SafetyScorePeriod = {
+        id: periodId,
+        employeeId: employee.id,
+        startedAt: employee.safetyScorePeriodStartedAt ?? timestamp,
+        closedAt: timestamp,
+        finalScoreBeforeReset: scoreBefore,
+        totalViolations: employee.auditSummary?.violationCount ?? 0,
+        violationsByCanonicalApdClass: {},
+        trigger: "Manual",
+        resetReason: request.reason,
+        ...(note ? { note } : {}),
+        closedBy: request.actor,
+      };
+      const ledgerEntry: SafetyScoreLedgerEntry = {
+        id: ledgerEntryId,
+        employeeId: employee.id,
+        periodId,
+        scoreBefore,
+        scoreAfter,
+        recordedAt: timestamp,
+        actor: request.actor,
+      };
+      const resetLog: SafetyScoreResetLog = {
+        id: resetLogId,
+        employeeId: employee.id,
+        periodId,
+        ledgerEntryId,
+        trigger: "Manual",
+        reason: request.reason,
+        ...(note ? { note } : {}),
+        actor: request.actor,
+        occurredAt: timestamp,
+      };
+
+      employee.safetyScore = scoreAfter;
+      employee.lastAuditAt = timestamp;
+      employee.safetyScorePeriodStartedAt = timestamp;
+      employee.auditSummary = {
+        violationCount: employee.auditSummary?.violationCount ?? 0,
+        resetCount: (employee.auditSummary?.resetCount ?? 0) + 1,
+      };
+      data.scorePeriods?.push(closedPeriod);
+      data.safetyScoreLedger?.push(ledgerEntry);
+      data.safetyScoreResetLogs?.push(resetLog);
+      persist(data);
+
+      return {
+        employee: clone(employee),
+        closedPeriod: clone(closedPeriod),
+        ledgerEntry: clone(ledgerEntry),
+        resetLog: clone(resetLog),
+      };
     },
     async getSafetySettings() {
       if (scenario === "loading") return new Promise<SafetySettings>(() => undefined);
