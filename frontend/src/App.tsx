@@ -41,6 +41,7 @@ import {
   type EmployeeDirectoryData,
   type EmployeeScope,
   type OverviewData,
+  type SafetySettings,
   type SawService,
 } from "./services/saw-service";
 
@@ -198,7 +199,7 @@ function ApplicationShell({
 
   return (
     <div className="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]" ref={shellRef}>
-      <aside className="bg-slate-950 px-4 py-5 text-slate-200 lg:min-h-screen">
+      <aside className="bg-slate-950 px-4 py-5 text-slate-200 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-800 pb-5">
           <Link aria-label="SAW beranda" className="font-mono text-lg font-medium tracking-[0.2em] text-white" to={persona.landingPath}>
             SAW
@@ -727,6 +728,191 @@ function Employees({ persona, service }: { persona: Persona; service: SawService
   );
 }
 
+function copySafetySettings(settings: SafetySettings): SafetySettings {
+  return {
+    ...settings,
+    deductions: settings.deductions.map((deduction) => ({ ...deduction })),
+  };
+}
+
+function parseParameterNumber(value: string) {
+  return value === "" ? Number.NaN : Number(value);
+}
+
+function validateSafetySettings(settings: SafetySettings): string | undefined {
+  if (!Number.isFinite(settings.initialScore) || settings.initialScore < 0 || settings.initialScore > 100) {
+    return "Skor awal harus antara 0 dan 100.";
+  }
+  if (!Number.isFinite(settings.escalationThreshold) || settings.escalationThreshold < 0 || settings.escalationThreshold > 100) {
+    return "Ambang Eskalasi harus antara 0 dan 100.";
+  }
+  if (settings.escalationThreshold >= settings.initialScore) {
+    return "Ambang Eskalasi harus lebih rendah dari Skor awal.";
+  }
+  for (const deduction of settings.deductions) {
+    if (!Number.isFinite(deduction.points) || deduction.points < 1 || deduction.points > 100) {
+      return `Pengurangan ${deduction.canonicalApdClass} harus antara 1 dan 100 poin.`;
+    }
+  }
+  if (!Number.isFinite(settings.confirmThresholdSeconds) || settings.confirmThresholdSeconds < 1 || settings.confirmThresholdSeconds > 60) {
+    return "Ambang konfirmasi harus antara 1 dan 60 detik.";
+  }
+  if (!Number.isFinite(settings.clearThresholdSeconds) || settings.clearThresholdSeconds < 1 || settings.clearThresholdSeconds > 60) {
+    return "Ambang pemulihan harus antara 1 dan 60 detik.";
+  }
+  if (settings.clearThresholdSeconds >= settings.confirmThresholdSeconds) {
+    return "Ambang pemulihan harus lebih rendah dari Ambang konfirmasi.";
+  }
+  if (!Number.isFinite(settings.minimumConfidence) || settings.minimumConfidence < 0 || settings.minimumConfidence > 1) {
+    return "Confidence minimum harus antara 0 dan 1.";
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(settings.resetTime)) {
+    return "Jadwal Reset Skor harus menggunakan waktu HH:MM yang valid.";
+  }
+  if (!Number.isFinite(settings.recapLeadMinutes) || settings.recapLeadMinutes < 0 || settings.recapLeadMinutes > 1440) {
+    return "Lead time recap harus antara 0 dan 1440 menit.";
+  }
+  return undefined;
+}
+
+function SafetyParameters({ service }: { service: SawService }) {
+  const [settings, setSettings] = useState<SafetySettings>();
+  const [draft, setDraft] = useState<SafetySettings>();
+  const [loadError, setLoadError] = useState<string>();
+  const [formError, setFormError] = useState<string>();
+  const [feedback, setFeedback] = useState<string>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    service.getSafetySettings().then((nextSettings) => {
+      if (!active) return;
+      setSettings(nextSettings);
+      setDraft(copySafetySettings(nextSettings));
+    }).catch((reason: unknown) => {
+      if (active) setLoadError(reason instanceof Error ? reason.message : "Parameter keselamatan tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [service]);
+
+  const updateNumber = (field: keyof Omit<SafetySettings, "deductions" | "resetTime" | "timeZone">, value: string) => {
+    setDraft((current) => current ? { ...current, [field]: parseParameterNumber(value) } : current);
+    setFormError(undefined);
+    setFeedback(undefined);
+  };
+
+  const updateDeduction = (canonicalApdClass: string, value: string) => {
+    setDraft((current) => current ? {
+      ...current,
+      deductions: current.deductions.map((deduction) => deduction.canonicalApdClass === canonicalApdClass
+        ? { ...deduction, points: parseParameterNumber(value) }
+        : deduction),
+    } : current);
+    setFormError(undefined);
+    setFeedback(undefined);
+  };
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft) return;
+    const validationError = validateSafetySettings(draft);
+    if (validationError) {
+      setFormError(validationError);
+      setFeedback(undefined);
+      return;
+    }
+
+    setSaving(true);
+    setFormError(undefined);
+    setFeedback(undefined);
+    try {
+      const saved = await service.updateSafetySettings(draft);
+      setSettings(saved);
+      setDraft(copySafetySettings(saved));
+      setFeedback("Parameter keselamatan berhasil disimpan.");
+    } catch (reason: unknown) {
+      setFormError(reason instanceof Error ? reason.message : "Parameter keselamatan tidak dapat disimpan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancel = () => {
+    if (!settings) return;
+    setDraft(copySafetySettings(settings));
+    setFormError(undefined);
+    setFeedback("Perubahan parameter dibatalkan.");
+  };
+
+  if (loadError) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Parameter Sistem Keselamatan</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Parameter keselamatan tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{loadError}</p></div></section>;
+  }
+
+  if (!draft) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Parameter Sistem Keselamatan</h1><p className="mt-6 text-slate-600">Memuat parameter keselamatan…</p></section>;
+  }
+
+  return (
+    <section aria-labelledby="safety-parameters-title">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Administration · konfigurasi kebijakan</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950" id="safety-parameters-title">Parameter Sistem Keselamatan</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Atur kebijakan Skor Keselamatan, stabilisasi Episode Pelanggaran, confidence deteksi, dan jadwal Reset Skor untuk lingkungan demo.</p>
+        </div>
+        <span className="inline-flex items-center gap-2 border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"><Clock3 aria-hidden="true" className="size-4 text-amber-700" />Waktu kebijakan: <span className="font-mono">Asia/Jakarta (WIB)</span></span>
+      </div>
+
+      <form className="mt-8 space-y-6" noValidate onSubmit={(event) => void submit(event)}>
+        <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
+          <legend className="sr-only">Skor Keselamatan</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Skor Keselamatan</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Nilai dalam poin. Ambang Eskalasi harus lebih rendah dari Skor awal.</p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-800">Skor awal <span className="font-normal text-slate-500">(0–100 poin)</span><input aria-describedby="initial-score-help" aria-label="Skor awal" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="0" onChange={(event) => updateNumber("initialScore", event.target.value)} step="1" type="number" value={draft.initialScore} /><span className="mt-1 block text-xs font-normal text-slate-500" id="initial-score-help">Nilai awal setiap Periode Skor setelah Reset Skor.</span></label>
+            <label className="block text-sm font-medium text-slate-800">Ambang Eskalasi <span className="font-normal text-slate-500">(0–100 poin)</span><input aria-describedby="escalation-help" aria-label="Ambang Eskalasi" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="0" onChange={(event) => updateNumber("escalationThreshold", event.target.value)} step="1" type="number" value={draft.escalationThreshold} /><span className="mt-1 block text-xs font-normal text-slate-500" id="escalation-help">Di bawah nilai ini, penerima eskalasi perlu diberi tahu.</span></label>
+          </div>
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-semibold text-slate-900">Pengurangan per Kelas APD Kanonis</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">Pengurangan diterapkan ketika Episode Pelanggaran menjadi Pelanggaran. Nilai 1–100 poin.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {draft.deductions.map((deduction) => <label className="block text-sm font-medium text-slate-800" key={deduction.canonicalApdClass}><span>Pengurangan {deduction.canonicalApdClass}</span><div className="relative mt-1"><input aria-label={`Pengurangan ${deduction.canonicalApdClass}`} className="block h-10 w-full rounded-md border border-slate-300 bg-white px-3 pr-16 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="1" onChange={(event) => updateDeduction(deduction.canonicalApdClass, event.target.value)} step="1" type="number" value={deduction.points} /><span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500">poin</span></div></label>)}
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
+          <legend className="sr-only">Stabilisasi Episode dan deteksi</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Stabilisasi Episode dan deteksi</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Parameter menentukan kapan sinyal menjadi Pelanggaran dan kapan episode selesai.</p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="block text-sm font-medium text-slate-800">Ambang konfirmasi <span className="font-normal text-slate-500">(1–60 detik)</span><input aria-describedby="confirm-help" aria-label="Ambang konfirmasi" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="60" min="1" onChange={(event) => updateNumber("confirmThresholdSeconds", event.target.value)} step="1" type="number" value={draft.confirmThresholdSeconds} /><span className="mt-1 block text-xs font-normal text-slate-500" id="confirm-help">Durasi minimum status Dalam Verifikasi.</span></label>
+            <label className="block text-sm font-medium text-slate-800">Ambang pemulihan <span className="font-normal text-slate-500">(1–60 detik)</span><input aria-describedby="clear-help" aria-label="Ambang pemulihan" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="60" min="1" onChange={(event) => updateNumber("clearThresholdSeconds", event.target.value)} step="1" type="number" value={draft.clearThresholdSeconds} /><span className="mt-1 block text-xs font-normal text-slate-500" id="clear-help">Durasi patuh sebelum status Memulihkan menjadi Selesai.</span></label>
+            <label className="block text-sm font-medium text-slate-800">Confidence minimum <span className="font-normal text-slate-500">(0–1)</span><input aria-describedby="confidence-help" aria-label="Confidence minimum" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="1" min="0" onChange={(event) => updateNumber("minimumConfidence", event.target.value)} step="0.01" type="number" value={draft.minimumConfidence} /><span className="mt-1 block text-xs font-normal text-slate-500" id="confidence-help">Contoh 0,5. Frame di bawah nilai ini tidak mengubah transisi episode.</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
+          <legend className="sr-only">Jadwal Reset Skor</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Jadwal Reset Skor</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Jadwal demo memakai waktu lokal yang eksplisit agar catatan Periode Skor mudah diaudit.</p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-800" htmlFor="reset-time">Jadwal Reset Skor <span className="font-normal text-slate-500">(HH:MM)</span><input aria-describedby="reset-time-help" aria-label="Jadwal Reset Skor" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" id="reset-time" onChange={(event) => { setDraft((current) => current ? { ...current, resetTime: event.target.value } : current); setFormError(undefined); setFeedback(undefined); }} type="time" value={draft.resetTime} /><span className="mt-1 block text-xs font-normal text-slate-500" id="reset-time-help">Dieksekusi pada zona waktu Asia/Jakarta (WIB).</span></label>
+            <label className="block text-sm font-medium text-slate-800">Lead time recap <span className="font-normal text-slate-500">(0–1440 menit)</span><input aria-describedby="recap-help" aria-label="Lead time recap" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="1440" min="0" onChange={(event) => updateNumber("recapLeadMinutes", event.target.value)} step="1" type="number" value={draft.recapLeadMinutes} /><span className="mt-1 block text-xs font-normal text-slate-500" id="recap-help">Jarak dalam menit untuk menyiapkan ringkasan sebelum Reset Skor.</span></label>
+          </div>
+          <p className="mt-5 inline-flex items-center gap-2 border-l-2 border-amber-400 pl-3 text-sm text-slate-600"><Clock3 aria-hidden="true" className="size-4 text-amber-700" />Semua timestamp konfigurasi ditampilkan sebagai Asia/Jakarta (WIB).</p>
+        </fieldset>
+
+        {formError && <p aria-live="assertive" className="border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{formError}</p>}
+        {feedback && <p aria-live="polite" className="border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{feedback}</p>}
+        <div className="flex flex-wrap justify-end gap-3"><Button disabled={saving} onClick={cancel} type="button" variant="outline">Batal</Button><Button disabled={saving} type="submit">{saving ? "Menyimpan…" : "Simpan parameter"}</Button></div>
+      </form>
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -744,6 +930,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Overview") return <Overview service={service} />;
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
   if (title === "Karyawan") return <Employees persona={persona} service={service} />;
+  if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
   return <Page title={title} />;
 }
 
