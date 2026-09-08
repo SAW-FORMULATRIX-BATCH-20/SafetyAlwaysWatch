@@ -37,6 +37,8 @@ import {
   type CameraMetadata,
   type CameraScope,
   type CameraStatus,
+  type CanonicalApdClassConfiguration,
+  type CanonicalApdClassMapping,
   type Employee,
   type EmployeeDirectoryData,
   type EmployeeScope,
@@ -913,6 +915,178 @@ function SafetyParameters({ service }: { service: SawService }) {
   );
 }
 
+type ApdMappingDraft = {
+  id?: string;
+  yoloIndex: string;
+  rawLabel: string;
+  canonicalApdClass: string;
+  complianceCategory: CanonicalApdClassMapping["complianceCategory"];
+  active: boolean;
+};
+
+function copyCanonicalApdClassConfiguration(configuration: CanonicalApdClassConfiguration): CanonicalApdClassConfiguration {
+  return JSON.parse(JSON.stringify(configuration)) as CanonicalApdClassConfiguration;
+}
+
+function createApdMappingDraft(mapping?: CanonicalApdClassMapping): ApdMappingDraft {
+  return mapping
+    ? { ...mapping, yoloIndex: String(mapping.yoloIndex) }
+    : { yoloIndex: "", rawLabel: "", canonicalApdClass: "", complianceCategory: "compliance", active: true };
+}
+
+function apdComplianceCategoryLabel(category: CanonicalApdClassMapping["complianceCategory"]) {
+  return category === "compliance" ? "Kepatuhan" : "Pelanggaran";
+}
+
+function createApdMappingId(mappings: CanonicalApdClassMapping[]) {
+  let sequence = mappings.length + 1;
+  let id = `APD-${String(sequence).padStart(2, "0")}`;
+  while (mappings.some((mapping) => mapping.id === id)) {
+    sequence += 1;
+    id = `APD-${String(sequence).padStart(2, "0")}`;
+  }
+  return id;
+}
+
+function CanonicalApdClasses({ service }: { service: SawService }) {
+  const [configuration, setConfiguration] = useState<CanonicalApdClassConfiguration>();
+  const [draft, setDraft] = useState<ApdMappingDraft>();
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    service.getCanonicalApdClassConfiguration().then((nextConfiguration) => {
+      if (active) setConfiguration(nextConfiguration);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Konfigurasi Kelas APD Kanonis tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [service]);
+
+  const updateDraft = <Field extends keyof ApdMappingDraft>(field: Field, value: ApdMappingDraft[Field]) => {
+    setDraft((current) => current ? { ...current, [field]: value } : current);
+    setError(undefined);
+    setNotice(undefined);
+  };
+
+  const saveConfiguration = async (nextConfiguration: CanonicalApdClassConfiguration, successMessage: string) => {
+    setSaving(true);
+    setError(undefined);
+    try {
+      const saved = await service.updateCanonicalApdClassConfiguration(nextConfiguration);
+      setConfiguration(saved);
+      setNotice(successMessage);
+      return saved;
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Konfigurasi Kelas APD Kanonis tidak dapat disimpan.");
+      return undefined;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitMapping = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!configuration || !draft) return;
+
+    const yoloIndex = Number(draft.yoloIndex);
+    if (!Number.isInteger(yoloIndex) || yoloIndex < 0) {
+      setError("Indeks YOLO harus berupa bilangan bulat nol atau lebih.");
+      return;
+    }
+    if (!draft.rawLabel.trim() || !draft.canonicalApdClass.trim()) {
+      setError("Label mentah dan Kelas APD Kanonis wajib diisi.");
+      return;
+    }
+    if (configuration.mappings.some((mapping) => mapping.id !== draft.id && mapping.yoloIndex === yoloIndex)) {
+      setError(`Indeks YOLO ${yoloIndex} sudah digunakan.`);
+      return;
+    }
+
+    const nextMapping: CanonicalApdClassMapping = {
+      id: draft.id ?? createApdMappingId(configuration.mappings),
+      yoloIndex,
+      rawLabel: draft.rawLabel.trim(),
+      canonicalApdClass: draft.canonicalApdClass.trim(),
+      complianceCategory: draft.complianceCategory,
+      active: draft.active,
+    };
+    const nextConfiguration = copyCanonicalApdClassConfiguration(configuration);
+    const existingIndex = nextConfiguration.mappings.findIndex((mapping) => mapping.id === nextMapping.id);
+    if (existingIndex === -1) nextConfiguration.mappings.push(nextMapping);
+    else nextConfiguration.mappings[existingIndex] = nextMapping;
+
+    const saved = await saveConfiguration(nextConfiguration, "Mapping Kelas APD Kanonis disimpan.");
+    if (saved) setDraft(undefined);
+  };
+
+  const selectModelFile = async (file: File | undefined) => {
+    if (!file || !configuration) return;
+    const nextConfiguration = copyCanonicalApdClassConfiguration(configuration);
+    nextConfiguration.modelFileMetadata = {
+      fileName: file.name,
+      sizeBytes: file.size,
+      mimeType: file.type || "application/octet-stream",
+    };
+    await saveConfiguration(nextConfiguration, "Metadata model ONNX demo disimpan.");
+  };
+
+  if (error && !configuration) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Kelas APD Kanonis</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Konfigurasi Kelas APD Kanonis tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+  if (!configuration) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Kelas APD Kanonis</h1><p className="mt-6 text-slate-600">Memuat konfigurasi Kelas APD Kanonis…</p></section>;
+  }
+
+  const preview = draft ?? createApdMappingDraft();
+  const modelFileMetadata = configuration.modelFileMetadata;
+  const yoloIndexError = error?.startsWith("Indeks YOLO") ? error : undefined;
+
+  return (
+    <section aria-labelledby="canonical-apd-title">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Konfigurasi interpretasi model</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950" id="canonical-apd-title">Kelas APD Kanonis</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Terjemahkan label keluaran model menjadi Kelas APD Kanonis yang dapat dipakai konsisten oleh Zona Berbahaya.</p></div>
+        <Button onClick={() => { setDraft(createApdMappingDraft()); setError(undefined); setNotice(undefined); }}>Tambah mapping</Button>
+      </div>
+
+      {notice && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{notice}</p>}
+      {error && !yoloIndexError && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
+
+      <div className="mt-8 overflow-x-auto border border-slate-200 bg-white">
+        <table className="w-full min-w-[48rem] text-left text-sm">
+          <caption className="sr-only">Daftar mapping Kelas APD Kanonis</caption>
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr><th className="px-4 py-3">Indeks YOLO</th><th className="px-4 py-3">Label mentah</th><th className="px-4 py-3">Kelas APD Kanonis</th><th className="px-4 py-3">Kategori</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Tindakan</span></th></tr></thead>
+          <tbody>{configuration.mappings.map((mapping) => <tr className="border-b border-slate-100 last:border-0" key={mapping.id}><td className="px-4 py-3 font-mono text-slate-950">{mapping.yoloIndex}</td><td className="px-4 py-3 font-mono text-slate-700">{mapping.rawLabel}</td><td className="px-4 py-3 font-medium text-slate-950">{mapping.canonicalApdClass}</td><td className="px-4 py-3">{apdComplianceCategoryLabel(mapping.complianceCategory)}</td><td className="px-4 py-3">{mapping.active ? "Aktif" : "Nonaktif"}</td><td className="px-4 py-3 text-right"><Button onClick={() => { setDraft(createApdMappingDraft(mapping)); setError(undefined); setNotice(undefined); }} size="sm" variant="outline">Edit mapping {mapping.rawLabel}</Button></td></tr>)}</tbody>
+        </table>
+      </div>
+
+      {draft && <form className="mt-6 border border-slate-200 bg-white p-5 sm:p-6" noValidate onSubmit={(event) => void submitMapping(event)}>
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{draft.id ? "Edit mapping" : "Tambah mapping"}</h2><p className="mt-1 text-sm text-slate-600">Setiap indeks YOLO hanya boleh digunakan satu kali.</p></div><Button onClick={() => setDraft(undefined)} type="button" variant="outline">Batal</Button></div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-slate-800">Indeks YOLO<input aria-describedby={yoloIndexError ? "yolo-index-error" : undefined} aria-invalid={Boolean(yoloIndexError)} aria-label="Indeks YOLO" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" min="0" onChange={(event) => updateDraft("yoloIndex", event.target.value)} step="1" type="number" value={draft.yoloIndex} />{yoloIndexError && <span className="mt-1 block text-xs font-normal text-red-700" id="yolo-index-error" role="alert">{yoloIndexError}</span>}</label>
+          <label className="block text-sm font-medium text-slate-800">Label mentah<input aria-label="Label mentah" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("rawLabel", event.target.value)} value={draft.rawLabel} /></label>
+          <label className="block text-sm font-medium text-slate-800">Kelas APD Kanonis<input aria-label="Kelas APD Kanonis" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("canonicalApdClass", event.target.value)} value={draft.canonicalApdClass} /></label>
+          <label className="block text-sm font-medium text-slate-800">Kategori interpretasi<select aria-label="Kategori interpretasi" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("complianceCategory", event.target.value as CanonicalApdClassMapping["complianceCategory"])} value={draft.complianceCategory}><option value="compliance">Kepatuhan</option><option value="violation">Pelanggaran</option></select></label>
+        </div>
+        <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-slate-800"><input checked={draft.active} onChange={(event) => updateDraft("active", event.target.checked)} type="checkbox" />Mapping aktif</label>
+        <aside aria-label="Preview interpretasi mapping" className="mt-5 border-l-2 border-amber-400 bg-amber-50 p-4 text-sm leading-6 text-slate-700"><span className="font-medium">Preview interpretasi: </span>{preview.rawLabel.trim() || "Label mentah"} akan dipahami sebagai <span className="font-medium">{preview.canonicalApdClass.trim() || "Kelas APD Kanonis"}</span> dengan kategori {apdComplianceCategoryLabel(preview.complianceCategory).toLowerCase()}.</aside>
+        <div className="mt-5 flex justify-end"><Button disabled={saving} type="submit">{saving ? "Menyimpan…" : "Simpan mapping"}</Button></div>
+      </form>}
+
+      <section aria-labelledby="onnx-metadata-title" className="mt-6 border border-slate-200 bg-white p-5 sm:p-6">
+        <h2 className="text-xl font-semibold text-slate-950" id="onnx-metadata-title">Metadata model ONNX</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Pemilih file ini hanya menyimpan nama dan metadata demo. Validasi maupun inferensi model ONNX memerlukan backend dan tidak dilakukan di browser.</p>
+        <label className="mt-5 block text-sm font-medium text-slate-800">Pilih file ONNX demo<input accept=".onnx,application/octet-stream" aria-label="Pilih file ONNX demo" className="mt-1 block w-full text-sm text-slate-700" onChange={(event) => void selectModelFile(event.target.files?.[0])} type="file" /></label>
+        {modelFileMetadata && <dl className="mt-5 grid gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-3"><div><dt className="text-slate-500">Nama file</dt><dd className="mt-1 font-mono text-slate-950">{modelFileMetadata.fileName}</dd></div><div><dt className="text-slate-500">Ukuran</dt><dd className="mt-1 text-slate-950">{Math.round(modelFileMetadata.sizeBytes / 1024)} KB</dd></div><div><dt className="text-slate-500">Tipe</dt><dd className="mt-1 font-mono text-slate-950">{modelFileMetadata.mimeType}</dd></div></dl>}
+      </section>
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -931,6 +1105,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
   if (title === "Karyawan") return <Employees persona={persona} service={service} />;
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
+  if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
   return <Page title={title} />;
 }
 
