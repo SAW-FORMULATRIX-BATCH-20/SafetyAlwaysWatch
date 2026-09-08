@@ -867,14 +867,15 @@ function SafetyParameters({ service }: { service: SawService }) {
 
       <form className="mt-8 space-y-6" noValidate onSubmit={(event) => void submit(event)}>
         <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
-          <legend className="max-w-full whitespace-normal break-words bg-white px-2 text-base font-semibold leading-6 text-slate-950 sm:text-lg">Skor Keselamatan</legend>
+          <legend className="sr-only">Skor Keselamatan</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Skor Keselamatan</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">Nilai dalam poin. Ambang Eskalasi harus lebih rendah dari Skor awal.</p>
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-800">Skor awal <span className="font-normal text-slate-500">(0–100 poin)</span><input aria-describedby="initial-score-help" aria-label="Skor awal" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="0" onChange={(event) => updateNumber("initialScore", event.target.value)} step="1" type="number" value={draft.initialScore} /><span className="mt-1 block text-xs font-normal text-slate-500" id="initial-score-help">Nilai awal setiap Periode Skor setelah Reset Skor.</span></label>
             <label className="block text-sm font-medium text-slate-800">Ambang Eskalasi <span className="font-normal text-slate-500">(0–100 poin)</span><input aria-describedby="escalation-help" aria-label="Ambang Eskalasi" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="0" onChange={(event) => updateNumber("escalationThreshold", event.target.value)} step="1" type="number" value={draft.escalationThreshold} /><span className="mt-1 block text-xs font-normal text-slate-500" id="escalation-help">Di bawah nilai ini, penerima eskalasi perlu diberi tahu.</span></label>
           </div>
           <div className="mt-6 border-t border-slate-100 pt-5">
-            <h2 className="text-sm font-semibold text-slate-900">Pengurangan per Kelas APD Kanonis</h2>
+            <h3 className="text-sm font-semibold text-slate-900">Pengurangan per Kelas APD Kanonis</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">Pengurangan diterapkan ketika Episode Pelanggaran menjadi Pelanggaran. Nilai 1–100 poin.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {draft.deductions.map((deduction) => <label className="block text-sm font-medium text-slate-800" key={deduction.canonicalApdClass}><span>Pengurangan {deduction.canonicalApdClass}</span><div className="relative mt-1"><input aria-label={`Pengurangan ${deduction.canonicalApdClass}`} className="block h-10 w-full rounded-md border border-slate-300 bg-white px-3 pr-16 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="100" min="1" onChange={(event) => updateDeduction(deduction.canonicalApdClass, event.target.value)} step="1" type="number" value={deduction.points} /><span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500">poin</span></div></label>)}
@@ -883,7 +884,8 @@ function SafetyParameters({ service }: { service: SawService }) {
         </fieldset>
 
         <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
-          <legend className="max-w-full whitespace-normal break-words bg-white px-2 text-base font-semibold leading-6 text-slate-950 sm:text-lg">Stabilisasi Episode dan deteksi</legend>
+          <legend className="sr-only">Stabilisasi Episode dan deteksi</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Stabilisasi Episode dan deteksi</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">Parameter menentukan kapan sinyal menjadi Pelanggaran dan kapan episode selesai.</p>
           <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block text-sm font-medium text-slate-800">Ambang konfirmasi <span className="font-normal text-slate-500">(1–60 detik)</span><input aria-describedby="confirm-help" aria-label="Ambang konfirmasi" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="60" min="1" onChange={(event) => updateNumber("confirmThresholdSeconds", event.target.value)} step="1" type="number" value={draft.confirmThresholdSeconds} /><span className="mt-1 block text-xs font-normal text-slate-500" id="confirm-help">Durasi minimum status Dalam Verifikasi.</span></label>
@@ -893,7 +895,8 @@ function SafetyParameters({ service }: { service: SawService }) {
         </fieldset>
 
         <fieldset className="border border-slate-200 bg-white p-5 sm:p-6">
-          <legend className="max-w-full whitespace-normal break-words bg-white px-2 text-base font-semibold leading-6 text-slate-950 sm:text-lg">Jadwal Reset Skor</legend>
+          <legend className="sr-only">Jadwal Reset Skor</legend>
+          <h2 className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">Jadwal Reset Skor</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">Jadwal demo memakai waktu lokal yang eksplisit agar catatan Periode Skor mudah diaudit.</p>
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-800" htmlFor="reset-time">Jadwal Reset Skor <span className="font-normal text-slate-500">(HH:MM)</span><input aria-describedby="reset-time-help" aria-label="Jadwal Reset Skor" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" id="reset-time" onChange={(event) => { setDraft((current) => current ? { ...current, resetTime: event.target.value } : current); setFormError(undefined); setFeedback(undefined); }} type="time" value={draft.resetTime} /><span className="mt-1 block text-xs font-normal text-slate-500" id="reset-time-help">Dieksekusi pada zona waktu Asia/Jakarta (WIB).</span></label>

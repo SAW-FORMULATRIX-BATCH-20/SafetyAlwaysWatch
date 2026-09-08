@@ -434,6 +434,9 @@ describe("SAW application", () => {
     );
 
     expect(await screen.findByRole("spinbutton", { name: "Skor awal", hidden: true })).toHaveValue(100);
+    expect(screen.getByRole("heading", { name: "Skor Keselamatan", level: 2, hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Stabilisasi Episode dan deteksi", level: 2, hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Jadwal Reset Skor", level: 2, hidden: true })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(60);
     expect(screen.getByRole("spinbutton", { name: "Pengurangan Helm Keselamatan", hidden: true })).toHaveValue(10);
     expect(screen.getByRole("spinbutton", { name: "Ambang konfirmasi", hidden: true })).toHaveValue(5);
