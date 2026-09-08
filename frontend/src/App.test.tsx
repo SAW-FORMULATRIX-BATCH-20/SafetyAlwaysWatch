@@ -649,4 +649,78 @@ describe("SAW application", () => {
     render(<App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={service} />);
     expect(await screen.findByText("apd-produksi.onnx")).toBeInTheDocument();
   });
+
+  it("memungkinkan Admin/Safety Officer mereset Skor Keselamatan dengan artefak audit", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+
+    const firstRender = render(
+      <App
+        initialEntries={["/administrasi/reset-skor"]}
+        initialPersona="admin"
+        service={service}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Reset Skor" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Karyawan yang direset" }), "EMP-01");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Alasan Reset Skor" }), "Lainnya");
+    await user.type(screen.getByRole("textbox", { name: "Catatan alasan" }), "Koreksi setelah investigasi selesai.");
+    await user.click(screen.getByRole("button", { name: "Tinjau Reset Skor" }));
+
+    expect(screen.getByRole("dialog", { name: "Tinjau Reset Skor" })).toHaveTextContent("Karyawan Produksi 01");
+    expect(screen.getByRole("dialog", { name: "Tinjau Reset Skor" })).toHaveTextContent("01 Sep 2026");
+    expect(screen.getByRole("dialog", { name: "Tinjau Reset Skor" })).toHaveTextContent("92");
+    expect(screen.getByRole("dialog", { name: "Tinjau Reset Skor" })).toHaveTextContent("100");
+    await user.click(screen.getByRole("button", { name: "Lanjut ke konfirmasi" }));
+    await user.click(screen.getByRole("button", { name: "Konfirmasi Reset Skor" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Reset Skor berhasil disimpan.");
+    expect(screen.getByText("Ringkasan Periode Skor")).toBeInTheDocument();
+    expect(screen.getByText("Ledger Skor Keselamatan")).toBeInTheDocument();
+    expect(screen.getByText("Log Reset Skor")).toBeInTheDocument();
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+    expect(screen.getByText("Koreksi setelah investigasi selesai.")).toBeInTheDocument();
+    expect(screen.getAllByText("Admin/Safety Officer")).toHaveLength(2);
+    expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(0);
+    expect((await service.getEmployeeDirectory()).employees.find((employee) => employee.id === "EMP-01")?.safetyScore).toBe(100);
+
+    firstRender.unmount();
+    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
+    await screen.findByRole("heading", { name: "Reset Skor" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Karyawan yang direset" }), "EMP-01");
+    expect(await screen.findByText("Koreksi setelah investigasi selesai.")).toBeInTheDocument();
+  });
+
+  it("mewajibkan catatan untuk alasan Lainnya dan membatalkan Reset Skor tanpa mengubah audit", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: null });
+
+    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona="admin" service={service} />);
+
+    await screen.findByRole("heading", { name: "Reset Skor" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Karyawan yang direset" }), "EMP-01");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Alasan Reset Skor" }), "Lainnya");
+    await user.click(screen.getByRole("button", { name: "Tinjau Reset Skor" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Catatan wajib diisi untuk alasan Lainnya.");
+
+    await user.type(screen.getByRole("textbox", { name: "Catatan alasan" }), "Koreksi setelah pemeriksaan dokumen.");
+    await user.click(screen.getByRole("button", { name: "Tinjau Reset Skor" }));
+    await user.click(screen.getByRole("button", { name: "Kembali" }));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Alasan Reset Skor" }), "InvestigasiDitutup");
+    await user.click(screen.getByRole("button", { name: "Tinjau Reset Skor" }));
+    await user.click(screen.getByRole("button", { name: "Lanjut ke konfirmasi" }));
+    await user.click(screen.getByRole("button", { name: "Batal" }));
+
+    expect((await service.getEmployeeDirectory()).employees.find((employee) => employee.id === "EMP-01")?.safetyScore).toBe(92);
+    expect(await service.getSafetyScoreAudit("EMP-01")).toEqual({ periods: [], ledger: [], resetLogs: [] });
+  });
+
+  it.each(["supervisor", "hrd"] as const)("membatasi halaman Reset Skor untuk peran %s", (role) => {
+    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona={role} service={createMockSawService({ storage: null })} />);
+
+    expect(screen.getByRole("heading", { name: "Akses terbatas" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tinjau Reset Skor" })).not.toBeInTheDocument();
+  });
 });

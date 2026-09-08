@@ -44,7 +44,12 @@ import {
   type EmployeeScope,
   type OverviewData,
   type SafetySettings,
+  type SafetyScoreAudit,
+  type SafetyScoreResetReason,
+  type SafetyScoreResetResult,
   type SawService,
+  safetyScoreResetReasonLabels,
+  safetyScoreResetReasons,
 } from "./services/saw-service";
 
 type Role = "admin" | "supervisor" | "hrd";
@@ -104,6 +109,7 @@ const pages: Page[] = [
   { group: "Configuration", path: "/konfigurasi/zona", title: "Zona Berbahaya", roles: ["admin"] },
   { group: "Configuration", path: "/konfigurasi/apd", title: "Kelas APD", roles: ["admin"] },
   { group: "Administration", path: "/administrasi/parameter", title: "Parameter Sistem", roles: ["admin"] },
+  { group: "Administration", path: "/administrasi/reset-skor", title: "Reset Skor", roles: ["admin"] },
   { group: "Administration", path: "/administrasi/notifikasi", title: "Notifikasi", roles: ["admin", "hrd"] },
 ];
 
@@ -730,6 +736,125 @@ function Employees({ persona, service }: { persona: Persona; service: SawService
   );
 }
 
+function SafetyScoreReset({ service }: { service: SawService }) {
+  const [directory, setDirectory] = useState<EmployeeDirectoryData>();
+  const [settings, setSettings] = useState<SafetySettings>();
+  const [employeeId, setEmployeeId] = useState("");
+  const [reason, setReason] = useState<SafetyScoreResetReason | "">("");
+  const [note, setNote] = useState("");
+  const [step, setStep] = useState<"form" | "review" | "confirm">("form");
+  const [error, setError] = useState<string>();
+  const [result, setResult] = useState<SafetyScoreResetResult>();
+  const [audit, setAudit] = useState<SafetyScoreAudit>();
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+    Promise.all([service.getEmployeeDirectory(), service.getSafetySettings()]).then(([nextDirectory, nextSettings]) => {
+      if (!isCurrent) return;
+      setDirectory(nextDirectory);
+      setSettings(nextSettings);
+    }).catch((loadError: unknown) => {
+      if (isCurrent) setError(loadError instanceof Error ? loadError.message : "Data Reset Skor tidak dapat dimuat.");
+    });
+    return () => { isCurrent = false; };
+  }, [service]);
+
+  const employee = directory?.employees.find((item) => item.id === employeeId);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!employeeId) return undefined;
+    service.getSafetyScoreAudit(employeeId).then((nextAudit) => {
+      if (isCurrent) setAudit(nextAudit);
+    }).catch((loadError: unknown) => {
+      if (isCurrent) setError(loadError instanceof Error ? loadError.message : "Riwayat Reset Skor tidak dapat dimuat.");
+    });
+    return () => { isCurrent = false; };
+  }, [employeeId, service]);
+
+  const reviewReset = () => {
+    setError(undefined);
+    if (!employee) return setError("Pilih Karyawan yang akan direset.");
+    if (!reason) return setError("Pilih alasan Reset Skor.");
+    if (reason === "Lainnya" && !note.trim()) return setError("Catatan wajib diisi untuk alasan Lainnya.");
+    setStep("review");
+  };
+
+  const confirmReset = async () => {
+    if (!employee || !reason) return;
+    setIsSaving(true);
+    setError(undefined);
+    try {
+      const nextResult = await service.resetSafetyScore({
+        employeeId: employee.id,
+        reason,
+        ...(note.trim() ? { note } : {}),
+        actor: "Admin/Safety Officer",
+      });
+      const nextAudit = await service.getSafetyScoreAudit(employee.id);
+      setResult(nextResult);
+      setAudit(nextAudit);
+      setDirectory((current) => current ? {
+        ...current,
+        employees: current.employees.map((item) => item.id === nextResult.employee.id ? nextResult.employee : item),
+      } : current);
+      setReason("");
+      setNote("");
+      setStep("form");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Reset Skor tidak dapat disimpan.");
+      setStep("form");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (error && !directory) return <Page title="Reset Skor" />;
+  if (!directory || !settings) return <Page title="Memuat Reset Skor…" />;
+
+  return (
+    <section>
+      <div>
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Administrasi keselamatan</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Reset Skor</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Tutup Periode Skor dan pulihkan Skor Keselamatan Karyawan ke nilai awal melalui alur yang dapat diaudit.</p>
+      </div>
+
+      <div className="mt-8 max-w-3xl border border-slate-200 bg-white p-5 sm:p-6">
+        <label className="block text-sm font-medium text-slate-800">
+          Karyawan yang direset
+          <select aria-label="Karyawan yang direset" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setEmployeeId(event.target.value); setAudit(undefined); setResult(undefined); }} value={employeeId}>
+            <option value="">Pilih Karyawan</option>
+            {directory.employees.map((item) => <option key={item.id} value={item.id}>{employeeName(item)} · {item.id}</option>)}
+          </select>
+        </label>
+        <label className="mt-5 block text-sm font-medium text-slate-800">
+          Alasan Reset Skor
+          <select aria-label="Alasan Reset Skor" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setReason(event.target.value as SafetyScoreResetReason | "")} value={reason}>
+            <option value="">Pilih alasan</option>
+            {safetyScoreResetReasons.map((item) => <option key={item} value={item}>{safetyScoreResetReasonLabels[item]}</option>)}
+          </select>
+        </label>
+        {reason === "Lainnya" && <label className="mt-5 block text-sm font-medium text-slate-800">Catatan alasan<input aria-label="Catatan alasan" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setNote(event.target.value)} value={note} /></label>}
+        <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Skor setelah Reset Skor akan mengikuti nilai awal saat ini: <strong>{settings.initialScore}</strong>.</p>
+        {error && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
+        {result && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">Reset Skor berhasil disimpan.</p>}
+        <div className="mt-6 flex flex-wrap gap-3"><Button onClick={reviewReset}>Tinjau Reset Skor</Button></div>
+      </div>
+
+      {employee && audit && <section aria-label="Riwayat Reset Skor" className="mt-6 grid max-w-5xl gap-4 lg:grid-cols-3">
+        <article className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">Ringkasan Periode Skor</h2>{audit.periods.length === 0 ? <p className="mt-4 text-sm text-slate-600">Belum ada Periode Skor yang ditutup.</p> : <div className="mt-4 space-y-4 text-sm">{audit.periods.map((period) => <dl className="border-t border-slate-100 pt-4 first:border-0 first:pt-0" key={period.id}><div><dt className="text-slate-500">Periode ditutup</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(period.startedAt)} – {formatWib(period.closedAt)}</dd></div><div className="mt-2"><dt className="text-slate-500">Skor akhir sebelum reset</dt><dd className="mt-1 font-mono text-slate-950">{period.finalScoreBeforeReset}</dd></div><div className="mt-2"><dt className="text-slate-500">Total Pelanggaran</dt><dd className="mt-1 text-slate-950">{period.totalViolations}</dd></div></dl>)}</div>}</article>
+        <article className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">Ledger Skor Keselamatan</h2>{audit.ledger.length === 0 ? <p className="mt-4 text-sm text-slate-600">Belum ada perubahan skor dari Reset Skor.</p> : <div className="mt-4 space-y-4 text-sm">{audit.ledger.map((entry) => <dl className="border-t border-slate-100 pt-4 first:border-0 first:pt-0" key={entry.id}><div><dt className="text-slate-500">Perubahan skor</dt><dd className="mt-1 font-mono text-slate-950">{entry.scoreBefore} → {entry.scoreAfter}</dd></div><div className="mt-2"><dt className="text-slate-500">Dicatat</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(entry.recordedAt)}</dd></div></dl>)}</div>}</article>
+        <article className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">Log Reset Skor</h2>{audit.resetLogs.length === 0 ? <p className="mt-4 text-sm text-slate-600">Belum ada log Reset Skor.</p> : <div className="mt-4 space-y-4 text-sm">{audit.resetLogs.map((log) => <dl className="border-t border-slate-100 pt-4 first:border-0 first:pt-0" key={log.id}><div><dt className="text-slate-500">Pemicu</dt><dd className="mt-1 text-slate-950">{log.trigger}</dd></div><div className="mt-2"><dt className="text-slate-500">Alasan</dt><dd className="mt-1 text-slate-950">{safetyScoreResetReasonLabels[log.reason]}</dd></div>{log.note && <div className="mt-2"><dt className="text-slate-500">Catatan</dt><dd className="mt-1 text-slate-950">{log.note}</dd></div>}<div className="mt-2"><dt className="text-slate-500">Pelaku</dt><dd className="mt-1 text-slate-950">{log.actor}</dd></div><div className="mt-2"><dt className="text-slate-500">Waktu</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(log.occurredAt)}</dd></div></dl>)}</div>}</article>
+      </section>}
+
+      {step === "review" && employee && reason && <div aria-labelledby="score-reset-review-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-xl bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Tinjau perubahan</p><h2 className="mt-2 text-xl font-semibold text-slate-950" id="score-reset-review-title">Tinjau Reset Skor</h2><dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Karyawan</dt><dd className="mt-1 font-medium text-slate-950">{employeeName(employee)}</dd></div><div><dt className="text-slate-500">Periode Skor yang ditutup</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScorePeriodStartedAt ? formatWib(employee.safetyScorePeriodStartedAt) : "Periode demo berjalan"} – sekarang</dd></div><div><dt className="text-slate-500">Skor sebelum</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScore}</dd></div><div><dt className="text-slate-500">Skor sesudah</dt><dd className="mt-1 font-mono text-slate-950">{settings.initialScore}</dd></div><div><dt className="text-slate-500">Alasan</dt><dd className="mt-1 text-slate-950">{safetyScoreResetReasonLabels[reason]}</dd></div>{note.trim() && <div><dt className="text-slate-500">Catatan</dt><dd className="mt-1 text-slate-950">{note}</dd></div>}</dl><div className="mt-6 flex justify-end gap-3"><Button onClick={() => setStep("form")} variant="outline">Kembali</Button><Button onClick={() => setStep("confirm")}>Lanjut ke konfirmasi</Button></div></div></div>}
+      {step === "confirm" && employee && <div aria-labelledby="score-reset-confirm-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-md bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-red-700">Konfirmasi final</p><h2 className="mt-2 text-xl font-semibold text-slate-950" id="score-reset-confirm-title">Konfirmasi Reset Skor</h2><p className="mt-3 text-sm leading-6 text-slate-600">Tindakan ini menutup Periode Skor {employeeName(employee)}, memperbarui ledger, dan menyimpan log audit.</p><div className="mt-6 flex justify-end gap-3"><Button disabled={isSaving} onClick={() => setStep("form")} variant="outline">Batal</Button><Button disabled={isSaving} onClick={() => void confirmReset()}>Konfirmasi Reset Skor</Button></div></div></div>}
+    </section>
+  );
+}
+
 function copySafetySettings(settings: SafetySettings): SafetySettings {
   return {
     ...settings,
@@ -1105,6 +1230,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
   if (title === "Karyawan") return <Employees persona={persona} service={service} />;
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
+  if (title === "Reset Skor") return <SafetyScoreReset service={service} />;
   if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
   return <Page title={title} />;
 }
