@@ -2,6 +2,40 @@ export type ServiceScenario = "ready" | "loading" | "empty" | "error";
 
 export type CameraStatus = "online" | "degraded" | "offline";
 
+export type SafetyDeduction = {
+  canonicalApdClass: string;
+  points: number;
+};
+
+export type SafetySettings = {
+  initialScore: number;
+  escalationThreshold: number;
+  deductions: SafetyDeduction[];
+  confirmThresholdSeconds: number;
+  clearThresholdSeconds: number;
+  minimumConfidence: number;
+  resetTime: string;
+  recapLeadMinutes: number;
+  timeZone: "Asia/Jakarta";
+};
+
+export const defaultSafetySettings: SafetySettings = {
+  initialScore: 100,
+  escalationThreshold: 60,
+  deductions: [
+    { canonicalApdClass: "Helm Keselamatan", points: 10 },
+    { canonicalApdClass: "Rompi Keselamatan", points: 8 },
+    { canonicalApdClass: "Sepatu Keselamatan", points: 12 },
+    { canonicalApdClass: "Pelindung Pendengaran", points: 6 },
+  ],
+  confirmThresholdSeconds: 5,
+  clearThresholdSeconds: 3,
+  minimumConfidence: 0.5,
+  resetTime: "00:00",
+  recapLeadMinutes: 15,
+  timeZone: "Asia/Jakarta",
+};
+
 export type Camera = {
   id: string;
   name: string;
@@ -42,6 +76,7 @@ export type DemoData = {
   departments: string[];
   employees: Employee[];
   escalationThreshold: number;
+  safetySettings?: SafetySettings;
   violations: Array<{ id: string; status: "confirmed" | "cleared" }>;
   zones: string[];
 };
@@ -60,6 +95,8 @@ export interface SawService {
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
+  getSafetySettings(): Promise<SafetySettings>;
+  updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
 }
 
 type MockServiceOptions = {
@@ -119,7 +156,27 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function normalizeSafetySettings(settings?: Partial<SafetySettings>): SafetySettings {
+  const fallback = clone(defaultSafetySettings);
+  return {
+    ...fallback,
+    ...settings,
+    deductions: settings?.deductions?.length ? clone(settings.deductions) : fallback.deductions,
+    timeZone: "Asia/Jakarta",
+  };
+}
+
+function normalizeData(input: DemoData): DemoData {
+  const data = clone(input);
+  data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
+    escalationThreshold: data.escalationThreshold,
+  });
+  data.escalationThreshold = data.safetySettings.escalationThreshold;
+  return data;
+}
+
 function calculateOverview(data: DemoData): OverviewData {
+  const escalationThreshold = data.safetySettings?.escalationThreshold ?? data.escalationThreshold;
   return {
     activeCameras: data.cameras.filter((camera) => camera.status === "online").length,
     totalCameras: data.cameras.length,
@@ -128,7 +185,7 @@ function calculateOverview(data: DemoData): OverviewData {
       ? 0
       : Math.round((data.compliance.compliantObservations / data.compliance.totalObservations) * 100),
     employeesBelowEscalationThreshold: data.employees.filter(
-      (employee) => employee.safetyScore < data.escalationThreshold,
+      (employee) => employee.safetyScore < escalationThreshold,
     ).length,
   };
 }
@@ -138,16 +195,16 @@ export function createMockSawService({
   scenario = "ready",
   storage = typeof window === "undefined" ? null : window.localStorage,
 }: MockServiceOptions = {}): SawService {
+  const persist = (data: DemoData) => storage?.setItem(storageKey, JSON.stringify(data));
+
   const readData = (): DemoData => {
     const persisted = storage?.getItem(storageKey);
-    if (persisted) return JSON.parse(persisted) as DemoData;
+    if (persisted) return normalizeData(JSON.parse(persisted) as DemoData);
 
-    const data = clone(initialData ?? seedData);
-    storage?.setItem(storageKey, JSON.stringify(data));
+    const data = normalizeData(initialData ?? seedData);
+    persist(data);
     return data;
   };
-
-  const persist = (data: DemoData) => storage?.setItem(storageKey, JSON.stringify(data));
 
   return {
     async getOverview() {
@@ -157,7 +214,7 @@ export function createMockSawService({
       return calculateOverview(readData());
     },
     async resetDemoData() {
-      const data = clone(seedData);
+      const data = normalizeData(seedData);
       persist(data);
       return calculateOverview(data);
     },
@@ -191,6 +248,21 @@ export function createMockSawService({
         ? data.employees.filter((employee) => (employee.supervisorArea ?? employee.departmentId) === scope.area)
         : data.employees;
       return { employees: clone(employees), escalationThreshold: data.escalationThreshold };
+    },
+    async getSafetySettings() {
+      if (scenario === "loading") return new Promise<SafetySettings>(() => undefined);
+      if (scenario === "error") throw new Error("Parameter keselamatan tidak dapat dimuat.");
+      return clone(readData().safetySettings ?? defaultSafetySettings);
+    },
+    async updateSafetySettings(settings) {
+      if (scenario === "error") throw new Error("Parameter keselamatan tidak dapat disimpan.");
+
+      const data = readData();
+      const nextSettings = normalizeSafetySettings(settings);
+      data.safetySettings = nextSettings;
+      data.escalationThreshold = nextSettings.escalationThreshold;
+      persist(data);
+      return clone(nextSettings);
     },
   };
 }

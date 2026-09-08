@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./App";
-import { createMockSawService, type DemoData } from "./services/saw-service";
+import { createMockSawService, type DemoData, type SawService } from "./services/saw-service";
 
 const withCameras = (cameras: DemoData["cameras"]): DemoData => ({
   cameras,
@@ -422,5 +422,143 @@ describe("SAW application", () => {
     expect(screen.getByText("Tidak ada Karyawan yang cocok.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Bersihkan filter Karyawan" }));
     expect(screen.getByRole("article", { name: "Karyawan Gudang 01" })).toBeInTheDocument();
+  });
+
+  it("menampilkan seluruh parameter keselamatan untuk Admin/Safety Officer", async () => {
+    render(
+      <App
+        initialEntries={["/administrasi/parameter"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByRole("spinbutton", { name: "Skor awal", hidden: true })).toHaveValue(100);
+    expect(screen.getByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(60);
+    expect(screen.getByRole("spinbutton", { name: "Pengurangan Helm Keselamatan", hidden: true })).toHaveValue(10);
+    expect(screen.getByRole("spinbutton", { name: "Ambang konfirmasi", hidden: true })).toHaveValue(5);
+    expect(screen.getByRole("spinbutton", { name: "Ambang pemulihan", hidden: true })).toHaveValue(3);
+    expect(screen.getByRole("spinbutton", { name: "Confidence minimum", hidden: true })).toHaveValue(0.5);
+    expect(screen.getByLabelText("Jadwal Reset Skor")).toHaveValue("00:00");
+    expect(screen.getByRole("spinbutton", { name: "Lead time recap", hidden: true })).toHaveValue(15);
+    expect(screen.getByText("Asia/Jakarta (WIB)")).toBeInTheDocument();
+  });
+
+  it("menolak nilai parameter di luar rentang sebelum menyimpan", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/administrasi/parameter"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    const initialScore = await screen.findByRole("spinbutton", { name: "Skor awal", hidden: true });
+    await user.clear(initialScore);
+    await user.type(initialScore, "101");
+    await user.click(screen.getByRole("button", { name: "Simpan parameter", hidden: true }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Skor awal harus antara 0 dan 100.");
+    expect(screen.queryByText("Parameter keselamatan berhasil disimpan.")).not.toBeInTheDocument();
+  });
+
+  it("dapat membatalkan perubahan parameter tanpa mengubah data tersimpan", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    const firstRender = render(
+      <App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />,
+    );
+
+    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true });
+    await user.clear(escalationThreshold);
+    await user.type(escalationThreshold, "80");
+    await user.click(screen.getByRole("button", { name: "Batal", hidden: true }));
+    expect(screen.getByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(60);
+
+    firstRender.unmount();
+    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(60);
+  });
+
+  it("menyimpan parameter, mempertahankannya setelah refresh, dan mengubah KPI ambang Overview", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({
+      initialData: {
+        cameras: [
+          { id: "CAM-01", name: "Gerbang Produksi", location: "Lini Produksi", zoneIds: [], status: "online", lastUpdatedAt: "2026-09-08T08:15:00+07:00", supervisorArea: "Produksi" },
+        ],
+        compliance: { compliantObservations: 10, totalObservations: 10 },
+        departments: ["Produksi"],
+        employees: [
+          { id: "EMP-01", name: "Karyawan 01", departmentId: "Produksi", safetyScore: 55 },
+          { id: "EMP-02", name: "Karyawan 02", departmentId: "Produksi", safetyScore: 65 },
+        ],
+        escalationThreshold: 60,
+        violations: [],
+        zones: [],
+      },
+      storage: window.localStorage,
+    });
+
+    const firstRender = render(
+      <App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />,
+    );
+    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true });
+    await user.clear(escalationThreshold);
+    await user.type(escalationThreshold, "70");
+    await user.click(screen.getByRole("button", { name: "Simpan parameter", hidden: true }));
+
+    expect(await screen.findByText("Parameter keselamatan berhasil disimpan.")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(70);
+
+    await user.click(screen.getByRole("link", { name: "Overview" }));
+    expect(await screen.findByText("2", { selector: "strong" })).toBeInTheDocument();
+
+    firstRender.unmount();
+    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true })).toHaveValue(70);
+  });
+
+  it("menampilkan kegagalan saat penyimpanan parameter ditolak service", async () => {
+    const user = userEvent.setup();
+    const service: SawService = createMockSawService({ storage: null });
+    service.updateSafetySettings = async () => {
+      throw new Error("Parameter keselamatan tidak dapat disimpan.");
+    };
+
+    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
+    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Ambang Eskalasi", hidden: true });
+    await user.clear(escalationThreshold);
+    await user.type(escalationThreshold, "70");
+    await user.click(screen.getByRole("button", { name: "Simpan parameter", hidden: true }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Parameter keselamatan tidak dapat disimpan.");
+  });
+
+  it.each(["supervisor", "hrd"] as const)("membatasi halaman parameter untuk peran %s", (role) => {
+    render(
+      <App
+        initialEntries={["/administrasi/parameter"]}
+        initialPersona={role}
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Akses terbatas" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Simpan parameter" })).not.toBeInTheDocument();
+  });
+
+  it("menampilkan kegagalan pemuatan parameter", async () => {
+    render(
+      <App
+        initialEntries={["/administrasi/parameter"]}
+        initialPersona="admin"
+        service={createMockSawService({ scenario: "error", storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("Parameter keselamatan tidak dapat dimuat")).toBeInTheDocument();
   });
 });
