@@ -564,4 +564,89 @@ describe("SAW application", () => {
 
     expect(await screen.findByText("Parameter keselamatan tidak dapat dimuat")).toBeInTheDocument();
   });
+
+  it("memungkinkan Admin/Safety Officer menambah mapping Kelas APD Kanonis dan menolak indeks YOLO duplikat", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/konfigurasi/apd"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("mask")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Kelas APD Kanonis" })).toBeInTheDocument();
+    expect(screen.getAllByText("Masker")).toHaveLength(3);
+    expect(screen.getAllByText("Kepatuhan")).toHaveLength(4);
+
+    await user.click(screen.getByRole("button", { name: "Tambah mapping" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Indeks YOLO" }), "0");
+    await user.type(screen.getByRole("textbox", { name: "Label mentah" }), "visor");
+    await user.type(screen.getByRole("textbox", { name: "Kelas APD Kanonis" }), "Pelindung Wajah");
+    await user.click(screen.getByRole("button", { name: "Simpan mapping" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Indeks YOLO 0 sudah digunakan.");
+    expect(screen.getByRole("spinbutton", { name: "Indeks YOLO" })).toHaveAccessibleDescription("Indeks YOLO 0 sudah digunakan.");
+    await user.clear(screen.getByRole("spinbutton", { name: "Indeks YOLO" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Indeks YOLO" }), "9");
+    await user.click(screen.getByRole("button", { name: "Simpan mapping" }));
+
+    expect(await screen.findByText("Mapping Kelas APD Kanonis disimpan.")).toBeInTheDocument();
+    expect(screen.getByText("visor")).toBeInTheDocument();
+  });
+
+  it("menyunting mapping, menampilkan preview interpretasi, dan mempertahankannya setelah refresh", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    const firstRender = render(
+      <App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={service} />,
+    );
+
+    await screen.findByText("mask");
+    await user.click(screen.getByRole("button", { name: "Edit mapping mask" }));
+    const yoloIndex = screen.getByRole("spinbutton", { name: "Indeks YOLO" });
+    const rawLabel = screen.getByRole("textbox", { name: "Label mentah" });
+    const canonicalClass = screen.getByRole("textbox", { name: "Kelas APD Kanonis" });
+    await user.clear(yoloIndex);
+    await user.type(yoloIndex, "7");
+    await user.clear(rawLabel);
+    await user.type(rawLabel, "face_mask");
+    await user.clear(canonicalClass);
+    await user.type(canonicalClass, "Masker Medis");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Kategori interpretasi" }), "violation");
+
+    expect(screen.getByRole("complementary", { name: "Preview interpretasi mapping" })).toHaveTextContent("face_mask akan dipahami sebagai Masker Medis dengan kategori pelanggaran.");
+
+    await user.click(screen.getByRole("button", { name: "Simpan mapping" }));
+    expect(await screen.findByText("Mapping Kelas APD Kanonis disimpan.")).toBeInTheDocument();
+    expect(screen.getByText("face_mask")).toBeInTheDocument();
+    expect(screen.getByText("face_mask").closest("tr")).toHaveTextContent("Pelanggaran");
+
+    firstRender.unmount();
+    render(<App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByText("face_mask")).toBeInTheDocument();
+    expect(screen.getByText("Masker Medis")).toBeInTheDocument();
+  });
+
+  it("menyimpan metadata model ONNX sebagai demo tanpa memvalidasi model di browser", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    const firstRender = render(
+      <App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={service} />,
+    );
+
+    await screen.findByText("mask");
+    const modelFile = new File(["demo"], "apd-produksi.onnx", { type: "application/octet-stream" });
+    await user.upload(screen.getByLabelText("Pilih file ONNX demo"), modelFile);
+
+    expect(await screen.findByText("Metadata model ONNX demo disimpan.")).toBeInTheDocument();
+    expect(screen.getByText("apd-produksi.onnx")).toBeInTheDocument();
+    expect(screen.getByText(/Validasi maupun inferensi model ONNX memerlukan backend/i)).toBeInTheDocument();
+
+    firstRender.unmount();
+    render(<App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByText("apd-produksi.onnx")).toBeInTheDocument();
+  });
 });

@@ -7,6 +7,28 @@ export type SafetyDeduction = {
   points: number;
 };
 
+export type ApdComplianceCategory = "compliance" | "violation";
+
+export type CanonicalApdClassMapping = {
+  id: string;
+  yoloIndex: number;
+  rawLabel: string;
+  canonicalApdClass: string;
+  complianceCategory: ApdComplianceCategory;
+  active: boolean;
+};
+
+export type OnnxModelMetadata = {
+  fileName: string;
+  sizeBytes: number;
+  mimeType: string;
+};
+
+export type CanonicalApdClassConfiguration = {
+  mappings: CanonicalApdClassMapping[];
+  modelFileMetadata?: OnnxModelMetadata;
+};
+
 export type SafetySettings = {
   initialScore: number;
   escalationThreshold: number;
@@ -77,6 +99,7 @@ export type DemoData = {
   employees: Employee[];
   escalationThreshold: number;
   safetySettings?: SafetySettings;
+  canonicalApdClassConfiguration?: CanonicalApdClassConfiguration;
   violations: Array<{ id: string; status: "confirmed" | "cleared" }>;
   zones: string[];
 };
@@ -97,6 +120,8 @@ export interface SawService {
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
   getSafetySettings(): Promise<SafetySettings>;
   updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
+  getCanonicalApdClassConfiguration(): Promise<CanonicalApdClassConfiguration>;
+  updateCanonicalApdClassConfiguration(configuration: CanonicalApdClassConfiguration): Promise<CanonicalApdClassConfiguration>;
 }
 
 type MockServiceOptions = {
@@ -106,6 +131,21 @@ type MockServiceOptions = {
 };
 
 const storageKey = "saw-demo-data";
+
+const defaultCanonicalApdClassConfiguration: CanonicalApdClassConfiguration = {
+  mappings: [
+    { id: "APD-01", yoloIndex: 0, rawLabel: "helmet", canonicalApdClass: "Helm Keselamatan", complianceCategory: "compliance", active: true },
+    { id: "APD-02", yoloIndex: 1, rawLabel: "hardhat", canonicalApdClass: "Helm Keselamatan", complianceCategory: "compliance", active: true },
+    { id: "APD-03", yoloIndex: 2, rawLabel: "mask", canonicalApdClass: "Masker", complianceCategory: "compliance", active: true },
+    { id: "APD-04", yoloIndex: 3, rawLabel: "Masker", canonicalApdClass: "Masker", complianceCategory: "compliance", active: true },
+    { id: "APD-05", yoloIndex: 4, rawLabel: "no_vest", canonicalApdClass: "Rompi Keselamatan", complianceCategory: "violation", active: true },
+  ],
+  modelFileMetadata: {
+    fileName: "saw-apd-demo.onnx",
+    sizeBytes: 2048000,
+    mimeType: "application/octet-stream",
+  },
+};
 
 const seedData: DemoData = {
   cameras: [
@@ -166,11 +206,18 @@ function normalizeSafetySettings(settings?: Partial<SafetySettings>): SafetySett
   };
 }
 
+function normalizeCanonicalApdClassConfiguration(
+  configuration?: CanonicalApdClassConfiguration,
+): CanonicalApdClassConfiguration {
+  return clone(configuration ?? defaultCanonicalApdClassConfiguration);
+}
+
 function normalizeData(input: DemoData): DemoData {
   const data = clone(input);
   data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
     escalationThreshold: data.escalationThreshold,
   });
+  data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(data.canonicalApdClassConfiguration);
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
 }
@@ -263,6 +310,24 @@ export function createMockSawService({
       data.escalationThreshold = nextSettings.escalationThreshold;
       persist(data);
       return clone(nextSettings);
+    },
+    async getCanonicalApdClassConfiguration() {
+      if (scenario === "loading") return new Promise<CanonicalApdClassConfiguration>(() => undefined);
+      if (scenario === "error") throw new Error("Konfigurasi Kelas APD Kanonis tidak dapat dimuat.");
+      return clone(readData().canonicalApdClassConfiguration ?? defaultCanonicalApdClassConfiguration);
+    },
+    async updateCanonicalApdClassConfiguration(configuration) {
+      if (scenario === "error") throw new Error("Konfigurasi Kelas APD Kanonis tidak dapat disimpan.");
+
+      const duplicateIndex = configuration.mappings.find((mapping, index) =>
+        configuration.mappings.some((candidate, candidateIndex) => candidateIndex !== index && candidate.yoloIndex === mapping.yoloIndex),
+      );
+      if (duplicateIndex) throw new Error(`Indeks YOLO ${duplicateIndex.yoloIndex} sudah digunakan.`);
+
+      const data = readData();
+      data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(configuration);
+      persist(data);
+      return clone(data.canonicalApdClassConfiguration);
     },
   };
 }
