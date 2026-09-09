@@ -899,4 +899,62 @@ describe("SAW application", () => {
     await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Pilih minimal satu Supervisor Area.");
   });
+
+  it("mengonfirmasi lifecycle Zona Berbahaya, mempertahankan audit, dan memfilter zona nonaktif", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
+
+    await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    await user.click(screen.getByRole("button", { name: "Edit Zona Gerbang Utama" }));
+
+    expect(screen.getByText(/memiliki riwayat Pelanggaran/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hapus permanen Zona Berbahaya" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Zona aktif" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Nonaktifkan Zona Berbahaya" }));
+    expect(screen.getByRole("dialog", { name: "Konfirmasi nonaktifkan Zona Gerbang Utama" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog", { name: "Konfirmasi nonaktifkan Zona Gerbang Utama" })).getByRole("button", { name: "Batal" }));
+    expect((await service.getZonaBerbahaya()).find((zone) => zone.id === "ZON-01")?.active).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Nonaktifkan Zona Berbahaya" }));
+    await user.click(screen.getByRole("button", { name: "Konfirmasi nonaktifkan" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Zona Berbahaya Zona Gerbang Utama dinonaktifkan.");
+    expect((await service.getZonaBerbahaya()).find((zone) => zone.id === "ZON-01")?.active).toBe(false);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter status Zona" }), "inactive");
+    expect(screen.getByRole("article", { name: "Zona Gerbang Utama" })).toHaveTextContent("Nonaktif");
+    expect(screen.queryByRole("article", { name: "Zona Mesin Press" })).not.toBeInTheDocument();
+  });
+
+  it("menghapus Zona Berbahaya tanpa riwayat melalui konfirmasi final", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
+
+    await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    await user.click(screen.getByRole("button", { name: "Edit Zona Mesin Press" }));
+    await user.click(screen.getByRole("button", { name: "Hapus permanen Zona Berbahaya" }));
+    expect(screen.getByRole("dialog", { name: "Konfirmasi hapus Zona Mesin Press" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Konfirmasi hapus permanen" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Zona Berbahaya Zona Mesin Press dihapus permanen.");
+    expect(screen.queryByRole("article", { name: "Zona Mesin Press" })).not.toBeInTheDocument();
+    expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).not.toContain("ZON-02");
+  });
+
+  it("mencerminkan Zona Berbahaya nonaktif pada Live Monitoring dan detail Sumber Kamera", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    await service.deactivateZonaBerbahaya("ZON-01");
+
+    const monitoringRender = render(<App initialEntries={["/monitoring/live"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByText("ZON-02")).toBeInTheDocument();
+    expect(screen.queryByText("ZON-01")).not.toBeInTheDocument();
+
+    monitoringRender.unmount();
+    render(<App initialEntries={["/konfigurasi/kamera"]} initialPersona="admin" service={service} />);
+    await user.click(await screen.findByRole("button", { name: "Lihat detail Gerbang Produksi" }));
+    expect(screen.getByRole("list", { name: "Status Zona Berbahaya" })).toHaveTextContent("Zona Gerbang Utama · Nonaktif");
+  });
 });

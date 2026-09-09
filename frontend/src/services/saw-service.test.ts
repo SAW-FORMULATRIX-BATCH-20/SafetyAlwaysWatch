@@ -29,3 +29,33 @@ describe("MockSawService Reset Skor", () => {
     expect(audit.resetLogs).toHaveLength(1);
   });
 });
+
+describe("MockSawService lifecycle Zona Berbahaya", () => {
+  it("menonaktifkan Zona Berbahaya secara persisten tanpa menghapus referensi audit", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+
+    await service.deactivateZonaBerbahaya("ZON-01");
+
+    const reloadedService = createMockSawService({ storage: window.localStorage });
+    expect((await reloadedService.getZonaBerbahaya()).find((zone) => zone.id === "ZON-01")?.active).toBe(false);
+    expect((await reloadedService.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).toContain("ZON-01");
+  });
+
+  it("menghapus Zona Berbahaya tanpa riwayat Pelanggaran dan membersihkan referensi Sumber Kamera", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+
+    await service.deleteZonaBerbahaya("ZON-02");
+
+    expect(await service.getZonaBerbahaya()).not.toContainEqual(expect.objectContaining({ id: "ZON-02" }));
+    expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).not.toContain("ZON-02");
+  });
+
+  it("menolak penghapusan Zona Berbahaya yang memiliki riwayat Pelanggaran", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+
+    await expect(service.deleteZonaBerbahaya("ZON-01")).rejects.toThrow("riwayat Pelanggaran");
+
+    expect(await service.getZonaBerbahaya()).toContainEqual(expect.objectContaining({ id: "ZON-01" }));
+    expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).toContain("ZON-01");
+  });
+});

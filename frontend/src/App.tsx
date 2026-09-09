@@ -42,6 +42,7 @@ import {
   type CanonicalApdClassMapping,
   type ZonaBerbahaya,
   type ZonaBerbahayaInput,
+  type ZonaBerbahayaWithViolationHistory,
   type NormalizedZoneBounds,
   type Employee,
   type EmployeeDirectoryData,
@@ -403,10 +404,12 @@ function CameraDetail({
   camera,
   canEdit,
   onSaved,
+  zones,
 }: {
   camera: Camera;
   canEdit: boolean;
   onSaved: (metadata: CameraMetadata) => void;
+  zones: ZonaBerbahaya[];
 }) {
   const [draft, setDraft] = useState<CameraMetadata>({ name: camera.name, location: camera.location });
   const [validationError, setValidationError] = useState<string>();
@@ -467,6 +470,7 @@ function CameraDetail({
         <div><dt className="text-slate-500">Zona terkait</dt><dd className="mt-1 text-slate-950">{camera.zoneIds.join(", ")}</dd></div>
         <div><dt className="text-slate-500">Pembaruan terakhir</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(camera.lastUpdatedAt)}</dd></div>
       </dl>
+      <ul aria-label="Status Zona Berbahaya" className="mt-5 flex flex-wrap gap-2 text-sm">{zones.filter((zone) => camera.zoneIds.includes(zone.id)).map((zone) => <li className="border border-slate-200 bg-slate-50 px-2 py-1" key={zone.id}>{zone.name} · {zone.active ? "Aktif" : "Nonaktif"}</li>)}</ul>
       <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Detail koneksi hanya menampilkan metadata aman untuk demo.</p>
     </section>
   );
@@ -497,6 +501,7 @@ function CameraCard({ camera, onSelect }: { camera: Camera; onSelect: () => void
 
 function Cameras({ persona, service }: { persona: Persona; service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
+  const [zones, setZones] = useState<ZonaBerbahaya[]>();
   const [error, setError] = useState<string>();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<CameraStatus | "all">("all");
@@ -505,8 +510,11 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
 
   useEffect(() => {
     let active = true;
-    service.getCameras(cameraScopeFor(persona)).then((nextCameras) => {
-      if (active) setCameras(nextCameras);
+    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya()]).then(([nextCameras, nextZones]) => {
+      if (active) {
+        setCameras(nextCameras);
+        setZones(nextZones);
+      }
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : "Sumber Kamera tidak dapat dimuat.");
     });
@@ -532,7 +540,7 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
   if (error) {
     return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sumber Kamera</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Sumber Kamera tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
   }
-  if (cameras === undefined) {
+  if (cameras === undefined || zones === undefined) {
     return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Sumber Kamera</h1><p className="mt-6 text-slate-600">Memuat Sumber Kamera…</p></section>;
   }
 
@@ -549,21 +557,23 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
       <p className="mt-4 text-sm text-slate-600">Menampilkan {filteredCameras.length} dari {cameras.length} Sumber Kamera</p>
       {notice && <p aria-live="polite" className="mt-3 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
       {cameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang terdaftar</p><p className="mt-1 text-sm text-slate-600">Tambahkan sumber kamera untuk mulai memantau cakupan.</p></div> : filteredCameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera yang cocok.</p><p className="mt-1 text-sm text-slate-600">Ubah kata pencarian atau filter status.</p></div> : <div aria-label="Daftar Sumber Kamera" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{filteredCameras.map((camera) => <CameraCard camera={camera} key={camera.id} onSelect={() => { setSelectedCameraId(camera.id); setNotice(undefined); }} />)}</div>}
-      {selectedCamera && <div className="mt-6"><CameraDetail camera={selectedCamera} canEdit={persona.role === "admin"} key={selectedCamera.id} onSaved={(metadata) => void saveMetadata(selectedCamera, metadata)} /></div>}
+      {selectedCamera && <div className="mt-6"><CameraDetail camera={selectedCamera} canEdit={persona.role === "admin"} key={selectedCamera.id} onSaved={(metadata) => void saveMetadata(selectedCamera, metadata)} zones={zones} /></div>}
     </section>
   );
 }
 
 function LiveMonitoring({ persona, service }: { persona: Persona; service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
+  const [zones, setZones] = useState<ZonaBerbahaya[]>();
   const [selectedCameraId, setSelectedCameraId] = useState<string>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let active = true;
-    service.getCameras(cameraScopeFor(persona)).then((nextCameras) => {
+    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya()]).then(([nextCameras, nextZones]) => {
       if (!active) return;
       setCameras(nextCameras);
+      setZones(nextZones);
       setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current) ? current : nextCameras[0]?.id);
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : "Live Monitoring tidak dapat dimuat.");
@@ -575,12 +585,13 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
   }, [persona, service]);
 
   const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
+  const activeZoneIds = selectedCamera?.zoneIds.filter((zoneId) => zones?.some((zone) => zone.id === zoneId && zone.active)) ?? [];
 
   if (error) {
     return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Live Monitoring tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
   }
 
-  if (cameras === undefined) {
+  if (cameras === undefined || zones === undefined) {
     return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-6 text-slate-600">Memuat Sumber Kamera…</p></section>;
   }
 
@@ -621,7 +632,7 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
         </section>
         <aside className="border border-slate-200 bg-white p-5">
           <ConnectionStatus status={selectedCamera.status} />
-          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Lokasi</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Zona Berbahaya</dt><dd className="mt-2 flex flex-wrap gap-2">{selectedCamera.zoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>)}</dd></div><div><dt className="text-slate-500">Cakupan Supervisor Area</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
+          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Lokasi</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Zona Berbahaya aktif</dt><dd className="mt-2 flex flex-wrap gap-2">{activeZoneIds.length ? activeZoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>) : <span className="text-slate-600">Tidak ada Zona Berbahaya aktif.</span>}</dd></div><div><dt className="text-slate-500">Cakupan Supervisor Area</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
           {isOffline && <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Overlay deteksi dihentikan saat kamera offline agar frame lama tidak dibaca sebagai kondisi saat ini.</p>}
         </aside>
       </div>
@@ -1302,6 +1313,10 @@ type ZoneDrag = {
   pointer: { x: number; y: number };
   bounds: NormalizedZoneBounds;
 };
+type ZoneLifecycleAction = {
+  kind: "deactivate" | "delete";
+  zone: ZonaBerbahaya;
+};
 
 const zonePatterns = ["border-amber-300 bg-amber-400/15", "border-sky-300 bg-sky-400/15 border-dashed", "border-violet-300 bg-violet-400/15", "border-emerald-300 bg-emerald-400/15 border-dashed"];
 
@@ -1347,7 +1362,7 @@ function isPhoneZoneEditor() {
 
 function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
-  const [zones, setZones] = useState<ZonaBerbahaya[]>();
+  const [zones, setZones] = useState<ZonaBerbahayaWithViolationHistory[]>();
   const [configuration, setConfiguration] = useState<CanonicalApdClassConfiguration>();
   const [selectedCameraId, setSelectedCameraId] = useState<string>();
   const [draft, setDraft] = useState<ZonaBerbahayaDraft>();
@@ -1355,6 +1370,9 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [zoneStatusFilter, setZoneStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [lifecycleAction, setLifecycleAction] = useState<ZoneLifecycleAction>();
+  const [changingLifecycle, setChangingLifecycle] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1378,7 +1396,8 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
   const canonicalClasses = [...new Set(configuration?.mappings.filter((mapping) => mapping.active).map((mapping) => mapping.canonicalApdClass) ?? [])];
   const supervisorAreas = [...new Set(cameras?.map((camera) => camera.supervisorArea) ?? [])];
-  const cameraZones = zones?.filter((zone) => zone.cameraId === selectedCameraId) ?? [];
+  const cameraZones = zones?.filter((zone) => zone.cameraId === selectedCameraId && (zoneStatusFilter === "all" || zone.active === (zoneStatusFilter === "active"))) ?? [];
+  const draftZone = draft?.id ? zones?.find((zone) => zone.id === draft.id) : undefined;
 
   const updateDraft = <Field extends keyof ZonaBerbahayaDraft>(field: Field, value: ZonaBerbahayaDraft[Field]) => {
     setDraft((current) => current ? { ...current, [field]: value } : current);
@@ -1425,6 +1444,30 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
     }
   };
 
+  const confirmLifecycleAction = async () => {
+    if (!lifecycleAction) return;
+    setChangingLifecycle(true);
+    setError(undefined);
+    try {
+      if (lifecycleAction.kind === "deactivate") {
+        const saved = await service.deactivateZonaBerbahaya(lifecycleAction.zone.id);
+        setZones((current) => current?.map((zone) => zone.id === saved.id ? saved : zone));
+        setNotice(`Zona Berbahaya ${saved.name} dinonaktifkan.`);
+      } else {
+        await service.deleteZonaBerbahaya(lifecycleAction.zone.id);
+        setZones((current) => current?.filter((zone) => zone.id !== lifecycleAction.zone.id));
+        setNotice(`Zona Berbahaya ${lifecycleAction.zone.name} dihapus permanen.`);
+      }
+      setDraft(undefined);
+      setCameras(await service.getCameras());
+      setLifecycleAction(undefined);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Lifecycle Zona Berbahaya tidak dapat diperbarui.");
+    } finally {
+      setChangingLifecycle(false);
+    }
+  };
+
   const beginDrawing = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!draft || draft.id || !selectedCamera || isPhoneZoneEditor()) return;
     const point = pointInZone(event, event.currentTarget);
@@ -1462,6 +1505,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
       {error && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
 
       <label className="mt-8 block max-w-md text-sm font-medium text-slate-800">Pilih Sumber Kamera<select aria-label="Pilih Sumber Kamera" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSelectedCameraId(event.target.value); setDraft(undefined); setError(undefined); }} value={selectedCamera.id}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name} · {camera.location}</option>)}</select></label>
+      <label className="mt-4 block max-w-md text-sm font-medium text-slate-800">Filter status Zona<select aria-label="Filter status Zona" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setZoneStatusFilter(event.target.value as "all" | "active" | "inactive")} value={zoneStatusFilter}><option value="all">Semua status</option><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section aria-label={`Frame Zone Editor ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
@@ -1485,10 +1529,12 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
         <div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium text-slate-800">Nama Zona Berbahaya<input aria-label="Nama Zona Berbahaya" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("name", event.target.value)} value={draft.name} /></label><label className="block text-sm font-medium text-slate-800">Sumber Kamera<select aria-label="Sumber Kamera zona" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("cameraId", event.target.value)} value={draft.cameraId}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name}</option>)}</select></label></div>
         <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">APD wajib</legend><div className="mt-2 flex flex-wrap gap-3">{canonicalClasses.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.requiredCanonicalApdClasses.includes(item)} onChange={() => toggleSelection("requiredCanonicalApdClasses", item)} type="checkbox" />{item}</label>)}</div></fieldset>
         <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Supervisor Area</legend><div className="mt-2 flex flex-wrap gap-3">{supervisorAreas.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.supervisorAreas.includes(item)} onChange={() => toggleSelection("supervisorAreas", item)} type="checkbox" />{item}</label>)}</div></fieldset>
-        <label className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-slate-800"><input checked={draft.active} onChange={(event) => updateDraft("active", event.target.checked)} type="checkbox" />Zona aktif</label>
+        {draft.id ? <p className="mt-5 text-sm text-slate-700">Status saat ini: <span className="font-medium">{draftZone?.active ? "Aktif" : "Nonaktif"}</span>. Gunakan tindakan lifecycle di bawah untuk menonaktifkan Zona Berbahaya.</p> : <label className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-slate-800"><input checked={draft.active} onChange={(event) => updateDraft("active", event.target.checked)} type="checkbox" />Zona aktif</label>}
         <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Koordinat ternormalisasi <span className="font-normal text-slate-500">(0–1)</span></legend><div className="mt-2 grid gap-3 grid-cols-2 sm:grid-cols-4">{(["x", "y", "width", "height"] as const).map((field) => <label className="text-xs font-medium text-slate-600" key={field}>{field === "x" ? "X" : field === "y" ? "Y" : field === "width" ? "Lebar" : "Tinggi"}<input aria-label={`Koordinat ${field}`} className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="1" min="0" onChange={(event) => setBounds({ ...draft.bounds, [field]: Number(event.target.value) })} step="0.01" type="number" value={draft.bounds[field]} /></label>)}</div></fieldset>
+        {draftZone && <section aria-label="Lifecycle Zona Berbahaya" className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-medium text-slate-950">Lifecycle Zona Berbahaya</h3><p className="mt-1 text-sm leading-6 text-slate-600">Nonaktifkan adalah tindakan utama: Zona Berbahaya tetap tersimpan agar konteks audit dan konfigurasi dapat ditelusuri.</p>{draftZone.active ? <Button className="mt-4" onClick={() => setLifecycleAction({ kind: "deactivate", zone: draftZone })} type="button" variant="outline">Nonaktifkan Zona Berbahaya</Button> : <p className="mt-4 text-sm font-medium text-slate-700">Zona Berbahaya ini sudah nonaktif.</p>}{draftZone.hasViolationHistory ? <p className="mt-4 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Zona Berbahaya ini memiliki riwayat Pelanggaran dan tidak dapat dihapus permanen, sesuai ADR-0002.</p> : <div className="mt-4"><p className="text-sm leading-6 text-slate-600">Zona ini belum memiliki riwayat Pelanggaran dan dapat dihapus permanen.</p><Button className="mt-3" onClick={() => setLifecycleAction({ kind: "delete", zone: draftZone })} type="button" variant="outline">Hapus permanen Zona Berbahaya</Button></div>}</section>}
         <div className="mt-6 flex justify-end"><Button disabled={saving} type="submit">{saving ? "Menyimpan…" : "Simpan Zona Berbahaya"}</Button></div>
       </form>}
+      {lifecycleAction && <section aria-label={`${lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus"} ${lifecycleAction.zone.name}`} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" role="dialog"><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold text-slate-950">{lifecycleAction.kind === "deactivate" ? "Nonaktifkan Zona Berbahaya?" : "Hapus Zona Berbahaya secara permanen?"}</h2><p className="mt-3 text-sm leading-6 text-slate-700">{lifecycleAction.kind === "deactivate" ? `Zona Berbahaya ${lifecycleAction.zone.name} tidak lagi digunakan oleh monitoring aktif, tetapi tetap dapat ditemukan pada konfigurasi dan mempertahankan konteks audit.` : `Zona Berbahaya ${lifecycleAction.zone.name} akan dihapus dari konfigurasi dan Sumber Kamera terkait. Tindakan ini tidak dapat dibatalkan.`}</p><div className="mt-6 flex justify-end gap-3"><Button disabled={changingLifecycle} onClick={() => setLifecycleAction(undefined)} type="button" variant="outline">Batal</Button><Button disabled={changingLifecycle} onClick={() => void confirmLifecycleAction()} type="button">{changingLifecycle ? "Memproses…" : lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus permanen"}</Button></div></div></section>}
     </section>
   );
 }

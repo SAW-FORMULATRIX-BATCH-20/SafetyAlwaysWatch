@@ -87,7 +87,16 @@ export type ZonaBerbahaya = {
   supervisorAreas: string[];
 };
 
+export type ZonaBerbahayaWithViolationHistory = ZonaBerbahaya & {
+  hasViolationHistory: boolean;
+};
+
 export type ZonaBerbahayaInput = Omit<ZonaBerbahaya, "id"> & { id?: string };
+export type ViolationRecord = {
+  id: string;
+  status: "confirmed" | "cleared";
+  zoneId?: string;
+};
 export type EmployeeEnrollmentStatus = "enrolled" | "pending" | "not-enrolled";
 
 export type Employee = {
@@ -196,7 +205,7 @@ export type DemoData = {
   scorePeriods?: SafetyScorePeriod[];
   safetyScoreLedger?: SafetyScoreLedgerEntry[];
   safetyScoreResetLogs?: SafetyScoreResetLog[];
-  violations: Array<{ id: string; status: "confirmed" | "cleared" }>;
+  violations: ViolationRecord[];
   zones: string[];
   zonaBerbahaya?: ZonaBerbahaya[];
 };
@@ -214,8 +223,10 @@ export interface SawService {
   resetDemoData(): Promise<OverviewData>;
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
-  getZonaBerbahaya(): Promise<ZonaBerbahaya[]>;
-  saveZonaBerbahaya(zone: ZonaBerbahayaInput): Promise<ZonaBerbahaya>;
+  getZonaBerbahaya(): Promise<ZonaBerbahayaWithViolationHistory[]>;
+  saveZonaBerbahaya(zone: ZonaBerbahayaInput): Promise<ZonaBerbahayaWithViolationHistory>;
+  deactivateZonaBerbahaya(id: string): Promise<ZonaBerbahayaWithViolationHistory>;
+  deleteZonaBerbahaya(id: string): Promise<void>;
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
   getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
   resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
@@ -294,8 +305,8 @@ const seedData: DemoData = {
   ],
   escalationThreshold: 60,
   violations: [
-    { id: "VIO-01", status: "confirmed" },
-    { id: "VIO-02", status: "cleared" },
+    { id: "VIO-01", status: "confirmed", zoneId: "ZON-01" },
+    { id: "VIO-02", status: "cleared", zoneId: "ZON-04" },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
 };
@@ -353,6 +364,13 @@ function calculateOverview(data: DemoData): OverviewData {
   };
 }
 
+function withViolationHistory(data: DemoData, zone: ZonaBerbahaya): ZonaBerbahayaWithViolationHistory {
+  return {
+    ...clone(zone),
+    hasViolationHistory: data.violations.some((violation) => violation.zoneId === zone.id),
+  };
+}
+
 export function createMockSawService({
   initialData,
   scenario = "ready",
@@ -402,10 +420,11 @@ export function createMockSawService({
       return clone(camera);
     },
     async getZonaBerbahaya() {
-      if (scenario === "loading") return new Promise<ZonaBerbahaya[]>(() => undefined);
+      if (scenario === "loading") return new Promise<ZonaBerbahayaWithViolationHistory[]>(() => undefined);
       if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat dimuat.");
       if (scenario === "empty") return [];
-      return clone(readData().zonaBerbahaya ?? []);
+      const data = readData();
+      return (data.zonaBerbahaya ?? []).map((zone) => withViolationHistory(data, zone));
     },
     async saveZonaBerbahaya(zone) {
       if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat disimpan.");
@@ -437,7 +456,33 @@ export function createMockSawService({
       const camera = data.cameras.find((item) => item.id === saved.cameraId)!;
       if (!camera.zoneIds.includes(id)) camera.zoneIds.push(id);
       persist(data);
-      return clone(saved);
+      return withViolationHistory(data, saved);
+    },
+    async deactivateZonaBerbahaya(id) {
+      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat diperbarui.");
+      const data = readData();
+      const zone = data.zonaBerbahaya?.find((item) => item.id === id);
+      if (!zone) throw new Error("Zona Berbahaya tidak ditemukan.");
+
+      zone.active = false;
+      persist(data);
+      return withViolationHistory(data, zone);
+    },
+    async deleteZonaBerbahaya(id) {
+      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat dihapus.");
+      const data = readData();
+      const zones = data.zonaBerbahaya ?? [];
+      if (!zones.some((zone) => zone.id === id)) throw new Error("Zona Berbahaya tidak ditemukan.");
+      if (data.violations.some((violation) => violation.zoneId === id)) {
+        throw new Error("Zona Berbahaya dengan riwayat Pelanggaran tidak dapat dihapus permanen.");
+      }
+
+      data.zonaBerbahaya = zones.filter((zone) => zone.id !== id);
+      data.zones = data.zones.filter((zoneId) => zoneId !== id);
+      data.cameras.forEach((camera) => {
+        camera.zoneIds = camera.zoneIds.filter((zoneId) => zoneId !== id);
+      });
+      persist(data);
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
