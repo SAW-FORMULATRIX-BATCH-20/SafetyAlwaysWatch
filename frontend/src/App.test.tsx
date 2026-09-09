@@ -810,6 +810,39 @@ describe("SAW application", () => {
     expect(screen.getByRole("spinbutton", { name: "Koordinat height" })).toHaveValue(0.62);
   });
 
+  it("menjadikan kanvas lihat-saja di ponsel sambil mempertahankan input koordinat", async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+      await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+      await user.click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
+      const canvas = screen.getByLabelText("Kanvas Zone Editor");
+      Object.defineProperty(canvas, "getBoundingClientRect", { value: () => ({ left: 0, top: 0, width: 100, height: 100 }) });
+
+      fireEvent.pointerDown(canvas, { clientX: 10, clientY: 20, pointerId: 1 });
+      fireEvent.pointerMove(canvas, { clientX: 60, clientY: 70, pointerId: 1 });
+      expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toHaveValue(0.2);
+
+      await user.clear(screen.getByRole("spinbutton", { name: "Koordinat x" }));
+      await user.type(screen.getByRole("spinbutton", { name: "Koordinat x" }), "0.4");
+      expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toHaveValue(0.4);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("menyimpan Zona Berbahaya baru secara persisten dan menampilkannya pada Live Monitoring", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
@@ -818,17 +851,33 @@ describe("SAW application", () => {
     await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
     await user.click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
     await user.type(screen.getByRole("textbox", { name: "Nama Zona Berbahaya" }), "Zona Pengujian");
+    await user.clear(screen.getByRole("spinbutton", { name: "Koordinat x" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Koordinat x" }), "0.35");
+    await user.click(screen.getByRole("checkbox", { name: "Helm Keselamatan" }));
+    await user.click(screen.getByRole("checkbox", { name: "Masker" }));
+    await user.click(screen.getByRole("checkbox", { name: "Produksi" }));
+    await user.click(screen.getByRole("checkbox", { name: "Gudang" }));
     await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Zona Berbahaya Zona Pengujian disimpan.");
     expect(screen.getByRole("article", { name: "Zona Pengujian" })).toBeInTheDocument();
 
     firstRender.unmount();
-    render(<App initialEntries={["/monitoring/live"]} initialPersona="admin" service={service} />);
+    const monitoringRender = render(<App initialEntries={["/monitoring/live"]} initialPersona="admin" service={service} />);
     expect(await screen.findByText("ZON-05")).toBeInTheDocument();
 
+    monitoringRender.unmount();
+    const cameraRender = render(<App initialEntries={["/konfigurasi/kamera"]} initialPersona="admin" service={service} />);
+    await user.click(await screen.findByRole("button", { name: "Lihat detail Gerbang Produksi" }));
+    expect(screen.getAllByText(/ZON-01, ZON-02, ZON-05/)).toHaveLength(2);
+
+    cameraRender.unmount();
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
     expect(await screen.findByRole("article", { name: "Zona Pengujian" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit Zona Pengujian" }));
+    expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toHaveValue(0.35);
+    expect(screen.getByRole("checkbox", { name: "Masker" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Gudang" })).toBeChecked();
   });
 
   it("memvalidasi nama, APD, dan penugasan Supervisor Area untuk Zona Berbahaya", async () => {

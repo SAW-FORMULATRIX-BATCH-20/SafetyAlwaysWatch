@@ -40,8 +40,8 @@ import {
   type CameraStatus,
   type CanonicalApdClassConfiguration,
   type CanonicalApdClassMapping,
-  type DangerZone,
-  type DangerZoneInput,
+  type ZonaBerbahaya,
+  type ZonaBerbahayaInput,
   type NormalizedZoneBounds,
   type Employee,
   type EmployeeDirectoryData,
@@ -1296,7 +1296,7 @@ function CanonicalApdClasses({ service }: { service: SawService }) {
   );
 }
 
-type DangerZoneDraft = DangerZoneInput;
+type ZonaBerbahayaDraft = ZonaBerbahayaInput;
 type ZoneDrag = {
   kind: "move" | "resize";
   pointer: { x: number; y: number };
@@ -1321,7 +1321,7 @@ function pointInZone(event: React.PointerEvent<HTMLElement>, canvas: HTMLElement
   };
 }
 
-function createDangerZoneDraft(camera: Camera, canonicalClasses: string[]): DangerZoneDraft {
+function createZonaBerbahayaDraft(camera: Camera, canonicalClasses: string[]): ZonaBerbahayaDraft {
   return {
     name: "",
     cameraId: camera.id,
@@ -1332,12 +1332,25 @@ function createDangerZoneDraft(camera: Camera, canonicalClasses: string[]): Dang
   };
 }
 
-function DangerZones({ service }: { service: SawService }) {
+function copyZonaBerbahaya(zone: ZonaBerbahaya): ZonaBerbahayaDraft {
+  return {
+    ...zone,
+    bounds: { ...zone.bounds },
+    requiredCanonicalApdClasses: [...zone.requiredCanonicalApdClasses],
+    supervisorAreas: [...zone.supervisorAreas],
+  };
+}
+
+function isPhoneZoneEditor() {
+  return window.matchMedia("(max-width: 767px)").matches;
+}
+
+function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
-  const [zones, setZones] = useState<DangerZone[]>();
+  const [zones, setZones] = useState<ZonaBerbahaya[]>();
   const [configuration, setConfiguration] = useState<CanonicalApdClassConfiguration>();
   const [selectedCameraId, setSelectedCameraId] = useState<string>();
-  const [draft, setDraft] = useState<DangerZoneDraft>();
+  const [draft, setDraft] = useState<ZonaBerbahayaDraft>();
   const [drag, setDrag] = useState<ZoneDrag>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -1346,7 +1359,7 @@ function DangerZones({ service }: { service: SawService }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([service.getCameras(), service.getDangerZones(), service.getCanonicalApdClassConfiguration()])
+    Promise.all([service.getCameras(), service.getZonaBerbahaya(), service.getCanonicalApdClassConfiguration()])
       .then(([nextCameras, nextZones, nextConfiguration]) => {
         if (!active) return;
         setCameras(nextCameras);
@@ -1367,16 +1380,16 @@ function DangerZones({ service }: { service: SawService }) {
   const supervisorAreas = [...new Set(cameras?.map((camera) => camera.supervisorArea) ?? [])];
   const cameraZones = zones?.filter((zone) => zone.cameraId === selectedCameraId) ?? [];
 
-  const updateDraft = <Field extends keyof DangerZoneDraft>(field: Field, value: DangerZoneDraft[Field]) => {
+  const updateDraft = <Field extends keyof ZonaBerbahayaDraft>(field: Field, value: ZonaBerbahayaDraft[Field]) => {
     setDraft((current) => current ? { ...current, [field]: value } : current);
     setError(undefined);
   };
 
   const setBounds = (bounds: NormalizedZoneBounds) => updateDraft("bounds", bounds);
 
-  const openDraft = (zone?: DangerZone) => {
+  const openDraft = (zone?: ZonaBerbahaya) => {
     if (!selectedCamera || !configuration) return;
-    setDraft(zone ? JSON.parse(JSON.stringify(zone)) as DangerZoneDraft : createDangerZoneDraft(selectedCamera, canonicalClasses));
+    setDraft(zone ? copyZonaBerbahaya(zone) : createZonaBerbahayaDraft(selectedCamera, canonicalClasses));
     setError(undefined);
     setNotice(undefined);
   };
@@ -1396,7 +1409,7 @@ function DangerZones({ service }: { service: SawService }) {
     setSaving(true);
     setError(undefined);
     try {
-      const saved = await service.saveDangerZone(draft);
+      const saved = await service.saveZonaBerbahaya(draft);
       setZones((current) => {
         const existing = current?.findIndex((zone) => zone.id === saved.id) ?? -1;
         if (existing === -1) return [...(current ?? []), saved];
@@ -1413,7 +1426,7 @@ function DangerZones({ service }: { service: SawService }) {
   };
 
   const beginDrawing = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!draft || draft.id || !selectedCamera) return;
+    if (!draft || draft.id || !selectedCamera || isPhoneZoneEditor()) return;
     const point = pointInZone(event, event.currentTarget);
     setBounds({ x: point.x, y: point.y, width: 0.01, height: 0.01 });
     setDrag({ kind: "resize", pointer: point, bounds: { x: point.x, y: point.y, width: 0.01, height: 0.01 } });
@@ -1421,7 +1434,7 @@ function DangerZones({ service }: { service: SawService }) {
   };
 
   const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!draft || !drag) return;
+    if (!draft || !drag || isPhoneZoneEditor()) return;
     const point = pointInZone(event, event.currentTarget);
     if (drag.kind === "move") {
       const deltaX = point.x - drag.pointer.x;
@@ -1440,9 +1453,9 @@ function DangerZones({ service }: { service: SawService }) {
   }
 
   return (
-    <section aria-labelledby="danger-zones-title">
+    <section aria-labelledby="zona-berbahaya-title">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Konfigurasi operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950" id="danger-zones-title">Zona Berbahaya</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Atur cakupan APD pada frame Sumber Kamera simulasi. Koordinat selalu disimpan ternormalisasi agar konsisten di setiap ukuran layar.</p></div>
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Konfigurasi operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950" id="zona-berbahaya-title">Zona Berbahaya</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Atur cakupan APD pada frame Sumber Kamera simulasi. Koordinat selalu disimpan ternormalisasi agar konsisten di setiap ukuran layar.</p></div>
         <Button onClick={() => openDraft()}>Tambah Zona Berbahaya</Button>
       </div>
       {notice && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{notice}</p>}
@@ -1458,7 +1471,7 @@ function DangerZones({ service }: { service: SawService }) {
             <span className="absolute right-4 top-4 border border-amber-300 bg-slate-950/90 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-amber-200">SIMULASI</span>
             {cameraZones.map((zone, index) => {
               const displayedZone = draft?.id === zone.id ? draft : zone;
-              return <div className={`absolute border-2 ${zonePatterns[index % zonePatterns.length]} pointer-events-none md:pointer-events-auto`} key={zone.id} style={{ left: `${displayedZone.bounds.x * 100}%`, top: `${displayedZone.bounds.y * 100}%`, width: `${displayedZone.bounds.width * 100}%`, height: `${displayedZone.bounds.height * 100}%` }}><button aria-label={`Pindahkan ${zone.name}`} className="absolute inset-0 w-full cursor-move text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={() => openDraft(zone)} onPointerDown={(event) => { event.stopPropagation(); const point = pointInZone(event, canvasRef.current ?? event.currentTarget); setDraft(JSON.parse(JSON.stringify(zone)) as DangerZoneDraft); setDrag({ kind: "move", pointer: point, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="absolute -top-6 left-0 whitespace-nowrap bg-slate-950/90 px-2 py-1 text-xs font-medium text-white">{zone.name}</span><span className="sr-only">Pindahkan zona dengan pointer.</span></button><button aria-label={`Ubah ukuran ${zone.name}`} className="absolute -bottom-1 -right-1 z-10 size-3 cursor-se-resize border border-white bg-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onPointerDown={(event) => { event.stopPropagation(); setDraft(JSON.parse(JSON.stringify(zone)) as DangerZoneDraft); setDrag({ kind: "resize", pointer: { x: 0, y: 0 }, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="sr-only">Ubah ukuran zona</span></button></div>;
+              return <div className={`absolute border-2 ${zonePatterns[index % zonePatterns.length]} pointer-events-none md:pointer-events-auto`} key={zone.id} style={{ left: `${displayedZone.bounds.x * 100}%`, top: `${displayedZone.bounds.y * 100}%`, width: `${displayedZone.bounds.width * 100}%`, height: `${displayedZone.bounds.height * 100}%` }}><button aria-label={`Pindahkan ${zone.name}`} className="absolute inset-0 w-full cursor-move text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={() => openDraft(zone)} onPointerDown={(event) => { event.stopPropagation(); const point = pointInZone(event, canvasRef.current ?? event.currentTarget); setDraft(copyZonaBerbahaya(zone)); setDrag({ kind: "move", pointer: point, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="absolute -top-6 left-0 whitespace-nowrap bg-slate-950/90 px-2 py-1 text-xs font-medium text-white">{zone.name}</span><span className="sr-only">Pindahkan zona dengan pointer.</span></button><button aria-label={`Ubah ukuran ${zone.name}`} className="absolute -bottom-1 -right-1 z-10 size-3 cursor-se-resize border border-white bg-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onPointerDown={(event) => { event.stopPropagation(); setDraft(copyZonaBerbahaya(zone)); setDrag({ kind: "resize", pointer: { x: 0, y: 0 }, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="sr-only">Ubah ukuran zona</span></button></div>;
             })}
             {draft && !draft.id && <div aria-label="Zona baru" className="pointer-events-none absolute border-2 border-dashed border-amber-300 bg-amber-400/15" style={{ left: `${draft.bounds.x * 100}%`, top: `${draft.bounds.y * 100}%`, width: `${draft.bounds.width * 100}%`, height: `${draft.bounds.height * 100}%` }} />}
           </div>
@@ -1501,7 +1514,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
   if (title === "Reset Skor") return <SafetyScoreReset service={service} />;
   if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
-  if (title === "Zona Berbahaya") return <DangerZones service={service} />;
+  if (title === "Zona Berbahaya") return <ZonaBerbahayaEditor service={service} />;
   return <Page title={title} />;
 }
 
