@@ -14,6 +14,9 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<SystemSetting> SystemSettings { get; set; }
+    public DbSet<Employee> Employees { get; set; }
+    public DbSet<DangerZone> DangerZones { get; set; }
+    public DbSet<SafetyScoreLedger> SafetyScoreLedgers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

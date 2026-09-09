@@ -11,6 +11,12 @@ using SafetyAlwaysWatch.Infrastructure.Persistence;
 using SafetyAlwaysWatch.Infrastructure.Persistence.Interceptors;
 using SafetyAlwaysWatch.Infrastructure.Persistence.Repositories;
 using Serilog;
+using FluentValidation;
+using SafetyAlwaysWatch.Application.Services;
+using SafetyAlwaysWatch.Application.Validators;
+using SafetyAlwaysWatch.Application.DTOs.Employees;
+using System.Reflection;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +49,13 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddMaps(typeof(SafetyAlwaysWatch.Application.Mappings.EmployeeProfile).Assembly);
+});
+builder.Services.AddScoped<IValidator<GetEmployeesQuery>, GetEmployeesQueryValidator>();
+
 
 // Configure JWT Authentication
 var jwtSecret = builder.Configuration["JwtSettings:Secret"] ?? "super_secret_key_for_development_purposes_only_12345!";
@@ -91,6 +104,9 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 });
 
 // Configure CORS
