@@ -46,6 +46,7 @@ import {
   type ZonaBerbahaya,
   type ZonaBerbahayaInput,
   type ZonaBerbahayaWithViolationHistory,
+  type ViolationRecord,
   type NormalizedZoneBounds,
   type Employee,
   type EmployeeDirectoryData,
@@ -392,6 +393,14 @@ function formatWib(timestamp: string) {
   }).format(new Date(timestamp))} WIB`;
 }
 
+function formatRelativeWib(timestamp: string) {
+  const differenceMinutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000));
+  if (differenceMinutes < 60) return `${differenceMinutes} menit lalu`;
+  const differenceHours = Math.round(differenceMinutes / 60);
+  if (differenceHours < 24) return `${differenceHours} jam lalu`;
+  return `${Math.round(differenceHours / 24)} hari lalu`;
+}
+
 function ConnectionStatus({ status }: { status: CameraStatus }) {
   const { Icon, label, className } = cameraStatusDetails[status];
 
@@ -678,6 +687,143 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
           {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" && <section aria-label="Status Episode" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">Selesai</p><p className="mt-1 text-sm text-slate-600">Overlay aktif dihentikan; Peristiwa Pelanggaran tetap dicatat untuk riwayat audit.</p><p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Peristiwa Pelanggaran {displayedSimulation.eventId}</p>{displayedSimulation.scoreChange && <p className="mt-2 font-mono text-xs text-slate-700">Skor Keselamatan: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>}</section>}
         </aside>
       </div>
+    </section>
+  );
+}
+
+type ViolationHistoryData = {
+  cameras: Camera[];
+  employees: Employee[];
+  violations: ViolationRecord[];
+  zones: ZonaBerbahayaWithViolationHistory[];
+};
+
+const violationStatusLabels: Record<ViolationRecord["status"], string> = {
+  confirmed: "Pelanggaran",
+  clearing: "Memulihkan",
+  cleared: "Selesai",
+};
+
+function ViolationDetail({
+  violation,
+  camera,
+  employee,
+  zone,
+}: {
+  violation: ViolationRecord;
+  camera?: Camera;
+  employee?: Employee;
+  zone?: ZonaBerbahayaWithViolationHistory;
+}) {
+  const identity = employee ? employeeName(employee) : "Tidak Dikenali";
+
+  return (
+    <section aria-label={`Detail ${violation.id}`} className="mt-6 border border-slate-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Jejak audit</p><h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Detail Peristiwa Pelanggaran</h2><p className="mt-2 font-mono text-sm text-slate-600">{violation.id} · {violation.episodeId ?? "Episode Pelanggaran demo"}</p></div>
+        <span className={`border px-3 py-1.5 text-sm font-medium ${violation.status === "confirmed" ? "border-red-200 bg-red-50 text-red-800" : violation.status === "clearing" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-300 bg-slate-50 text-slate-700"}`}>{violationStatusLabels[violation.status]}</span>
+      </div>
+      <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Bukti audit memakai metadata, timeline, dan perubahan Skor Keselamatan.</p>
+      <dl className="mt-6 grid gap-5 text-sm sm:grid-cols-2 xl:grid-cols-3">
+        <div><dt className="text-slate-500">Identitas</dt><dd className="mt-1 font-medium text-slate-950">{identity}</dd></div>
+        <div><dt className="text-slate-500">Zona Berbahaya</dt><dd className="mt-1 text-slate-950">{zone?.name ?? violation.zoneId ?? "Tidak tersedia"}</dd></div>
+        <div><dt className="text-slate-500">Sumber Kamera</dt><dd className="mt-1 text-slate-950">{camera ? `${camera.name} · ${camera.location}` : violation.cameraId ?? "Tidak tersedia"}</dd></div>
+        <div><dt className="text-slate-500">APD tidak terpenuhi</dt><dd className="mt-1 text-slate-950">{violation.missingCanonicalApdClasses?.join(", ") || "Tidak tersedia"}</dd></div>
+        <div><dt className="text-slate-500">Keyakinan deteksi</dt><dd className="mt-1 font-mono text-slate-950">{violation.confidence === undefined ? "Tidak tersedia" : `${Math.round(violation.confidence * 100)}%`}</dd></div>
+        <div><dt className="text-slate-500">Perubahan Skor Keselamatan</dt><dd className="mt-1 font-mono text-slate-950">{violation.scoreChange ? `${violation.scoreChange.before} → ${violation.scoreChange.after}` : "Tidak diterapkan untuk Tidak Dikenali"}</dd></div>
+        <div><dt className="text-slate-500">Terdeteksi</dt><dd className="mt-1 font-mono text-slate-950">{violation.detectedAt ? `${formatWib(violation.detectedAt)} · ${formatRelativeWib(violation.detectedAt)}` : "Tidak tersedia"}</dd></div>
+        <div><dt className="text-slate-500">Audit terakhir</dt><dd className="mt-1 font-mono text-slate-950">{violation.updatedAt ? `${formatWib(violation.updatedAt)} · ${formatRelativeWib(violation.updatedAt)}` : "Tidak tersedia"}</dd></div>
+      </dl>
+      <div className="mt-7 grid gap-6 lg:grid-cols-2">
+        <section><h3 className="font-semibold text-slate-950">Timeline Episode Pelanggaran</h3>{violation.timeline?.length ? <ol className="mt-4 space-y-4 border-l border-slate-200 pl-4">{violation.timeline.map((entry, index) => <li key={`${entry.occurredAt}-${index}`}><p className="text-sm font-medium text-slate-950">{episodePresentation(entry.status).label}</p><p className="mt-1 text-sm text-slate-600">{entry.description}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(entry.occurredAt)}</p></li>)}</ol> : <p className="mt-4 text-sm text-slate-600">Timeline Episode Pelanggaran belum tersedia.</p>}</section>
+        <section><h3 className="font-semibold text-slate-950">Penerima notifikasi</h3>{violation.notificationRecipients?.length ? <ul className="mt-4 space-y-3">{violation.notificationRecipients.map((recipient) => <li className="border border-slate-200 p-3 text-sm" key={`${recipient.role}-${recipient.name}`}><p className="font-medium text-slate-950">{recipient.name}</p><p className="mt-1 text-slate-600">{recipient.role} · {recipient.deliveryStatus === "sent" ? "Terkirim" : recipient.deliveryStatus === "failed" ? "Gagal" : "Menunggu"}</p></li>)}</ul> : <p className="mt-4 text-sm text-slate-600">Belum ada penerima simulasi.</p>}</section>
+      </div>
+    </section>
+  );
+}
+
+function Violations({ service }: { service: SawService }) {
+  const [data, setData] = useState<ViolationHistoryData>();
+  const [error, setError] = useState<string>();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [zoneId, setZoneId] = useState("all");
+  const [cameraId, setCameraId] = useState("all");
+  const [employeeId, setEmployeeId] = useState("all");
+  const [department, setDepartment] = useState("all");
+  const [status, setStatus] = useState<ViolationRecord["status"] | "all">("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sort, setSort] = useState<"oldest" | "newest" | "confidence-desc">("oldest");
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string>();
+  const pageSize = 3;
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([service.getViolationHistory(), service.getCameras(), service.getZonaBerbahaya(), service.getEmployeeDirectory()]).then(([violations, cameras, zones, directory]) => {
+      if (active) setData({ violations, cameras, zones, employees: directory.employees });
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Riwayat Pelanggaran tidak dapat dimuat.");
+    });
+    return () => { active = false; };
+  }, [service]);
+
+  if (error) return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Riwayat Pelanggaran</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Riwayat Pelanggaran tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  if (!data) return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Riwayat Pelanggaran</h1><p className="mt-6 text-slate-600">Memuat riwayat Pelanggaran…</p></section>;
+
+  const employeeFor = (violation: ViolationRecord) => data.employees.find((employee) => employee.id === violation.employeeId);
+  const zoneFor = (violation: ViolationRecord) => data.zones.find((zone) => zone.id === violation.zoneId);
+  const cameraFor = (violation: ViolationRecord) => data.cameras.find((camera) => camera.id === violation.cameraId);
+  const query = searchTerm.trim().toLowerCase();
+  const historyZones = data.zones.filter((zone) => data.violations.some((violation) => violation.zoneId === zone.id));
+  const historyCameras = data.cameras.filter((camera) => data.violations.some((violation) => violation.cameraId === camera.id));
+  const historyEmployees = data.employees.filter((employee) => data.violations.some((violation) => violation.employeeId === employee.id));
+  const departments = [...new Set(historyEmployees.map((employee) => employee.departmentId))].sort((left, right) => left.localeCompare(right));
+  const filtered = data.violations.filter((violation) => {
+    const employee = employeeFor(violation);
+    const camera = cameraFor(violation);
+    const zone = zoneFor(violation);
+    const searchable = [violation.id, violation.episodeId ?? "", employee ? employeeName(employee) : "Tidak Dikenali", camera?.name ?? "", zone?.name ?? "", violation.missingCanonicalApdClasses?.join(" ") ?? ""].join(" ").toLowerCase();
+    const date = violation.detectedAt?.slice(0, 10) ?? "";
+    return (!query || searchable.includes(query))
+      && (zoneId === "all" || violation.zoneId === zoneId)
+      && (cameraId === "all" || violation.cameraId === cameraId)
+      && (employeeId === "all" || (employeeId === "unidentified" ? !violation.employeeId : violation.employeeId === employeeId))
+      && (department === "all" || employee?.departmentId === department)
+      && (status === "all" || violation.status === status)
+      && (!startDate || date >= startDate)
+      && (!endDate || date <= endDate);
+  }).sort((left, right) => {
+    if (sort === "confidence-desc") return (right.confidence ?? 0) - (left.confidence ?? 0);
+    const comparison = (left.detectedAt ?? "").localeCompare(right.detectedAt ?? "");
+    return sort === "newest" ? -comparison : comparison;
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selected = data.violations.find((violation) => violation.id === selectedId);
+  const updateFilters = (update: () => void) => { update(); setPage(1); setSelectedId(undefined); };
+  const clearFilters = () => { setSearchTerm(""); setZoneId("all"); setCameraId("all"); setEmployeeId("all"); setDepartment("all"); setStatus("all"); setStartDate(""); setEndDate(""); setSort("oldest"); setPage(1); setSelectedId(undefined); };
+  const hasFilters = query || zoneId !== "all" || cameraId !== "all" || employeeId !== "all" || department !== "all" || status !== "all" || startDate || endDate || sort !== "oldest";
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Audit operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Riwayat Pelanggaran</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Telusuri Peristiwa Pelanggaran yang telah dikonfirmasi dari metadata dan timeline audit.</p></div><span className="border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{data.violations.length} Peristiwa Pelanggaran</span></div>
+      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
+        <label className="block text-sm font-medium text-slate-800">Cari riwayat<input aria-label="Cari riwayat Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setSearchTerm(event.target.value))} placeholder="ID, Karyawan, APD, zona" value={searchTerm} /></label>
+        <label className="block text-sm font-medium text-slate-800">Filter Zona Berbahaya<select aria-label="Filter Zona Berbahaya" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setZoneId(event.target.value))} value={zoneId}><option value="all">Semua Zona Berbahaya</option>{historyZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Filter Sumber Kamera<select aria-label="Filter Sumber Kamera" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setCameraId(event.target.value))} value={cameraId}><option value="all">Semua Sumber Kamera</option>{historyCameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Filter Karyawan<select aria-label="Filter Karyawan Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setEmployeeId(event.target.value))} value={employeeId}><option value="all">Semua Karyawan</option><option value="unidentified">Tidak Dikenali</option>{historyEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employeeName(employee)}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Filter departemen<select aria-label="Filter departemen Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setDepartment(event.target.value))} value={department}><option value="all">Semua departemen</option>{departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Filter Status Episode<select aria-label="Filter Status Episode" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setStatus(event.target.value as ViolationRecord["status"] | "all"))} value={status}><option value="all">Semua Status Episode</option><option value="confirmed">Pelanggaran</option><option value="clearing">Memulihkan</option><option value="cleared">Selesai</option></select></label>
+        <label className="block text-sm font-medium text-slate-800">Dari tanggal<input aria-label="Dari tanggal Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setStartDate(event.target.value))} type="date" value={startDate} /></label>
+        <label className="block text-sm font-medium text-slate-800">Sampai tanggal<input aria-label="Sampai tanggal Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setEndDate(event.target.value))} type="date" value={endDate} /></label>
+        <label className="block text-sm font-medium text-slate-800">Urutkan riwayat<select aria-label="Urutkan riwayat Pelanggaran" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setSort(event.target.value as "oldest" | "newest" | "confidence-desc"))} value={sort}><option value="oldest">Terlama</option><option value="newest">Terbaru</option><option value="confidence-desc">Keyakinan deteksi tertinggi</option></select></label>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600"><p>{filtered.length === 0 ? "Tidak ada Peristiwa Pelanggaran yang cocok." : `Menampilkan ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)} dari ${filtered.length} Peristiwa Pelanggaran`}</p>{hasFilters && <Button onClick={clearFilters} size="sm" variant="outline">Bersihkan filter riwayat</Button>}</div>
+      {data.violations.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Belum ada Peristiwa Pelanggaran</p><p className="mt-1 text-sm text-slate-600">Episode Pelanggaran yang belum mencapai Pelanggaran tidak ditampilkan di riwayat.</p></div> : filtered.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada hasil yang cocok.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter riwayat</Button></div> : <div aria-label="Daftar riwayat Pelanggaran" className="mt-4 space-y-3" role="list">{visible.map((violation) => { const employee = employeeFor(violation); const zone = zoneFor(violation); const camera = cameraFor(violation); return <article className="border border-slate-200 bg-white p-4" key={violation.id} role="listitem"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-xs text-slate-500">{violation.id} · {violation.episodeId ?? "Episode Pelanggaran demo"}</p><h2 className="mt-1 font-semibold text-slate-950">{employee ? employeeName(employee) : "Tidak Dikenali"}</h2><p className="mt-1 text-sm text-slate-600">{zone?.name ?? violation.zoneId ?? "Zona tidak tersedia"} · {camera?.name ?? violation.cameraId ?? "Sumber Kamera tidak tersedia"}</p></div><span className={`border px-2 py-1 text-xs font-medium ${violation.status === "confirmed" ? "border-red-200 bg-red-50 text-red-800" : violation.status === "clearing" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-300 bg-slate-50 text-slate-700"}`}>{violationStatusLabels[violation.status]}</span></div><div className="mt-4 flex flex-wrap items-end justify-between gap-3"><p className="font-mono text-xs text-slate-600">{violation.detectedAt ? formatWib(violation.detectedAt) : "Waktu tidak tersedia"}</p><Button aria-label={`Lihat detail ${violation.id}`} onClick={() => setSelectedId(violation.id)} size="sm" variant="outline">Lihat detail {violation.id}</Button></div></article>; })}</div>}
+      {filtered.length > pageSize && <nav aria-label="Pagination riwayat Pelanggaran" className="mt-5 flex items-center justify-between"><Button disabled={currentPage === 1} onClick={() => { setPage((current) => Math.max(1, current - 1)); setSelectedId(undefined); }} size="sm" variant="outline"><ChevronLeft aria-hidden="true" className="mr-1 size-4" />Halaman sebelumnya</Button><span className="font-mono text-xs text-slate-500">Halaman {currentPage} dari {totalPages}</span><Button disabled={currentPage === totalPages} onClick={() => { setPage((current) => Math.min(totalPages, current + 1)); setSelectedId(undefined); }} size="sm" variant="outline">Halaman berikutnya<ChevronRight aria-hidden="true" className="ml-1 size-4" /></Button></nav>}
+      {selected && <ViolationDetail camera={cameraFor(selected)} employee={employeeFor(selected)} violation={selected} zone={zoneFor(selected)} />}
     </section>
   );
 }
@@ -1611,6 +1757,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Overview") return <Overview service={service} />;
   if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
   if (title === "Live Monitoring") return <LiveMonitoring persona={persona} service={service} />;
+  if (title === "Pelanggaran") return <Violations service={service} />;
   if (title === "Karyawan") return <Employees persona={persona} service={service} />;
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
   if (title === "Reset Skor") return <SafetyScoreReset service={service} />;

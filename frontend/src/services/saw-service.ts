@@ -92,13 +92,32 @@ export type ZonaBerbahayaWithViolationHistory = ZonaBerbahaya & {
 };
 
 export type ZonaBerbahayaInput = Omit<ZonaBerbahaya, "id"> & { id?: string };
+export type ViolationTimelineEntry = {
+  status: EpisodeStatus;
+  occurredAt: string;
+  description: string;
+};
+
+export type ViolationNotificationRecipient = {
+  name: string;
+  role: "HRD" | "Supervisor Area";
+  deliveryStatus: "sent" | "failed" | "pending";
+};
+
 export type ViolationRecord = {
   id: string;
-  status: "confirmed" | "cleared";
+  status: "confirmed" | "clearing" | "cleared";
   zoneId?: string;
+  cameraId?: string;
   episodeId?: string;
   employeeId?: string;
   missingCanonicalApdClasses?: string[];
+  confidence?: number;
+  detectedAt?: string;
+  updatedAt?: string;
+  scoreChange?: { before: number; after: number };
+  notificationRecipients?: ViolationNotificationRecipient[];
+  timeline?: ViolationTimelineEntry[];
 };
 
 export type MonitoringScenario = "normal" | "missing-apd" | "unidentified" | "camera-offline" | "score-escalation";
@@ -257,6 +276,7 @@ export interface SawService {
   saveZonaBerbahaya(zone: ZonaBerbahayaInput): Promise<ZonaBerbahayaWithViolationHistory>;
   deactivateZonaBerbahaya(id: string): Promise<ZonaBerbahayaWithViolationHistory>;
   deleteZonaBerbahaya(id: string): Promise<void>;
+  getViolationHistory(): Promise<ViolationRecord[]>;
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
   getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
   resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
@@ -338,8 +358,21 @@ const seedData: DemoData = {
   ],
   escalationThreshold: 60,
   violations: [
-    { id: "VIO-01", status: "confirmed", zoneId: "ZON-01" },
-    { id: "VIO-02", status: "cleared", zoneId: "ZON-04" },
+    {
+      id: "VIO-01", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-001", employeeId: "EMP-02", missingCanonicalApdClasses: ["Rompi Keselamatan"], confidence: 0.96, detectedAt: "2026-09-01T08:10:00+07:00", updatedAt: "2026-09-01T08:20:00+07:00", scoreChange: { before: 92, after: 84 }, notificationRecipients: [{ name: "Supervisor Produksi", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "candidate", occurredAt: "2026-09-01T08:10:00+07:00", description: "Sinyal APD hilang memasuki verifikasi." }, { status: "confirmed", occurredAt: "2026-09-01T08:10:05+07:00", description: "Peristiwa Pelanggaran dicatat dan Skor Keselamatan dikurangi." }, { status: "clearing", occurredAt: "2026-09-01T08:19:00+07:00", description: "Episode Pelanggaran memasuki Memulihkan." }, { status: "cleared", occurredAt: "2026-09-01T08:20:00+07:00", description: "Episode Pelanggaran Selesai dan tetap tersedia dalam riwayat." }],
+    },
+    {
+      id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalApdClasses: ["Masker"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Orang Terdeteksi tidak dapat dicocokkan dengan Karyawan." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Peristiwa Pelanggaran untuk Tidak Dikenali dicatat." }],
+    },
+    {
+      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalApdClasses: ["Helm Keselamatan"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Gudang", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Episode Pelanggaran Selesai." }],
+    },
+    {
+      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalApdClasses: ["Helm Keselamatan", "Rompi Keselamatan"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Episode Pelanggaran Selesai." }],
+    },
+    {
+      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalApdClasses: ["Rompi Keselamatan"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Gudang", role: "Supervisor Area", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Episode Pelanggaran Selesai." }],
+    },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
 };
@@ -413,14 +446,24 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
   const sequence = data.violations.filter((violation) => violation.id.startsWith("VIO-SIM-")).length + 1;
   const eventId = `VIO-SIM-${String(sequence).padStart(2, "0")}`;
   simulation.eventId = eventId;
-  data.violations.push({
+  const violation: ViolationRecord = {
     id: eventId,
     status: "confirmed",
     zoneId: "ZON-01",
+    cameraId: simulation.cameraId,
     episodeId: simulation.episodeId,
     employeeId: simulation.employeeId,
     missingCanonicalApdClasses: clone(simulation.missingCanonicalApdClasses),
-  });
+    confidence: simulation.confidence,
+    detectedAt: "2026-09-09T10:00:00+07:00",
+    updatedAt: "2026-09-09T10:00:00+07:00",
+    notificationRecipients: [],
+    timeline: [
+      { status: "candidate", occurredAt: "2026-09-09T09:59:55+07:00", description: "Sinyal APD hilang memasuki verifikasi." },
+      { status: "confirmed", occurredAt: "2026-09-09T10:00:00+07:00", description: "Peristiwa Pelanggaran dicatat." },
+    ],
+  };
+  data.violations.push(violation);
 
   if (!simulation.employeeId) return;
   const employee = data.employees.find((item) => item.id === simulation.employeeId);
@@ -435,6 +478,7 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
     resetCount: employee.auditSummary?.resetCount ?? 0,
   };
   simulation.scoreChange = { before, after, crossedEscalationThreshold: before >= data.escalationThreshold && after < data.escalationThreshold };
+  violation.scoreChange = { before, after };
 }
 
 function calculateOverview(data: DemoData): OverviewData {
@@ -580,6 +624,12 @@ export function createMockSawService({
         camera.zoneIds = camera.zoneIds.filter((zoneId) => zoneId !== id);
       });
       persist(data);
+    },
+    async getViolationHistory() {
+      if (scenario === "loading") return new Promise<ViolationRecord[]>(() => undefined);
+      if (scenario === "error") throw new Error("Riwayat Pelanggaran tidak dapat dimuat.");
+      if (scenario === "empty") return [];
+      return clone(readData().violations);
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
@@ -738,15 +788,33 @@ export function createMockSawService({
         if (frame.isCompliant) {
           simulation.episodeStatus = "clearing";
           simulation.clearingElapsedSeconds = 0;
+          const event = data.violations.find((violation) => violation.id === simulation.eventId);
+          if (event) {
+            event.status = "clearing";
+            event.updatedAt = "2026-09-09T10:00:01+07:00";
+            event.timeline?.push({ status: "clearing", occurredAt: event.updatedAt, description: "Episode Pelanggaran memasuki Memulihkan." });
+          }
         }
       } else if (simulation.episodeStatus === "clearing") {
-        if (!frame.isCompliant) simulation.episodeStatus = "confirmed";
+        if (!frame.isCompliant) {
+          simulation.episodeStatus = "confirmed";
+          const event = data.violations.find((violation) => violation.id === simulation.eventId);
+          if (event) {
+            event.status = "confirmed";
+            event.updatedAt = "2026-09-09T10:00:02+07:00";
+            event.timeline?.push({ status: "confirmed", occurredAt: event.updatedAt, description: "APD kembali tidak terpenuhi; Episode Pelanggaran kembali menjadi Pelanggaran." });
+          }
+        }
         else {
           simulation.clearingElapsedSeconds += frame.elapsedSeconds;
           if (simulation.clearingElapsedSeconds >= (data.safetySettings?.clearThresholdSeconds ?? defaultSafetySettings.clearThresholdSeconds)) {
             simulation.episodeStatus = "cleared";
             const event = data.violations.find((violation) => violation.id === simulation.eventId);
-            if (event) event.status = "cleared";
+            if (event) {
+              event.status = "cleared";
+              event.updatedAt = "2026-09-09T10:00:03+07:00";
+              event.timeline?.push({ status: "cleared", occurredAt: event.updatedAt, description: "Episode Pelanggaran Selesai." });
+            }
           }
         }
       }
