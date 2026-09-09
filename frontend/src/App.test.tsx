@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -761,5 +761,93 @@ describe("SAW application", () => {
 
     expect(screen.getByRole("heading", { name: "Akses terbatas" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tinjau Reset Skor" })).not.toBeInTheDocument();
+  });
+
+  it("menampilkan Zone Editor untuk Admin/Safety Officer dengan kamera, APD, dan zona seed", async () => {
+    render(
+      <App
+        initialEntries={["/konfigurasi/zona"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" })).toHaveTextContent("Gerbang Produksi");
+    expect(screen.getByRole("heading", { name: "Zona Berbahaya" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Zona Gerbang Utama" })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
+    expect(screen.getByRole("group", { name: "APD wajib" })).toHaveTextContent("Helm Keselamatan");
+  });
+
+  it("menggambar, memindahkan, dan mengubah ukuran Zona Berbahaya dengan pointer", async () => {
+    const user = userEvent.setup();
+    render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+
+    await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    const canvas = screen.getByLabelText("Kanvas Zone Editor");
+    Object.defineProperty(canvas, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 20, pointerId: 1 });
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 60, pointerId: 1 });
+    fireEvent.pointerUp(canvas, { pointerId: 1 });
+    expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toHaveValue(0.1);
+    expect(screen.getByRole("spinbutton", { name: "Koordinat width" })).toHaveValue(0.4);
+
+    await user.click(screen.getByRole("button", { name: "Edit Zona Gerbang Utama" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Pindahkan Zona Gerbang Utama" }), { clientX: 20, clientY: 20, pointerId: 2 });
+    fireEvent.pointerMove(canvas, { clientX: 30, clientY: 40, pointerId: 2 });
+    fireEvent.pointerUp(canvas, { pointerId: 2 });
+    expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toHaveValue(0.22);
+    expect(screen.getByRole("spinbutton", { name: "Koordinat y" })).toHaveValue(0.38);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Ubah ukuran Zona Gerbang Utama" }), { clientX: 34, clientY: 70, pointerId: 3 });
+    fireEvent.pointerMove(canvas, { clientX: 70, clientY: 80, pointerId: 3 });
+    fireEvent.pointerUp(canvas, { pointerId: 3 });
+    expect(screen.getByRole("spinbutton", { name: "Koordinat width" })).toHaveValue(0.58);
+    expect(screen.getByRole("spinbutton", { name: "Koordinat height" })).toHaveValue(0.62);
+  });
+
+  it("menyimpan Zona Berbahaya baru secara persisten dan menampilkannya pada Live Monitoring", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    const firstRender = render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
+
+    await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    await user.click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
+    await user.type(screen.getByRole("textbox", { name: "Nama Zona Berbahaya" }), "Zona Pengujian");
+    await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Zona Berbahaya Zona Pengujian disimpan.");
+    expect(screen.getByRole("article", { name: "Zona Pengujian" })).toBeInTheDocument();
+
+    firstRender.unmount();
+    render(<App initialEntries={["/monitoring/live"]} initialPersona="admin" service={service} />);
+    expect(await screen.findByText("ZON-05")).toBeInTheDocument();
+
+    render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
+    expect(await screen.findByRole("article", { name: "Zona Pengujian" })).toBeInTheDocument();
+  });
+
+  it("memvalidasi nama, APD, dan penugasan Supervisor Area untuk Zona Berbahaya", async () => {
+    const user = userEvent.setup();
+    render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+
+    await screen.findByRole("combobox", { name: "Pilih Sumber Kamera" });
+    await user.click(screen.getByRole("button", { name: "Tambah Zona Berbahaya" }));
+    await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Nama Zona Berbahaya wajib diisi.");
+
+    await user.type(screen.getByRole("textbox", { name: "Nama Zona Berbahaya" }), "Zona Validasi");
+    await user.click(screen.getByRole("checkbox", { name: "Helm Keselamatan" }));
+    await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Pilih minimal satu Kelas APD Kanonis.");
+
+    await user.click(screen.getByRole("checkbox", { name: "Helm Keselamatan" }));
+    await user.click(screen.getByRole("checkbox", { name: "Produksi" }));
+    await user.click(screen.getByRole("button", { name: "Simpan Zona Berbahaya" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Pilih minimal satu Supervisor Area.");
   });
 });

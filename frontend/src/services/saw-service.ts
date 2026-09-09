@@ -70,6 +70,24 @@ export type Camera = {
 
 export type CameraMetadata = Pick<Camera, "name" | "location">;
 export type CameraScope = "all" | { type: "supervisor-area"; area: string };
+export type NormalizedZoneBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type DangerZone = {
+  id: string;
+  name: string;
+  cameraId: string;
+  active: boolean;
+  bounds: NormalizedZoneBounds;
+  requiredCanonicalApdClasses: string[];
+  supervisorAreas: string[];
+};
+
+export type DangerZoneInput = Omit<DangerZone, "id"> & { id?: string };
 export type EmployeeEnrollmentStatus = "enrolled" | "pending" | "not-enrolled";
 
 export type Employee = {
@@ -180,6 +198,7 @@ export type DemoData = {
   safetyScoreResetLogs?: SafetyScoreResetLog[];
   violations: Array<{ id: string; status: "confirmed" | "cleared" }>;
   zones: string[];
+  dangerZones?: DangerZone[];
 };
 
 export type OverviewData = {
@@ -195,6 +214,8 @@ export interface SawService {
   resetDemoData(): Promise<OverviewData>;
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
+  getDangerZones(): Promise<DangerZone[]>;
+  saveDangerZone(zone: DangerZoneInput): Promise<DangerZone>;
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
   getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
   resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
@@ -226,6 +247,13 @@ const defaultCanonicalApdClassConfiguration: CanonicalApdClassConfiguration = {
     mimeType: "application/octet-stream",
   },
 };
+
+const defaultDangerZones: DangerZone[] = [
+  { id: "ZON-01", name: "Zona Gerbang Utama", cameraId: "CAM-01", active: true, bounds: { x: 0.12, y: 0.18, width: 0.3, height: 0.52 }, requiredCanonicalApdClasses: ["Helm Keselamatan", "Rompi Keselamatan"], supervisorAreas: ["Produksi"] },
+  { id: "ZON-02", name: "Zona Mesin Press", cameraId: "CAM-01", active: true, bounds: { x: 0.58, y: 0.2, width: 0.25, height: 0.43 }, requiredCanonicalApdClasses: ["Helm Keselamatan"], supervisorAreas: ["Produksi"] },
+  { id: "ZON-03", name: "Zona Bongkar Gudang", cameraId: "CAM-02", active: true, bounds: { x: 0.16, y: 0.32, width: 0.26, height: 0.38 }, requiredCanonicalApdClasses: ["Helm Keselamatan", "Masker"], supervisorAreas: ["Gudang"] },
+  { id: "ZON-04", name: "Zona Rak Bahan", cameraId: "CAM-02", active: false, bounds: { x: 0.55, y: 0.2, width: 0.28, height: 0.48 }, requiredCanonicalApdClasses: ["Rompi Keselamatan"], supervisorAreas: ["Gudang"] },
+];
 
 const seedData: DemoData = {
   cameras: [
@@ -305,6 +333,7 @@ function normalizeData(input: DemoData): DemoData {
   data.scorePeriods = data.scorePeriods ?? [];
   data.safetyScoreLedger = data.safetyScoreLedger ?? [];
   data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
+  data.dangerZones = data.dangerZones ?? clone(defaultDangerZones);
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
 }
@@ -371,6 +400,44 @@ export function createMockSawService({
       camera.location = metadata.location.trim();
       persist(data);
       return clone(camera);
+    },
+    async getDangerZones() {
+      if (scenario === "loading") return new Promise<DangerZone[]>(() => undefined);
+      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat dimuat.");
+      if (scenario === "empty") return [];
+      return clone(readData().dangerZones ?? []);
+    },
+    async saveDangerZone(zone) {
+      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat disimpan.");
+      if (!zone.name.trim()) throw new Error("Nama Zona Berbahaya wajib diisi.");
+      if (!zone.requiredCanonicalApdClasses.length) throw new Error("Pilih minimal satu Kelas APD Kanonis.");
+      if (!zone.supervisorAreas.length) throw new Error("Pilih minimal satu Supervisor Area.");
+
+      const { x, y, width, height } = zone.bounds;
+      if (![x, y, width, height].every((value) => Number.isFinite(value)) || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > 1 || y + height > 1) {
+        throw new Error("Koordinat Zona Berbahaya harus berada dalam rentang 0 sampai 1.");
+      }
+
+      const data = readData();
+      if (!data.cameras.some((camera) => camera.id === zone.cameraId)) throw new Error("Sumber Kamera tidak ditemukan.");
+
+      const zones = data.dangerZones ?? [];
+      const id = zone.id ?? `ZON-${String(zones.length + 1).padStart(2, "0")}`;
+      const saved: DangerZone = { ...clone(zone), id, name: zone.name.trim() };
+      const existingIndex = zones.findIndex((item) => item.id === id);
+      const previousCameraId = existingIndex === -1 ? undefined : zones[existingIndex].cameraId;
+      if (existingIndex === -1) zones.push(saved);
+      else zones[existingIndex] = saved;
+      data.dangerZones = zones;
+
+      if (previousCameraId && previousCameraId !== saved.cameraId) {
+        const previousCamera = data.cameras.find((camera) => camera.id === previousCameraId);
+        if (previousCamera) previousCamera.zoneIds = previousCamera.zoneIds.filter((zoneId) => zoneId !== id);
+      }
+      const camera = data.cameras.find((item) => item.id === saved.cameraId)!;
+      if (!camera.zoneIds.includes(id)) camera.zoneIds.push(id);
+      persist(data);
+      return clone(saved);
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);

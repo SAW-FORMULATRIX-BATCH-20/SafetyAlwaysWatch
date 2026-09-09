@@ -40,6 +40,9 @@ import {
   type CameraStatus,
   type CanonicalApdClassConfiguration,
   type CanonicalApdClassMapping,
+  type DangerZone,
+  type DangerZoneInput,
+  type NormalizedZoneBounds,
   type Employee,
   type EmployeeDirectoryData,
   type EmployeeScope,
@@ -1293,6 +1296,190 @@ function CanonicalApdClasses({ service }: { service: SawService }) {
   );
 }
 
+type DangerZoneDraft = DangerZoneInput;
+type ZoneDrag = {
+  kind: "move" | "resize";
+  pointer: { x: number; y: number };
+  bounds: NormalizedZoneBounds;
+};
+
+const zonePatterns = ["border-amber-300 bg-amber-400/15", "border-sky-300 bg-sky-400/15 border-dashed", "border-violet-300 bg-violet-400/15", "border-emerald-300 bg-emerald-400/15 border-dashed"];
+
+function clamp(value: number, minimum = 0, maximum = 1) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function normalized(value: number) {
+  return Number(value.toFixed(4));
+}
+
+function pointInZone(event: React.PointerEvent<HTMLElement>, canvas: HTMLElement) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: clamp((event.clientX - rect.left) / rect.width),
+    y: clamp((event.clientY - rect.top) / rect.height),
+  };
+}
+
+function createDangerZoneDraft(camera: Camera, canonicalClasses: string[]): DangerZoneDraft {
+  return {
+    name: "",
+    cameraId: camera.id,
+    active: true,
+    bounds: { x: 0.2, y: 0.2, width: 0.3, height: 0.3 },
+    requiredCanonicalApdClasses: canonicalClasses.slice(0, 1),
+    supervisorAreas: [camera.supervisorArea],
+  };
+}
+
+function DangerZones({ service }: { service: SawService }) {
+  const [cameras, setCameras] = useState<Camera[]>();
+  const [zones, setZones] = useState<DangerZone[]>();
+  const [configuration, setConfiguration] = useState<CanonicalApdClassConfiguration>();
+  const [selectedCameraId, setSelectedCameraId] = useState<string>();
+  const [draft, setDraft] = useState<DangerZoneDraft>();
+  const [drag, setDrag] = useState<ZoneDrag>();
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([service.getCameras(), service.getDangerZones(), service.getCanonicalApdClassConfiguration()])
+      .then(([nextCameras, nextZones, nextConfiguration]) => {
+        if (!active) return;
+        setCameras(nextCameras);
+        setZones(nextZones);
+        setConfiguration(nextConfiguration);
+        setSelectedCameraId(nextCameras[0]?.id);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : "Zona Berbahaya tidak dapat dimuat.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [service]);
+
+  const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
+  const canonicalClasses = [...new Set(configuration?.mappings.filter((mapping) => mapping.active).map((mapping) => mapping.canonicalApdClass) ?? [])];
+  const supervisorAreas = [...new Set(cameras?.map((camera) => camera.supervisorArea) ?? [])];
+  const cameraZones = zones?.filter((zone) => zone.cameraId === selectedCameraId) ?? [];
+
+  const updateDraft = <Field extends keyof DangerZoneDraft>(field: Field, value: DangerZoneDraft[Field]) => {
+    setDraft((current) => current ? { ...current, [field]: value } : current);
+    setError(undefined);
+  };
+
+  const setBounds = (bounds: NormalizedZoneBounds) => updateDraft("bounds", bounds);
+
+  const openDraft = (zone?: DangerZone) => {
+    if (!selectedCamera || !configuration) return;
+    setDraft(zone ? JSON.parse(JSON.stringify(zone)) as DangerZoneDraft : createDangerZoneDraft(selectedCamera, canonicalClasses));
+    setError(undefined);
+    setNotice(undefined);
+  };
+
+  const toggleSelection = (field: "requiredCanonicalApdClasses" | "supervisorAreas", value: string) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const values = current[field];
+      return { ...current, [field]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] };
+    });
+    setError(undefined);
+  };
+
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft) return;
+    setSaving(true);
+    setError(undefined);
+    try {
+      const saved = await service.saveDangerZone(draft);
+      setZones((current) => {
+        const existing = current?.findIndex((zone) => zone.id === saved.id) ?? -1;
+        if (existing === -1) return [...(current ?? []), saved];
+        return current!.map((zone) => zone.id === saved.id ? saved : zone);
+      });
+      setDraft(undefined);
+      setNotice(`Zona Berbahaya ${saved.name} disimpan.`);
+      setCameras(await service.getCameras());
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Zona Berbahaya tidak dapat disimpan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const beginDrawing = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draft || draft.id || !selectedCamera) return;
+    const point = pointInZone(event, event.currentTarget);
+    setBounds({ x: point.x, y: point.y, width: 0.01, height: 0.01 });
+    setDrag({ kind: "resize", pointer: point, bounds: { x: point.x, y: point.y, width: 0.01, height: 0.01 } });
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draft || !drag) return;
+    const point = pointInZone(event, event.currentTarget);
+    if (drag.kind === "move") {
+      const deltaX = point.x - drag.pointer.x;
+      const deltaY = point.y - drag.pointer.y;
+      setBounds({ ...drag.bounds, x: normalized(clamp(drag.bounds.x + deltaX, 0, 1 - drag.bounds.width)), y: normalized(clamp(drag.bounds.y + deltaY, 0, 1 - drag.bounds.height)) });
+      return;
+    }
+    setBounds({ ...drag.bounds, width: normalized(clamp(point.x - drag.bounds.x, 0.01, 1 - drag.bounds.x)), height: normalized(clamp(point.y - drag.bounds.y, 0.01, 1 - drag.bounds.y)) });
+  };
+
+  if (error && !cameras) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Zona Berbahaya</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Zona Berbahaya tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+  if (!cameras || !zones || !configuration || !selectedCamera) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Zona Berbahaya</h1><p className="mt-6 text-slate-600">Memuat Zone Editor…</p></section>;
+  }
+
+  return (
+    <section aria-labelledby="danger-zones-title">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Konfigurasi operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950" id="danger-zones-title">Zona Berbahaya</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Atur cakupan APD pada frame Sumber Kamera simulasi. Koordinat selalu disimpan ternormalisasi agar konsisten di setiap ukuran layar.</p></div>
+        <Button onClick={() => openDraft()}>Tambah Zona Berbahaya</Button>
+      </div>
+      {notice && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{notice}</p>}
+      {error && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
+
+      <label className="mt-8 block max-w-md text-sm font-medium text-slate-800">Pilih Sumber Kamera<select aria-label="Pilih Sumber Kamera" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSelectedCameraId(event.target.value); setDraft(undefined); setError(undefined); }} value={selectedCamera.id}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name} · {camera.location}</option>)}</select></label>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <section aria-label={`Frame Zone Editor ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
+          <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3 text-sm text-slate-200"><span className="font-medium">{selectedCamera.name}</span><span className="font-mono text-xs text-slate-400">{selectedCamera.id}</span></div>
+          <div aria-label="Kanvas Zone Editor" className="relative aspect-video touch-none overflow-hidden bg-slate-900" onPointerDown={beginDrawing} onPointerMove={movePointer} onPointerUp={() => setDrag(undefined)} ref={canvasRef}>
+            <img alt="Ilustrasi area industri fiktif untuk Zone Editor" className="pointer-events-none h-full w-full object-cover" src={industrialMonitoringScene} />
+            <span className="absolute right-4 top-4 border border-amber-300 bg-slate-950/90 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-amber-200">SIMULASI</span>
+            {cameraZones.map((zone, index) => {
+              const displayedZone = draft?.id === zone.id ? draft : zone;
+              return <div className={`absolute border-2 ${zonePatterns[index % zonePatterns.length]} pointer-events-none md:pointer-events-auto`} key={zone.id} style={{ left: `${displayedZone.bounds.x * 100}%`, top: `${displayedZone.bounds.y * 100}%`, width: `${displayedZone.bounds.width * 100}%`, height: `${displayedZone.bounds.height * 100}%` }}><button aria-label={`Pindahkan ${zone.name}`} className="absolute inset-0 w-full cursor-move text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onClick={() => openDraft(zone)} onPointerDown={(event) => { event.stopPropagation(); const point = pointInZone(event, canvasRef.current ?? event.currentTarget); setDraft(JSON.parse(JSON.stringify(zone)) as DangerZoneDraft); setDrag({ kind: "move", pointer: point, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="absolute -top-6 left-0 whitespace-nowrap bg-slate-950/90 px-2 py-1 text-xs font-medium text-white">{zone.name}</span><span className="sr-only">Pindahkan zona dengan pointer.</span></button><button aria-label={`Ubah ukuran ${zone.name}`} className="absolute -bottom-1 -right-1 z-10 size-3 cursor-se-resize border border-white bg-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" onPointerDown={(event) => { event.stopPropagation(); setDraft(JSON.parse(JSON.stringify(zone)) as DangerZoneDraft); setDrag({ kind: "resize", pointer: { x: 0, y: 0 }, bounds: zone.bounds }); event.currentTarget.setPointerCapture?.(event.pointerId); }} type="button"><span className="sr-only">Ubah ukuran zona</span></button></div>;
+            })}
+            {draft && !draft.id && <div aria-label="Zona baru" className="pointer-events-none absolute border-2 border-dashed border-amber-300 bg-amber-400/15" style={{ left: `${draft.bounds.x * 100}%`, top: `${draft.bounds.y * 100}%`, width: `${draft.bounds.width * 100}%`, height: `${draft.bounds.height * 100}%` }} />}
+          </div>
+          <p className="border-t border-slate-700 px-4 py-3 text-xs leading-5 text-slate-300"><span className="hidden md:inline">Gambar zona baru atau tarik zona yang ada untuk memindahkannya.</span><span className="md:hidden">Pada ponsel, frame hanya untuk dilihat. Gunakan input koordinat di bawah.</span></p>
+        </section>
+        <aside className="border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold text-slate-950">Zona pada frame</h2><p className="mt-1 text-sm text-slate-600">{cameraZones.length} zona terkonfigurasi.</p><div className="mt-5 space-y-3">{cameraZones.map((zone, index) => <article aria-label={zone.name} className="border border-slate-200 p-3" key={zone.id}><div className="flex items-start gap-2"><span aria-hidden="true" className={`mt-1 size-3 border-2 ${zonePatterns[index % zonePatterns.length]}`} /><div><p className="font-medium text-slate-950">{zone.name}</p><p className="mt-1 text-xs text-slate-600">{zone.active ? "Aktif" : "Nonaktif"} · {zone.requiredCanonicalApdClasses.join(", ")}</p></div></div><Button className="mt-3" onClick={() => openDraft(zone)} size="sm" variant="outline">Edit {zone.name}</Button></article>)}</div></aside>
+      </div>
+
+      {draft && <form className="mt-6 border border-slate-200 bg-white p-5 sm:p-6" noValidate onSubmit={(event) => void save(event)}>
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{draft.id ? "Edit Zona Berbahaya" : "Tambah Zona Berbahaya"}</h2><p className="mt-1 text-sm text-slate-600">Tetapkan APD dan Supervisor Area sebelum menyimpan zona.</p></div><Button onClick={() => setDraft(undefined)} type="button" variant="outline">Batal</Button></div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium text-slate-800">Nama Zona Berbahaya<input aria-label="Nama Zona Berbahaya" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("name", event.target.value)} value={draft.name} /></label><label className="block text-sm font-medium text-slate-800">Sumber Kamera<select aria-label="Sumber Kamera zona" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("cameraId", event.target.value)} value={draft.cameraId}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name}</option>)}</select></label></div>
+        <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">APD wajib</legend><div className="mt-2 flex flex-wrap gap-3">{canonicalClasses.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.requiredCanonicalApdClasses.includes(item)} onChange={() => toggleSelection("requiredCanonicalApdClasses", item)} type="checkbox" />{item}</label>)}</div></fieldset>
+        <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Supervisor Area</legend><div className="mt-2 flex flex-wrap gap-3">{supervisorAreas.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.supervisorAreas.includes(item)} onChange={() => toggleSelection("supervisorAreas", item)} type="checkbox" />{item}</label>)}</div></fieldset>
+        <label className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-slate-800"><input checked={draft.active} onChange={(event) => updateDraft("active", event.target.checked)} type="checkbox" />Zona aktif</label>
+        <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Koordinat ternormalisasi <span className="font-normal text-slate-500">(0–1)</span></legend><div className="mt-2 grid gap-3 grid-cols-2 sm:grid-cols-4">{(["x", "y", "width", "height"] as const).map((field) => <label className="text-xs font-medium text-slate-600" key={field}>{field === "x" ? "X" : field === "y" ? "Y" : field === "width" ? "Lebar" : "Tinggi"}<input aria-label={`Koordinat ${field}`} className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="1" min="0" onChange={(event) => setBounds({ ...draft.bounds, [field]: Number(event.target.value) })} step="0.01" type="number" value={draft.bounds[field]} /></label>)}</div></fieldset>
+        <div className="mt-6 flex justify-end"><Button disabled={saving} type="submit">{saving ? "Menyimpan…" : "Simpan Zona Berbahaya"}</Button></div>
+      </form>}
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -1314,6 +1501,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
   if (title === "Reset Skor") return <SafetyScoreReset service={service} />;
   if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
+  if (title === "Zona Berbahaya") return <DangerZones service={service} />;
   return <Page title={title} />;
 }
 
