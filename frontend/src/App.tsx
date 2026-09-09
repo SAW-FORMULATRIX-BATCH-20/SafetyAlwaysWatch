@@ -40,6 +40,9 @@ import {
   type CameraStatus,
   type CanonicalApdClassConfiguration,
   type CanonicalApdClassMapping,
+  type EpisodeStatus,
+  type MonitoringScenario,
+  type MonitoringSimulation,
   type ZonaBerbahaya,
   type ZonaBerbahayaInput,
   type ZonaBerbahayaWithViolationHistory,
@@ -565,16 +568,24 @@ function Cameras({ persona, service }: { persona: Persona; service: SawService }
 function LiveMonitoring({ persona, service }: { persona: Persona; service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
   const [zones, setZones] = useState<ZonaBerbahaya[]>();
+  const [simulation, setSimulation] = useState<MonitoringSimulation>();
+  const [settings, setSettings] = useState<SafetySettings>();
   const [selectedCameraId, setSelectedCameraId] = useState<string>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let active = true;
-    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya()]).then(([nextCameras, nextZones]) => {
+    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya(), service.getMonitoringSimulation(), service.getSafetySettings()]).then(([nextCameras, nextZones, nextSimulation, nextSettings]) => {
       if (!active) return;
       setCameras(nextCameras);
       setZones(nextZones);
-      setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current) ? current : nextCameras[0]?.id);
+      setSimulation(nextSimulation);
+      setSettings(nextSettings);
+      setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
+        ? current
+        : nextCameras.some((camera) => camera.id === nextSimulation.cameraId)
+          ? nextSimulation.cameraId
+          : nextCameras[0]?.id);
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : "Live Monitoring tidak dapat dimuat.");
     });
@@ -587,11 +598,25 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
   const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
   const activeZoneIds = selectedCamera?.zoneIds.filter((zoneId) => zones?.some((zone) => zone.id === zoneId && zone.active)) ?? [];
 
+  const selectScenario = async (scenario: MonitoringScenario) => {
+    const nextSimulation = await service.selectMonitoringScenario(scenario);
+    setSimulation(nextSimulation);
+    if (cameras?.some((camera) => camera.id === nextSimulation.cameraId)) setSelectedCameraId(nextSimulation.cameraId);
+  };
+
+  const processFrame = async (isCompliant: boolean, confidence = 0.96) => {
+    if (!settings || !simulation) return;
+    const elapsedSeconds = simulation.episodeStatus === "candidate"
+      ? settings.confirmThresholdSeconds
+      : settings.clearThresholdSeconds;
+    setSimulation(await service.processMonitoringFrame({ confidence, isCompliant, elapsedSeconds }));
+  };
+
   if (error) {
     return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Live Monitoring tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
   }
 
-  if (cameras === undefined || zones === undefined) {
+  if (cameras === undefined || zones === undefined || simulation === undefined || settings === undefined) {
     return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-6 text-slate-600">Memuat Sumber Kamera…</p></section>;
   }
 
@@ -599,7 +624,10 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
     return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada Sumber Kamera dalam cakupan Anda</p><p className="mt-1 text-sm text-slate-600">Pilih area tanggung jawab yang memiliki Sumber Kamera untuk memulai pemantauan.</p></div></section>;
   }
 
-  const isOffline = selectedCamera.status === "offline";
+  const displayedSimulation = simulation.cameraId === selectedCamera.id ? simulation : undefined;
+  const isOffline = selectedCamera.status === "offline" || displayedSimulation?.state === "offline";
+  const episode = displayedSimulation?.state === "episode" ? episodePresentation(displayedSimulation.episodeStatus) : undefined;
+  const activeEpisode = displayedSimulation?.state === "episode" && ["candidate", "confirmed", "clearing"].includes(displayedSimulation.episodeStatus);
 
   return (
     <section>
@@ -614,6 +642,18 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
         </select>
       </label>
 
+      <section aria-label="Simulator Episode Pelanggaran" className="mt-5 border border-amber-200 bg-amber-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-950">Simulator Episode Pelanggaran</h2><p className="mt-1 text-sm text-slate-700">Kontrol ini hanya menjalankan data demo deterministik; tidak mengirim alarm atau menyimpan snapshot.</p></div><span className="font-mono text-xs font-medium tracking-[0.12em] text-amber-900">SIMULASI</span></div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button onClick={() => void selectScenario("normal")} size="sm" type="button" variant="outline">Skenario operasi normal</Button>
+          <Button onClick={() => void selectScenario("missing-apd")} size="sm" type="button" variant="outline">Skenario APD hilang</Button>
+          <Button onClick={() => void selectScenario("unidentified")} size="sm" type="button" variant="outline">Skenario identitas gagal</Button>
+          <Button onClick={() => void selectScenario("camera-offline")} size="sm" type="button" variant="outline">Skenario kamera terputus</Button>
+          <Button onClick={() => void selectScenario("score-escalation")} size="sm" type="button" variant="outline">Skenario skor melewati ambang</Button>
+        </div>
+        {simulation.state === "episode" && <div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => void processFrame(false)} size="sm" type="button">Proses kondisi melanggar</Button><Button onClick={() => void processFrame(true)} size="sm" type="button" variant="outline">Proses kondisi patuh</Button><Button onClick={() => void processFrame(false, 0.2)} size="sm" type="button" variant="outline">Frame confidence rendah</Button></div>}
+      </section>
+
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <section aria-label={`Stage Live Monitoring ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-sm text-slate-200"><span className="font-medium">{selectedCamera.name}</span><span className="font-mono text-xs text-slate-400">{selectedCamera.id}</span></div>
@@ -624,7 +664,7 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
               <div className="absolute inset-0 grid place-items-center bg-slate-950/30 p-6 text-center"><div className="border border-slate-400 bg-slate-950/90 px-5 py-4 text-slate-100"><p className="font-mono text-sm font-medium tracking-[0.14em]">KAMERA OFFLINE</p><p className="mt-2 text-sm text-slate-300">Pembaruan terakhir: {formatWib(selectedCamera.lastUpdatedAt)}</p></div></div>
             ) : (
               <>
-                <div className="absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 border-emerald-400" aria-label="Orang Terdeteksi"><span className="absolute -top-7 left-0 whitespace-nowrap bg-emerald-500 px-2 py-1 text-xs font-medium text-slate-950">Orang Terdeteksi · 96%</span></div>
+                {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" ? null : activeEpisode && episode ? <div aria-label={`Orang Terdeteksi · ${episode.label}`} className={`absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 ${episode.borderClass}`}><span className={`absolute -top-12 left-0 whitespace-nowrap px-2 py-1 text-xs font-medium ${episode.labelClass}`}>{episode.label} · {displayedSimulation.identityLabel} · {Math.round(displayedSimulation.confidence * 100)}%</span></div> : <div className="absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 border-emerald-400" aria-label="Orang Terdeteksi"><span className="absolute -top-7 left-0 whitespace-nowrap bg-emerald-500 px-2 py-1 text-xs font-medium text-slate-950">Kepatuhan APD · Orang Terdeteksi · 96%</span></div>}
                 <div className="absolute bottom-4 left-4 border border-slate-500 bg-slate-950/90 px-3 py-2 text-xs text-slate-100"><p>Pembaruan terakhir: {formatWib(selectedCamera.lastUpdatedAt)}</p></div>
               </>
             )}
@@ -634,10 +674,25 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
           <ConnectionStatus status={selectedCamera.status} />
           <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Lokasi</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Zona Berbahaya aktif</dt><dd className="mt-2 flex flex-wrap gap-2">{activeZoneIds.length ? activeZoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>) : <span className="text-slate-600">Tidak ada Zona Berbahaya aktif.</span>}</dd></div><div><dt className="text-slate-500">Cakupan Supervisor Area</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
           {isOffline && <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Overlay deteksi dihentikan saat kamera offline agar frame lama tidak dibaca sebagai kondisi saat ini.</p>}
+          {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus !== "cleared" && episode && <section aria-label="Status Episode" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">{episode.label}</p><p className="mt-1 text-sm text-slate-600">Identitas: {displayedSimulation.identityLabel}</p>{displayedSimulation.episodeStatus === "candidate" && <p className="mt-1 text-sm text-slate-600">Countdown konfirmasi: {Math.max(0, settings.confirmThresholdSeconds - displayedSimulation.confirmationElapsedSeconds)} detik</p>}{displayedSimulation.episodeStatus === "clearing" && <p className="mt-1 text-sm text-slate-600">Countdown pemulihan: {Math.max(0, settings.clearThresholdSeconds - displayedSimulation.clearingElapsedSeconds)} detik</p>}{displayedSimulation.missingCanonicalApdClasses.length > 0 && <p className="mt-2 text-sm text-slate-600">APD tidak terpenuhi: {displayedSimulation.missingCanonicalApdClasses.join(", ")}</p>}{displayedSimulation.confidence < settings.minimumConfidence && <p className="mt-2 text-sm text-slate-600">Frame di bawah confidence minimum tidak mengubah Status Episode.</p>}{displayedSimulation.eventId && <p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Peristiwa Pelanggaran {displayedSimulation.eventId}</p>}{displayedSimulation.scoreChange && <><p className="mt-2 font-mono text-xs text-slate-700">Skor Keselamatan: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>{displayedSimulation.scoreChange.crossedEscalationThreshold && <p className="mt-2 border-l-2 border-red-500 pl-3 text-sm font-medium text-red-800">Melewati Ambang Eskalasi: {settings.escalationThreshold}</p>}</>}</section>}
+          {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" && <section aria-label="Status Episode" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">Selesai</p><p className="mt-1 text-sm text-slate-600">Overlay aktif dihentikan; Peristiwa Pelanggaran tetap dicatat untuk riwayat audit.</p><p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Peristiwa Pelanggaran {displayedSimulation.eventId}</p>{displayedSimulation.scoreChange && <p className="mt-2 font-mono text-xs text-slate-700">Skor Keselamatan: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>}</section>}
         </aside>
       </div>
     </section>
   );
+}
+
+function episodePresentation(status: EpisodeStatus) {
+  switch (status) {
+    case "candidate":
+      return { label: "Dalam Verifikasi", borderClass: "border-amber-400 border-dashed", labelClass: "bg-amber-400 text-slate-950" };
+    case "confirmed":
+      return { label: "Pelanggaran", borderClass: "border-red-500", labelClass: "bg-red-500 text-white" };
+    case "clearing":
+      return { label: "Memulihkan", borderClass: "border-amber-400", labelClass: "bg-amber-400 text-slate-950" };
+    case "cleared":
+      return { label: "Selesai", borderClass: "border-slate-400", labelClass: "bg-slate-700 text-white" };
+  }
 }
 
 type ScoreStatus = "safe" | "warning" | "critical";

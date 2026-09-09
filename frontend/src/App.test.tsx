@@ -99,6 +99,74 @@ describe("SAW application", () => {
     expect(screen.queryByText("Orang Terdeteksi")).not.toBeInTheDocument();
   });
 
+  it("menjalankan satu Episode Pelanggaran APD hilang tanpa menggandakan Peristiwa Pelanggaran atau pengurangan skor", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="supervisor"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Live Monitoring" });
+    await user.click(screen.getByRole("button", { name: "Skenario APD hilang" }));
+
+    expect(screen.getByText("Dalam Verifikasi")).toBeInTheDocument();
+    expect(screen.getByText(/Countdown konfirmasi: 5 detik/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Orang Terdeteksi · Dalam Verifikasi")).toHaveClass("border-dashed");
+
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+    const episodeStatus = await screen.findByRole("region", { name: "Status Episode" });
+    expect(episodeStatus).toHaveTextContent("Pelanggaran");
+    expect(episodeStatus).toHaveTextContent("Peristiwa Pelanggaran VIO-SIM-01");
+    expect(episodeStatus).toHaveTextContent("Skor Keselamatan: 92 → 84");
+    expect(screen.getByLabelText("Orang Terdeteksi · Pelanggaran")).toHaveClass("border-red-500");
+
+    await user.click(screen.getByRole("button", { name: "Proses kondisi patuh" }));
+    expect(screen.getByText("Memulihkan")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+    expect(screen.getByRole("region", { name: "Status Episode" })).toHaveTextContent("Pelanggaran");
+
+    await user.click(screen.getByRole("button", { name: "Proses kondisi patuh" }));
+    expect(screen.getByText("Memulihkan")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Proses kondisi patuh" }));
+    expect(screen.getByText("Selesai")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Orang Terdeteksi/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Peristiwa Pelanggaran VIO-SIM-01/i)).toHaveLength(1);
+  });
+
+  it("menyediakan skenario identitas gagal, frame rendah, kamera terputus, dan skor melewati ambang", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Live Monitoring" });
+    await user.click(screen.getByRole("button", { name: "Skenario operasi normal" }));
+    expect(await screen.findByText(/Kepatuhan APD · Orang Terdeteksi/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Skenario identitas gagal" }));
+    expect(await screen.findByRole("region", { name: /Stage Live Monitoring/i })).toHaveTextContent("Tidak Dikenali");
+    await user.click(screen.getByRole("button", { name: "Frame confidence rendah" }));
+    expect(screen.getByText("Dalam Verifikasi")).toBeInTheDocument();
+    expect(screen.getByText(/Frame di bawah confidence minimum/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Skenario skor melewati ambang" }));
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+    expect(await screen.findByText(/Skor Keselamatan: 65 → 55/i)).toBeInTheDocument();
+    expect(screen.getByText(/Melewati Ambang Eskalasi: 60/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Skenario kamera terputus" }));
+    expect(await screen.findByText("KAMERA OFFLINE")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Orang Terdeteksi/i })).not.toBeInTheDocument();
+  });
+
   it("menampilkan kelompok navigasi sesuai hak akses Admin/Safety Officer", () => {
     render(
       <App initialEntries={["/overview"]} initialPersona="admin" />,
