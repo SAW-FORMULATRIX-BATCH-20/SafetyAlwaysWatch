@@ -36,6 +36,10 @@ _Avoid_: Unknown user, anonymous employee
 The condition in which an Orang Terdeteksi inside a Zona Berbahaya is wearing every APD required by that zone.
 _Avoid_: Safety compliance when referring specifically to PPE
 
+**Keyakinan Deteksi**:
+Nilai 0–1 yang menyatakan tingkat keandalan hasil deteksi model untuk Orang Terdeteksi atau APD.
+_Avoid_: Confidence
+
 **Skor Keselamatan**:
 A Karyawan's current numerical safety standing, reduced by confirmed violations and restored by a score reset.
 _Avoid_: Skor Kredit Keamanan in user-facing copy, safety points

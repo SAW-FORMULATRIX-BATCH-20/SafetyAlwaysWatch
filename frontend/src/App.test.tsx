@@ -16,6 +16,142 @@ const withCameras = (cameras: DemoData["cameras"]): DemoData => ({
 });
 
 describe("SAW application", () => {
+  it("menampilkan riwayat Pelanggaran yang dapat ditelusuri tanpa snapshot", async () => {
+    const user = userEvent.setup();
+
+    const service = createMockSawService({ storage: null });
+
+    render(
+      <App
+        initialEntries={["/pelanggaran"]}
+        initialPersona="admin"
+        service={service}
+      />,
+    );
+
+    expect(await screen.findByRole("button", { name: "Lihat detail VIO-01" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Riwayat Pelanggaran" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-02" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Lihat detail VIO-02" }));
+
+    const detail = screen.getByLabelText("Detail VIO-02");
+    expect(within(detail).getByRole("heading", { name: "Detail Peristiwa Pelanggaran" })).toBeInTheDocument();
+    expect(screen.getAllByText("Tidak Dikenali").length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(1);
+    expect(within(detail).getByText("Timeline Episode Pelanggaran")).toBeInTheDocument();
+    expect(within(detail).getByText("Masker")).toBeInTheDocument();
+    expect(within(detail).getByText("Keyakinan deteksi")).toBeInTheDocument();
+    expect(screen.queryByText(/snapshot/i)).not.toBeInTheDocument();
+  });
+
+  it("memfilter dan mengurutkan riwayat Pelanggaran pada daftar yang dipaginasi", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/pelanggaran"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("button", { name: "Lihat detail VIO-01" });
+    expect(screen.queryByRole("button", { name: "Lihat detail VIO-04" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Halaman berikutnya" }));
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-04" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Urutkan riwayat Pelanggaran" }), "newest");
+    expect(within(screen.getByRole("list", { name: "Daftar riwayat Pelanggaran" })).getAllByRole("listitem")[0]).toHaveTextContent("VIO-05");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Sumber Kamera" }), "CAM-02");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter departemen Pelanggaran" }), "Produksi");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Status Episode" }), "cleared");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Urutkan riwayat Pelanggaran" }), "confidence-desc");
+
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-04" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lihat detail VIO-03" })).not.toBeInTheDocument();
+  });
+
+  it("menerapkan pencarian, Zona Berbahaya, Karyawan, dan rentang tanggal pada riwayat Pelanggaran", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/pelanggaran"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("button", { name: "Lihat detail VIO-01" });
+    await user.type(screen.getByRole("textbox", { name: "Cari riwayat Pelanggaran" }), "Tidak Dikenali");
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-02" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lihat detail VIO-01" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bersihkan filter riwayat" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Zona Berbahaya" }), "ZON-04");
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-02" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bersihkan filter riwayat" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Karyawan Pelanggaran" }), "unidentified");
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-02" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bersihkan filter riwayat" }));
+    fireEvent.change(screen.getByLabelText("Dari tanggal Pelanggaran"), { target: { value: "2026-09-05" } });
+    fireEvent.change(screen.getByLabelText("Sampai tanggal Pelanggaran"), { target: { value: "2026-09-05" } });
+    expect(screen.getByRole("button", { name: "Lihat detail VIO-05" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lihat detail VIO-04" })).not.toBeInTheDocument();
+  });
+
+  it("menyimpan perubahan Skor Keselamatan dan transisi Memulihkan ke riwayat Episode Pelanggaran", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: null });
+
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="supervisor"
+        service={service}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Live Monitoring" });
+    await user.click(screen.getByRole("button", { name: "Skenario APD hilang" }));
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+    await user.click(screen.getByRole("button", { name: "Proses kondisi patuh" }));
+    expect(screen.getByText("Memulihkan")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+    expect(screen.getByRole("region", { name: "Status Episode" })).toHaveTextContent("Pelanggaran");
+
+    await user.click(screen.getByRole("link", { name: "Pelanggaran" }));
+    await screen.findByRole("heading", { name: "Riwayat Pelanggaran" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Urutkan riwayat Pelanggaran" }), "newest");
+    await user.click(screen.getByRole("button", { name: "Lihat detail VIO-SIM-01" }));
+
+    const detail = screen.getByLabelText("Detail VIO-SIM-01");
+    expect(within(detail).getByText("92 → 84")).toBeInTheDocument();
+    expect(within(detail).getByText("Episode Pelanggaran memasuki Memulihkan.")).toBeInTheDocument();
+    expect(within(detail).getByText("APD kembali tidak terpenuhi; Episode Pelanggaran kembali menjadi Pelanggaran.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["loading", "Memuat riwayat Pelanggaran…"],
+    ["empty", "Belum ada Peristiwa Pelanggaran"],
+    ["error", "Riwayat Pelanggaran tidak dapat dimuat"],
+  ] as const)("menampilkan state %s untuk riwayat Pelanggaran", async (scenario, expectedText) => {
+    render(
+      <App
+        initialEntries={["/pelanggaran"]}
+        initialPersona="admin"
+        service={createMockSawService({ scenario, storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText(expectedText)).toBeInTheDocument();
+  });
+
   it("mengarahkan Admin/Safety Officer ke Overview setelah login demo", async () => {
     const user = userEvent.setup();
 
