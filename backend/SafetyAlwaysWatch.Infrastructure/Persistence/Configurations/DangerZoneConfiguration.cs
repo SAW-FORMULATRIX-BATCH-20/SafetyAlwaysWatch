@@ -9,7 +9,7 @@ public class DangerZoneConfiguration : IEntityTypeConfiguration<DangerZone>
     public void Configure(EntityTypeBuilder<DangerZone> builder)
     {
         builder.HasKey(x => x.Id);
-        
+
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(200);

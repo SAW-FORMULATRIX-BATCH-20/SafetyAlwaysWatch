@@ -3,18 +3,24 @@ using Microsoft.AspNetCore.Mvc;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Interfaces;
 
+using FluentValidation;
+using SafetyAlwaysWatch.Application.Common;
+using SafetyAlwaysWatch.Application.Common.Models;
+
 namespace SafetyAlwaysWatch.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin, Safety Officer, HRD")]
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeService _employeeService;
+    private readonly IValidator<GetEmployeesQuery> _validator;
 
-    public EmployeesController(IEmployeeService employeeService)
+    public EmployeesController(IEmployeeService employeeService, IValidator<GetEmployeesQuery> validator)
     {
         _employeeService = employeeService;
+        _validator = validator;
     }
 
     /// <summary>
@@ -23,6 +29,16 @@ public class EmployeesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetEmployees([FromQuery] GetEmployeesQuery query, CancellationToken cancellationToken)
     {
+        var validationResult = await _validator.ValidateAsync(query, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = validationResult.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            return BadRequest(ServiceResult<PaginatedList<EmployeeDto>>.ValidationFailure(errors));
+        }
+
         var result = await _employeeService.GetEmployeesAsync(query, cancellationToken);
         return Ok(result);
     }

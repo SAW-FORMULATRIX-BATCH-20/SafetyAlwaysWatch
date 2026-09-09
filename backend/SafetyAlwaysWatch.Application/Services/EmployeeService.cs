@@ -64,11 +64,11 @@ public class EmployeeService : IEmployeeService
 
         dbQuery = query.SortBy?.ToLower() switch
         {
-            "score" => query.SortDirection?.ToLower() == "desc" 
-                ? dbQuery.OrderByDescending(x => x.SafetyCreditScore) 
+            "score" => query.SortDirection?.ToLower() == "desc"
+                ? dbQuery.OrderByDescending(x => x.SafetyCreditScore)
                 : dbQuery.OrderBy(x => x.SafetyCreditScore),
-            _ => query.SortDirection?.ToLower() == "desc" 
-                ? dbQuery.OrderByDescending(x => x.FullName) 
+            _ => query.SortDirection?.ToLower() == "desc"
+                ? dbQuery.OrderByDescending(x => x.FullName)
                 : dbQuery.OrderBy(x => x.FullName)
         };
 
@@ -78,7 +78,7 @@ public class EmployeeService : IEmployeeService
         foreach (var emp in paginatedEmployees.Items)
         {
             var dto = _mapper.Map<EmployeeDto>(emp);
-            
+
             // Supervisor Area: finding all DangerZones where this employee is a supervisor
             var supervisedZones = await _dangerZoneRepository.Query()
                 .Where(z => z.SupervisorIds.Contains(emp.Id))
@@ -90,9 +90,9 @@ public class EmployeeService : IEmployeeService
         }
 
         var paginatedDto = new PaginatedList<EmployeeDto>(
-            employeeDtos, 
-            paginatedEmployees.TotalCount, 
-            paginatedEmployees.PageNumber, 
+            employeeDtos,
+            paginatedEmployees.TotalCount,
+            paginatedEmployees.PageNumber,
             paginatedEmployees.PageSize);
 
         return ServiceResult<PaginatedList<EmployeeDto>>.Success(paginatedDto);

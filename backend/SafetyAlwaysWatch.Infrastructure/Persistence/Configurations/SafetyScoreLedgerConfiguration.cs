@@ -9,7 +9,7 @@ public class SafetyScoreLedgerConfiguration : IEntityTypeConfiguration<SafetySco
     public void Configure(EntityTypeBuilder<SafetyScoreLedger> builder)
     {
         builder.HasKey(x => x.Id);
-        
+
         builder.HasIndex(x => x.EmployeeId);
         builder.HasIndex(x => x.Timestamp);
     }

@@ -4,7 +4,7 @@ public class GetEmployeesQuery
 {
     public string? Search { get; set; }
     public string? Department { get; set; }
-    
+
     // "Aman" atau "Kritis"
     public string? SafetyStatus { get; set; }
 
