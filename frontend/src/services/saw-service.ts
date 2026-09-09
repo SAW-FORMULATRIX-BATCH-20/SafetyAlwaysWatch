@@ -96,6 +96,35 @@ export type ViolationRecord = {
   id: string;
   status: "confirmed" | "cleared";
   zoneId?: string;
+  episodeId?: string;
+  employeeId?: string;
+  missingCanonicalApdClasses?: string[];
+};
+
+export type MonitoringScenario = "normal" | "missing-apd" | "unidentified" | "camera-offline" | "score-escalation";
+export type EpisodeStatus = "candidate" | "confirmed" | "clearing" | "cleared";
+export type MonitoringSimulationState = "normal" | "episode" | "offline";
+export type MonitoringFrame = {
+  confidence: number;
+  isCompliant: boolean;
+  elapsedSeconds: number;
+};
+
+export type MonitoringSimulation = {
+  scenario: MonitoringScenario;
+  cameraId: string;
+  state: MonitoringSimulationState;
+  episodeId?: string;
+  episodeStatus: EpisodeStatus;
+  confidence: number;
+  identity: "employee" | "unidentified";
+  employeeId?: string;
+  identityLabel: string;
+  missingCanonicalApdClasses: string[];
+  confirmationElapsedSeconds: number;
+  clearingElapsedSeconds: number;
+  eventId?: string;
+  scoreChange?: { before: number; after: number; crossedEscalationThreshold: boolean };
 };
 export type EmployeeEnrollmentStatus = "enrolled" | "pending" | "not-enrolled";
 
@@ -208,6 +237,7 @@ export type DemoData = {
   violations: ViolationRecord[];
   zones: string[];
   zonaBerbahaya?: ZonaBerbahaya[];
+  monitoringSimulation?: MonitoringSimulation;
 };
 
 export type OverviewData = {
@@ -234,6 +264,9 @@ export interface SawService {
   updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
   getCanonicalApdClassConfiguration(): Promise<CanonicalApdClassConfiguration>;
   updateCanonicalApdClassConfiguration(configuration: CanonicalApdClassConfiguration): Promise<CanonicalApdClassConfiguration>;
+  getMonitoringSimulation(): Promise<MonitoringSimulation>;
+  selectMonitoringScenario(scenario: MonitoringScenario): Promise<MonitoringSimulation>;
+  processMonitoringFrame(frame: MonitoringFrame): Promise<MonitoringSimulation>;
 }
 
 type MockServiceOptions = {
@@ -345,8 +378,63 @@ function normalizeData(input: DemoData): DemoData {
   data.safetyScoreLedger = data.safetyScoreLedger ?? [];
   data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
   data.zonaBerbahaya = data.zonaBerbahaya ?? clone(defaultZonaBerbahaya);
+  data.monitoringSimulation = data.monitoringSimulation?.state
+    ? data.monitoringSimulation
+    : createMonitoringSimulation("normal");
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
+}
+
+function createMonitoringSimulation(scenario: MonitoringScenario, episodeNumber = 1): MonitoringSimulation {
+  const episodeId = `EPS-SIM-${String(episodeNumber).padStart(2, "0")}`;
+  switch (scenario) {
+    case "missing-apd":
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Karyawan Produksi 01", missingCanonicalApdClasses: ["Rompi Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+    case "unidentified":
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "unidentified", identityLabel: "Tidak Dikenali", missingCanonicalApdClasses: ["Rompi Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+    case "camera-offline":
+      return { scenario, cameraId: "CAM-02", state: "offline", episodeStatus: "cleared", confidence: 0, identity: "unidentified", identityLabel: "Tidak Dikenali", missingCanonicalApdClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+    case "score-escalation":
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-12", identityLabel: "Karyawan Pemeliharaan 04", missingCanonicalApdClasses: ["Helm Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+    default:
+      return { scenario, cameraId: "CAM-01", state: "normal", episodeStatus: "cleared", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Karyawan Produksi 01", missingCanonicalApdClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+  }
+}
+
+function deductionFor(data: DemoData, canonicalApdClasses: string[]) {
+  return canonicalApdClasses.reduce((total, apdClass) => {
+    return total + (data.safetySettings?.deductions.find((item) => item.canonicalApdClass === apdClass)?.points ?? 0);
+  }, 0);
+}
+
+function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimulation) {
+  if (simulation.eventId) return;
+
+  const sequence = data.violations.filter((violation) => violation.id.startsWith("VIO-SIM-")).length + 1;
+  const eventId = `VIO-SIM-${String(sequence).padStart(2, "0")}`;
+  simulation.eventId = eventId;
+  data.violations.push({
+    id: eventId,
+    status: "confirmed",
+    zoneId: "ZON-01",
+    episodeId: simulation.episodeId,
+    employeeId: simulation.employeeId,
+    missingCanonicalApdClasses: clone(simulation.missingCanonicalApdClasses),
+  });
+
+  if (!simulation.employeeId) return;
+  const employee = data.employees.find((item) => item.id === simulation.employeeId);
+  if (!employee) return;
+  const deduction = deductionFor(data, simulation.missingCanonicalApdClasses);
+  const before = employee.safetyScore;
+  const after = Math.max(0, before - deduction);
+  employee.safetyScore = after;
+  employee.lastAuditAt = "2026-09-09T10:00:00+07:00";
+  employee.auditSummary = {
+    violationCount: (employee.auditSummary?.violationCount ?? 0) + 1,
+    resetCount: employee.auditSummary?.resetCount ?? 0,
+  };
+  simulation.scoreChange = { before, after, crossedEscalationThreshold: before >= data.escalationThreshold && after < data.escalationThreshold };
 }
 
 function calculateOverview(data: DemoData): OverviewData {
@@ -376,11 +464,20 @@ export function createMockSawService({
   scenario = "ready",
   storage = typeof window === "undefined" ? null : window.localStorage,
 }: MockServiceOptions = {}): SawService {
-  const persist = (data: DemoData) => storage?.setItem(storageKey, JSON.stringify(data));
+  let inMemoryData: DemoData | undefined;
+  const persist = (data: DemoData) => {
+    inMemoryData = clone(data);
+    storage?.setItem(storageKey, JSON.stringify(data));
+  };
 
   const readData = (): DemoData => {
     const persisted = storage?.getItem(storageKey);
-    if (persisted) return normalizeData(JSON.parse(persisted) as DemoData);
+    if (persisted) {
+      const data = normalizeData(JSON.parse(persisted) as DemoData);
+      inMemoryData = clone(data);
+      return data;
+    }
+    if (inMemoryData) return clone(inMemoryData);
 
     const data = normalizeData(initialData ?? seedData);
     persist(data);
@@ -604,6 +701,58 @@ export function createMockSawService({
       data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(configuration);
       persist(data);
       return clone(data.canonicalApdClassConfiguration);
+    },
+    async getMonitoringSimulation() {
+      if (scenario === "error") throw new Error("Simulator Episode Pelanggaran tidak dapat dimuat.");
+      return clone(readData().monitoringSimulation ?? createMonitoringSimulation("normal"));
+    },
+    async selectMonitoringScenario(nextScenario) {
+      const data = readData();
+      const episodeNumber = data.violations.filter((violation) => violation.episodeId?.startsWith("EPS-SIM-")).length + 1;
+      const simulation = createMonitoringSimulation(nextScenario, episodeNumber);
+      data.monitoringSimulation = simulation;
+      persist(data);
+      return clone(simulation);
+    },
+    async processMonitoringFrame(frame) {
+      const data = readData();
+      const simulation = data.monitoringSimulation ?? createMonitoringSimulation("normal");
+      simulation.confidence = frame.confidence;
+      const minimumConfidence = data.safetySettings?.minimumConfidence ?? defaultSafetySettings.minimumConfidence;
+      if (frame.confidence < minimumConfidence || simulation.state !== "episode") {
+        data.monitoringSimulation = simulation;
+        persist(data);
+        return clone(simulation);
+      }
+
+      if (simulation.episodeStatus === "candidate") {
+        if (frame.isCompliant) simulation.state = "normal";
+        else {
+          simulation.confirmationElapsedSeconds += frame.elapsedSeconds;
+          if (simulation.confirmationElapsedSeconds >= (data.safetySettings?.confirmThresholdSeconds ?? defaultSafetySettings.confirmThresholdSeconds)) {
+            simulation.episodeStatus = "confirmed";
+            confirmMonitoringSimulation(data, simulation);
+          }
+        }
+      } else if (simulation.episodeStatus === "confirmed") {
+        if (frame.isCompliant) {
+          simulation.episodeStatus = "clearing";
+          simulation.clearingElapsedSeconds = 0;
+        }
+      } else if (simulation.episodeStatus === "clearing") {
+        if (!frame.isCompliant) simulation.episodeStatus = "confirmed";
+        else {
+          simulation.clearingElapsedSeconds += frame.elapsedSeconds;
+          if (simulation.clearingElapsedSeconds >= (data.safetySettings?.clearThresholdSeconds ?? defaultSafetySettings.clearThresholdSeconds)) {
+            simulation.episodeStatus = "cleared";
+            const event = data.violations.find((violation) => violation.id === simulation.eventId);
+            if (event) event.status = "cleared";
+          }
+        }
+      }
+      data.monitoringSimulation = simulation;
+      persist(data);
+      return clone(simulation);
     },
   };
 }
