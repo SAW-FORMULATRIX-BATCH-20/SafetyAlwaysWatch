@@ -104,6 +104,38 @@ export type ViolationNotificationRecipient = {
   deliveryStatus: "sent" | "failed" | "pending";
 };
 
+export type NotificationRecipientRole = "HRD" | "Supervisor Area";
+
+export type NotificationRecipientScope =
+  | { type: "global" }
+  | { type: "zone"; zoneId: string }
+  | { type: "department"; departmentId: string };
+
+export type NotificationRecipient = {
+  id: string;
+  name: string;
+  role: NotificationRecipientRole;
+  maskedChatId: string;
+  scope: NotificationRecipientScope;
+};
+
+export type NotificationRecipientInput = {
+  name: string;
+  role: NotificationRecipientRole;
+  chatId: string;
+  scope: NotificationRecipientScope;
+};
+
+export type NotificationSimulationLog = {
+  id: string;
+  recipientId: string;
+  recipientName: string;
+  recipientRole: NotificationRecipientRole;
+  deliveryStatus: "sent" | "failed";
+  violationId: string;
+  occurredAt: string;
+};
+
 export type ViolationRecord = {
   id: string;
   status: "confirmed" | "clearing" | "cleared";
@@ -257,6 +289,8 @@ export type DemoData = {
   zones: string[];
   zonaBerbahaya?: ZonaBerbahaya[];
   monitoringSimulation?: MonitoringSimulation;
+  notificationRecipients?: NotificationRecipient[];
+  notificationLogs?: NotificationSimulationLog[];
 };
 
 export type OverviewData = {
@@ -284,6 +318,11 @@ export interface SawService {
   updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
   getCanonicalApdClassConfiguration(): Promise<CanonicalApdClassConfiguration>;
   updateCanonicalApdClassConfiguration(configuration: CanonicalApdClassConfiguration): Promise<CanonicalApdClassConfiguration>;
+  getNotificationRecipients(): Promise<NotificationRecipient[]>;
+  saveNotificationRecipient(input: NotificationRecipientInput): Promise<NotificationRecipient>;
+  deleteNotificationRecipient(id: string): Promise<void>;
+  getNotificationSimulationLogs(): Promise<NotificationSimulationLog[]>;
+  simulateNotification(recipientId: string, deliveryStatus: "sent" | "failed"): Promise<NotificationSimulationLog>;
   getMonitoringSimulation(): Promise<MonitoringSimulation>;
   selectMonitoringScenario(scenario: MonitoringScenario): Promise<MonitoringSimulation>;
   processMonitoringFrame(frame: MonitoringFrame): Promise<MonitoringSimulation>;
@@ -317,6 +356,12 @@ const defaultZonaBerbahaya: ZonaBerbahaya[] = [
   { id: "ZON-02", name: "Zona Mesin Press", cameraId: "CAM-01", active: true, bounds: { x: 0.58, y: 0.2, width: 0.25, height: 0.43 }, requiredCanonicalApdClasses: ["Helm Keselamatan"], supervisorAreas: ["Produksi"] },
   { id: "ZON-03", name: "Zona Bongkar Gudang", cameraId: "CAM-02", active: true, bounds: { x: 0.16, y: 0.32, width: 0.26, height: 0.38 }, requiredCanonicalApdClasses: ["Helm Keselamatan", "Masker"], supervisorAreas: ["Gudang"] },
   { id: "ZON-04", name: "Zona Rak Bahan", cameraId: "CAM-02", active: false, bounds: { x: 0.55, y: 0.2, width: 0.28, height: 0.48 }, requiredCanonicalApdClasses: ["Rompi Keselamatan"], supervisorAreas: ["Gudang"] },
+];
+
+const defaultNotificationRecipients: NotificationRecipient[] = [
+  { id: "REC-01", name: "HRD Operasional", role: "HRD", maskedChatId: "•••• 4821", scope: { type: "global" } },
+  { id: "REC-02", name: "Supervisor Produksi", role: "Supervisor Area", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
+  { id: "REC-03", name: "Supervisor Pemeliharaan", role: "Supervisor Area", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Pemeliharaan" } },
 ];
 
 const seedData: DemoData = {
@@ -375,6 +420,11 @@ const seedData: DemoData = {
     },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
+  notificationRecipients: defaultNotificationRecipients,
+  notificationLogs: [
+    { id: "NTF-01", recipientId: "REC-02", recipientName: "Supervisor Produksi", recipientRole: "Supervisor Area", deliveryStatus: "sent", violationId: "VIO-01", occurredAt: "2026-09-01T08:10:05+07:00" },
+    { id: "NTF-02", recipientId: "REC-03", recipientName: "Supervisor Pemeliharaan", recipientRole: "Supervisor Area", deliveryStatus: "failed", violationId: "VIO-05", occurredAt: "2026-09-05T13:45:05+07:00" },
+  ],
 };
 
 function clone<T>(value: T): T {
@@ -411,6 +461,8 @@ function normalizeData(input: DemoData): DemoData {
   data.safetyScoreLedger = data.safetyScoreLedger ?? [];
   data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
   data.zonaBerbahaya = data.zonaBerbahaya ?? clone(defaultZonaBerbahaya);
+  data.notificationRecipients = data.notificationRecipients ?? clone(defaultNotificationRecipients);
+  data.notificationLogs = data.notificationLogs ?? [];
   data.monitoringSimulation = data.monitoringSimulation?.state
     ? data.monitoringSimulation
     : createMonitoringSimulation("normal");
@@ -438,6 +490,47 @@ function deductionFor(data: DemoData, canonicalApdClasses: string[]) {
   return canonicalApdClasses.reduce((total, apdClass) => {
     return total + (data.safetySettings?.deductions.find((item) => item.canonicalApdClass === apdClass)?.points ?? 0);
   }, 0);
+}
+
+function maskChatId(chatId: string) {
+  const normalized = chatId.replace(/\s/g, "");
+  if (normalized.length < 4) throw new Error("Chat ID Telegram harus berisi minimal 4 karakter.");
+  return `•••• ${normalized.slice(-4)}`;
+}
+
+function nextNotificationRecipientId(recipients: NotificationRecipient[]) {
+  const highestSequence = recipients.reduce((highest, recipient) => {
+    const sequence = Number(recipient.id.replace("REC-", ""));
+    return Number.isInteger(sequence) ? Math.max(highest, sequence) : highest;
+  }, 0);
+  return `REC-${String(highestSequence + 1).padStart(2, "0")}`;
+}
+
+function appendNotificationSimulationLog(
+  data: DemoData,
+  recipient: NotificationRecipient,
+  deliveryStatus: "sent" | "failed",
+  violationId: string,
+  occurredAt: string,
+): NotificationSimulationLog {
+  const log: NotificationSimulationLog = {
+    id: `NTF-${String((data.notificationLogs?.length ?? 0) + 1).padStart(2, "0")}`,
+    recipientId: recipient.id,
+    recipientName: recipient.name,
+    recipientRole: recipient.role,
+    deliveryStatus,
+    violationId,
+    occurredAt,
+  };
+  data.notificationLogs?.push(log);
+  const violation = data.violations.find((item) => item.id === violationId);
+  if (violation) {
+    violation.notificationRecipients = [
+      ...(violation.notificationRecipients ?? []).filter((item) => item.name !== recipient.name || item.role !== recipient.role),
+      { name: recipient.name, role: recipient.role, deliveryStatus },
+    ];
+  }
+  return log;
 }
 
 function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimulation) {
@@ -479,6 +572,14 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
   };
   simulation.scoreChange = { before, after, crossedEscalationThreshold: before >= data.escalationThreshold && after < data.escalationThreshold };
   violation.scoreChange = { before, after };
+  if (simulation.scoreChange.crossedEscalationThreshold) {
+    const recipients = data.notificationRecipients?.filter((recipient) => {
+      if (recipient.role === "HRD") return recipient.scope.type === "global";
+      return (recipient.scope.type === "zone" && recipient.scope.zoneId === violation.zoneId)
+        || (recipient.scope.type === "department" && recipient.scope.departmentId === employee.departmentId);
+    }) ?? [];
+    recipients.forEach((recipient) => appendNotificationSimulationLog(data, recipient, "sent", violation.id, violation.detectedAt ?? "2026-09-09T10:00:00+07:00"));
+  }
 }
 
 function calculateOverview(data: DemoData): OverviewData {
@@ -751,6 +852,61 @@ export function createMockSawService({
       data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(configuration);
       persist(data);
       return clone(data.canonicalApdClassConfiguration);
+    },
+    async getNotificationRecipients() {
+      if (scenario === "loading") return new Promise<NotificationRecipient[]>(() => undefined);
+      if (scenario === "error") throw new Error("Konfigurasi notifikasi tidak dapat dimuat.");
+      return clone(readData().notificationRecipients ?? []);
+    },
+    async saveNotificationRecipient(input) {
+      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat disimpan.");
+      const name = input.name.trim();
+      const scope = input.scope;
+      if (!name) throw new Error("Nama penerima wajib diisi.");
+      if (input.role === "HRD" && scope.type !== "global") throw new Error("Penerima HRD harus memakai cakupan global.");
+      if (input.role === "Supervisor Area" && scope.type === "global") throw new Error("Supervisor Area harus dikaitkan dengan Zona Berbahaya atau departemen.");
+
+      const data = readData();
+      if (scope.type === "zone" && !data.zonaBerbahaya?.some((zone) => zone.id === scope.zoneId)) {
+        throw new Error("Zona Berbahaya tidak ditemukan.");
+      }
+      if (scope.type === "department" && !data.departments.includes(scope.departmentId)) {
+        throw new Error("Departemen tidak ditemukan.");
+      }
+      const recipient: NotificationRecipient = {
+        id: nextNotificationRecipientId(data.notificationRecipients ?? []),
+        name,
+        role: input.role,
+        maskedChatId: maskChatId(input.chatId),
+        scope: clone(scope),
+      };
+      data.notificationRecipients?.push(recipient);
+      persist(data);
+      return clone(recipient);
+    },
+    async deleteNotificationRecipient(id) {
+      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat dihapus.");
+      const data = readData();
+      const recipient = data.notificationRecipients?.find((item) => item.id === id);
+      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      data.notificationRecipients = data.notificationRecipients?.filter((item) => item.id !== id);
+      persist(data);
+    },
+    async getNotificationSimulationLogs() {
+      if (scenario === "loading") return new Promise<NotificationSimulationLog[]>(() => undefined);
+      if (scenario === "error") throw new Error("Log notifikasi tidak dapat dimuat.");
+      return clone(readData().notificationLogs ?? []);
+    },
+    async simulateNotification(recipientId, deliveryStatus) {
+      if (scenario === "error") throw new Error("Uji notifikasi tidak dapat dijalankan.");
+      const data = readData();
+      const recipient = data.notificationRecipients?.find((item) => item.id === recipientId);
+      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      const violationId = data.violations[0]?.id;
+      if (!violationId) throw new Error("Tidak ada Peristiwa Pelanggaran untuk simulasi.");
+      const log = appendNotificationSimulationLog(data, recipient, deliveryStatus, violationId, "2026-09-09T10:15:00+07:00");
+      persist(data);
+      return clone(log);
     },
     async getMonitoringSimulation() {
       if (scenario === "error") throw new Error("Simulator Episode Pelanggaran tidak dapat dimuat.");

@@ -43,6 +43,10 @@ import {
   type EpisodeStatus,
   type MonitoringScenario,
   type MonitoringSimulation,
+  type NotificationRecipient,
+  type NotificationRecipientRole,
+  type NotificationRecipientScope,
+  type NotificationSimulationLog,
   type ZonaBerbahaya,
   type ZonaBerbahayaInput,
   type ZonaBerbahayaWithViolationHistory,
@@ -580,11 +584,12 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
   const [simulation, setSimulation] = useState<MonitoringSimulation>();
   const [settings, setSettings] = useState<SafetySettings>();
   const [selectedCameraId, setSelectedCameraId] = useState<string>();
+  const [notificationFeed, setNotificationFeed] = useState<string>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let active = true;
-    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya(), service.getMonitoringSimulation(), service.getSafetySettings()]).then(([nextCameras, nextZones, nextSimulation, nextSettings]) => {
+    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getZonaBerbahaya(), service.getMonitoringSimulation(), service.getSafetySettings(), service.getNotificationSimulationLogs()]).then(([nextCameras, nextZones, nextSimulation, nextSettings, notificationLogs]) => {
       if (!active) return;
       setCameras(nextCameras);
       setZones(nextZones);
@@ -595,6 +600,12 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
         : nextCameras.some((camera) => camera.id === nextSimulation.cameraId)
           ? nextSimulation.cameraId
           : nextCameras[0]?.id);
+      if (nextSimulation.eventId && nextSimulation.scoreChange?.crossedEscalationThreshold) {
+        const recipientCount = notificationLogs.filter((log) => log.violationId === nextSimulation.eventId).length;
+        setNotificationFeed(`Peristiwa Pelanggaran ${nextSimulation.eventId}: ${recipientCount} penerima simulasi dicatat.`);
+      } else {
+        setNotificationFeed(undefined);
+      }
     }).catch((reason: unknown) => {
       if (active) setError(reason instanceof Error ? reason.message : "Live Monitoring tidak dapat dimuat.");
     });
@@ -618,7 +629,12 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
     const elapsedSeconds = simulation.episodeStatus === "candidate"
       ? settings.confirmThresholdSeconds
       : settings.clearThresholdSeconds;
-    setSimulation(await service.processMonitoringFrame({ confidence, isCompliant, elapsedSeconds }));
+    const nextSimulation = await service.processMonitoringFrame({ confidence, isCompliant, elapsedSeconds });
+    setSimulation(nextSimulation);
+    if (nextSimulation.eventId && nextSimulation.scoreChange?.crossedEscalationThreshold) {
+      const recipientCount = (await service.getNotificationSimulationLogs()).filter((log) => log.violationId === nextSimulation.eventId).length;
+      setNotificationFeed(`Peristiwa Pelanggaran ${nextSimulation.eventId}: ${recipientCount} penerima simulasi dicatat.`);
+    }
   };
 
   if (error) {
@@ -662,6 +678,7 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: SawSe
         </div>
         {simulation.state === "episode" && <div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => void processFrame(false)} size="sm" type="button">Proses kondisi melanggar</Button><Button onClick={() => void processFrame(true)} size="sm" type="button" variant="outline">Proses kondisi patuh</Button><Button onClick={() => void processFrame(false, 0.2)} size="sm" type="button" variant="outline">Frame confidence rendah</Button></div>}
       </section>
+      {notificationFeed && <section aria-label="Feed notifikasi simulasi" className="mt-5 border-l-2 border-amber-500 bg-amber-50 p-4" role="status"><p className="font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</p><p className="mt-2 text-sm font-medium text-slate-950">{notificationFeed}</p><p className="mt-1 text-sm text-slate-700">Tidak ada pesan Telegram nyata atau alarm suara yang dikirim.</p></section>}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <section aria-label={`Stage Live Monitoring ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
@@ -1740,6 +1757,109 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   );
 }
 
+type NotificationScopeType = NotificationRecipientScope["type"];
+
+function notificationScopeLabel(recipient: NotificationRecipient, zones: ZonaBerbahaya[]) {
+  const scope = recipient.scope;
+  if (scope.type === "global") return "HRD global";
+  if (scope.type === "zone") return `Zona Berbahaya: ${zones.find((zone) => zone.id === scope.zoneId)?.name ?? scope.zoneId}`;
+  return `Departemen: ${scope.departmentId}`;
+}
+
+function NotificationConfiguration({ persona, service }: { persona: Persona; service: SawService }) {
+  const [recipients, setRecipients] = useState<NotificationRecipient[]>();
+  const [logs, setLogs] = useState<NotificationSimulationLog[]>();
+  const [zones, setZones] = useState<ZonaBerbahaya[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [chatId, setChatId] = useState("");
+  const [role, setRole] = useState<NotificationRecipientRole>("HRD");
+  const [scopeType, setScopeType] = useState<NotificationScopeType>("global");
+  const [scopeTarget, setScopeTarget] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState<NotificationRecipient>();
+
+  const load = () => {
+    Promise.all([service.getNotificationRecipients(), service.getNotificationSimulationLogs(), service.getZonaBerbahaya(), service.getEmployeeDirectory()])
+      .then(([nextRecipients, nextLogs, nextZones, directory]) => {
+        setRecipients(nextRecipients);
+        setLogs(nextLogs);
+        setZones(nextZones);
+        setDepartments([...new Set(directory.employees.map((employee) => employee.departmentId))].sort());
+      })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Notifikasi tidak dapat dimuat."));
+  };
+
+  useEffect(load, [service]);
+
+  const isAdmin = persona.role === "admin";
+  const selectedScope = (): NotificationRecipientScope => {
+    if (scopeType === "zone") return { type: "zone", zoneId: scopeTarget };
+    if (scopeType === "department") return { type: "department", departmentId: scopeTarget };
+    return { type: "global" };
+  };
+  const resetForm = () => {
+    setAdding(false);
+    setName("");
+    setChatId("");
+    setRole("HRD");
+    setScopeType("global");
+    setScopeTarget("");
+  };
+  const saveRecipient = async () => {
+    setError(undefined);
+    try {
+      await service.saveNotificationRecipient({ name, chatId, role, scope: selectedScope() });
+      resetForm();
+      setNotice("Penerima notifikasi simulasi disimpan. Chat ID telah dimasking.");
+      load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Penerima notifikasi tidak dapat disimpan.");
+    }
+  };
+  const simulate = async (recipient: NotificationRecipient, deliveryStatus: "sent" | "failed") => {
+    setError(undefined);
+    try {
+      await service.simulateNotification(recipient.id, deliveryStatus);
+      setNotice(`Uji SIMULASI ${deliveryStatus === "sent" ? "berhasil" : "gagal"} untuk ${recipient.name} dicatat.`);
+      load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Uji notifikasi tidak dapat dijalankan.");
+    }
+  };
+  const removeRecipient = async (recipient: NotificationRecipient) => {
+    setError(undefined);
+    try {
+      await service.deleteNotificationRecipient(recipient.id);
+      setNotice(`Penerima ${recipient.name} dihapus dari konfigurasi simulasi.`);
+      load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Penerima notifikasi tidak dapat dihapus.");
+    }
+  };
+
+  if (error && recipients === undefined) return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Notifikasi Telegram</h1><p className="mt-6 border border-red-200 bg-red-50 p-5 text-red-900">{error}</p></section>;
+  if (recipients === undefined || logs === undefined) return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Notifikasi Telegram</h1><p className="mt-6 text-slate-600">Memuat konfigurasi notifikasi simulasi…</p></section>;
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Simulasi aman</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Notifikasi Telegram</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kelola pemetaan penerima dan tinjau hasil pengiriman demo. Tidak ada token bot, Chat ID mentah, atau pesan Telegram nyata pada aplikasi ini.</p></div><span className="border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</span></div>
+      {notice && <p aria-live="polite" className="mt-5 border-l-2 border-emerald-500 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
+      {error && <p aria-live="polite" className="mt-5 border-l-2 border-red-500 bg-red-50 p-3 text-sm text-red-900">{error}</p>}
+
+      {isAdmin && <section className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-slate-950">Penerima simulasi</h2><p className="mt-1 text-sm text-slate-600">HRD memakai cakupan global; Supervisor Area harus terkait Zona Berbahaya atau departemen.</p></div><Button onClick={() => setAdding(true)} type="button">Tambah penerima</Button></div>
+        {adding && <section className="mt-5 border border-amber-200 bg-amber-50 p-5"><h3 className="font-semibold text-slate-950">Tambah penerima simulasi</h3><div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-sm font-medium text-slate-800">Nama penerima<input aria-label="Nama penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setName(event.target.value)} value={name} /></label><label className="text-sm font-medium text-slate-800">Chat ID Telegram<input aria-label="Chat ID Telegram" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm" inputMode="numeric" onChange={(event) => setChatId(event.target.value)} value={chatId} /></label><label className="text-sm font-medium text-slate-800">Peran penerima<select aria-label="Peran penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => { const nextRole = event.target.value as NotificationRecipientRole; setRole(nextRole); setScopeType(nextRole === "HRD" ? "global" : "zone"); setScopeTarget(""); }} value={role}><option value="HRD">HRD</option><option value="Supervisor Area">Supervisor Area</option></select></label><label className="text-sm font-medium text-slate-800">Cakupan penerima<select aria-label="Cakupan penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" disabled={role === "HRD"} onChange={(event) => { setScopeType(event.target.value as NotificationScopeType); setScopeTarget(""); }} value={scopeType}><option value="global">Global</option><option value="zone">Zona Berbahaya</option><option value="department">Departemen</option></select></label>{scopeType === "zone" && <label className="text-sm font-medium text-slate-800">Target Zona Berbahaya<select aria-label="Target Zona Berbahaya" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Pilih Zona Berbahaya</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>}{scopeType === "department" && <label className="text-sm font-medium text-slate-800">Target departemen<select aria-label="Target departemen" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Pilih departemen</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>}</div><div className="mt-5 flex justify-end gap-3"><Button onClick={resetForm} type="button" variant="outline">Batal</Button><Button disabled={!name.trim() || !chatId.trim() || (scopeType !== "global" && !scopeTarget)} onClick={() => void saveRecipient()} type="button">Simpan penerima</Button></div></section>}
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">{recipients.map((recipient) => <article aria-label={recipient.name} className="border border-slate-200 bg-white p-5" key={recipient.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-950">{recipient.name}</h3><p className="mt-1 text-sm text-slate-600">{recipient.role} · {notificationScopeLabel(recipient, zones)}</p><p className="mt-2 font-mono text-sm text-slate-700">Chat ID: {recipient.maskedChatId}</p></div><span className="border border-amber-300 bg-amber-50 px-2 py-1 font-mono text-[10px] font-medium text-amber-950">SIMULASI</span></div><div className="mt-5 flex flex-wrap gap-2"><Button aria-label={`Lihat detail ${recipient.name}`} onClick={() => setSelectedRecipient(recipient)} size="sm" type="button" variant="outline">Lihat detail</Button><Button onClick={() => void simulate(recipient, "sent")} size="sm" type="button" variant="outline">Uji berhasil</Button><Button onClick={() => void simulate(recipient, "failed")} size="sm" type="button" variant="outline">Uji gagal</Button><Button onClick={() => void removeRecipient(recipient)} size="sm" type="button" variant="outline">Hapus penerima</Button></div></article>)}</div>
+      </section>}
+
+      <section className="mt-8"><div><h2 className="text-xl font-semibold text-slate-950">Log notifikasi simulasi</h2><p className="mt-1 text-sm text-slate-600">Hasil agregat pengujian dan eskalasi demo yang terkait Peristiwa Pelanggaran.</p></div>{logs.length === 0 ? <p className="mt-5 border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">Belum ada log notifikasi simulasi.</p> : <div className="mt-5 space-y-3">{[...logs].reverse().map((log) => <article className="flex flex-wrap items-start justify-between gap-4 border border-slate-200 bg-white p-4" key={log.id}><div className="flex gap-3">{log.deliveryStatus === "sent" ? <CheckCircle2 aria-label="Ikon Terkirim" className="mt-0.5 size-5 shrink-0 text-emerald-600" role="img" /> : <ShieldX aria-label="Ikon Gagal" className="mt-0.5 size-5 shrink-0 text-red-600" role="img" />}<div><p className="font-medium text-slate-950">{log.recipientName}</p><p className="mt-1 text-sm text-slate-600">{log.recipientRole} · Peristiwa Pelanggaran {log.violationId}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(log.occurredAt)}</p></div></div><span className={`border px-2 py-1 text-xs font-medium ${log.deliveryStatus === "sent" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>{log.deliveryStatus === "sent" ? "Terkirim" : "Gagal"} · SIMULASI</span></article>)}</div>}</section>
+      {selectedRecipient && <section aria-label={`Detail ${selectedRecipient.name}`} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" role="dialog"><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">SIMULASI</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Detail {selectedRecipient.name}</h2><dl className="mt-6 space-y-4 text-sm"><div><dt className="text-slate-500">Peran</dt><dd className="mt-1 font-medium text-slate-950">{selectedRecipient.role}</dd></div><div><dt className="text-slate-500">Cakupan</dt><dd className="mt-1 text-slate-950">{notificationScopeLabel(selectedRecipient, zones)}</dd></div><div><dt className="text-slate-500">Chat ID Telegram</dt><dd className="mt-1 font-mono text-slate-950">{selectedRecipient.maskedChatId}</dd></div></dl><p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Chat ID mentah tidak disimpan atau ditampilkan pada demo.</p><div className="mt-6 flex justify-end"><Button onClick={() => setSelectedRecipient(undefined)} type="button" variant="outline">Tutup detail</Button></div></div></section>}
+    </section>
+  );
+}
+
 function RestrictedAccess({ persona }: { persona: Persona }) {
   return (
     <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
@@ -1763,6 +1883,7 @@ function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Per
   if (title === "Reset Skor") return <SafetyScoreReset service={service} />;
   if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
   if (title === "Zona Berbahaya") return <ZonaBerbahayaEditor service={service} />;
+  if (title === "Notifikasi") return <NotificationConfiguration persona={persona} service={service} />;
   return <Page title={title} />;
 }
 

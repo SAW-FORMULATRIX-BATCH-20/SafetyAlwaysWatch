@@ -16,6 +16,92 @@ const withCameras = (cameras: DemoData["cameras"]): DemoData => ({
 });
 
 describe("SAW application", () => {
+  it("memungkinkan Admin/Safety Officer menyimpan penerima Supervisor Area dengan Chat ID yang dimasking", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/administrasi/notifikasi"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Tambah penerima" }));
+    await user.type(screen.getByRole("textbox", { name: "Nama penerima" }), "Supervisor Pemeliharaan Shift B");
+    await user.type(screen.getByRole("textbox", { name: "Chat ID Telegram" }), "1234567890");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Peran penerima" }), "Supervisor Area");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Cakupan penerima" }), "department");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Target departemen" }), "Pemeliharaan");
+    await user.click(screen.getByRole("button", { name: "Simpan penerima" }));
+
+    const recipient = await screen.findByRole("article", { name: "Supervisor Pemeliharaan Shift B" });
+    expect(recipient).toHaveTextContent("•••• 7890");
+    expect(recipient).not.toHaveTextContent("1234567890");
+    await user.click(within(recipient).getByRole("button", { name: "Lihat detail Supervisor Pemeliharaan Shift B" }));
+    const detail = screen.getByRole("dialog", { name: "Detail Supervisor Pemeliharaan Shift B" });
+    expect(detail).toHaveTextContent("•••• 7890");
+    expect(detail).not.toHaveTextContent("1234567890");
+  });
+
+  it("mencatat feed dan log SIMULASI ketika Skor Keselamatan melewati Ambang Eskalasi", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: null });
+
+    render(
+      <App
+        initialEntries={["/monitoring/live"]}
+        initialPersona="admin"
+        service={service}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Skenario skor melewati ambang" }));
+    await user.click(screen.getByRole("button", { name: "Proses kondisi melanggar" }));
+
+    expect(await screen.findByRole("status", { name: "Feed notifikasi simulasi" })).toHaveTextContent("3 penerima simulasi dicatat");
+    await user.click(screen.getByRole("link", { name: "Notifikasi" }));
+    expect((await screen.findAllByText(/VIO-SIM-01/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Terkirim · SIMULASI/).length).toBeGreaterThan(1);
+  });
+
+  it("menyimpan hasil uji berhasil dan gagal setelah halaman dimuat ulang", async () => {
+    const user = userEvent.setup();
+    const service = createMockSawService({ storage: window.localStorage });
+    const firstRender = render(
+      <App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={service} />,
+    );
+
+    const recipient = await screen.findByRole("article", { name: "HRD Operasional" });
+    await user.click(within(recipient).getByRole("button", { name: "Uji berhasil" }));
+    expect(await screen.findByText(/Uji SIMULASI berhasil untuk HRD Operasional dicatat/)).toBeInTheDocument();
+    await user.click(within(await screen.findByRole("article", { name: "HRD Operasional" })).getByRole("button", { name: "Uji gagal" }));
+    expect(await screen.findByText(/Uji SIMULASI gagal untuk HRD Operasional dicatat/)).toBeInTheDocument();
+
+    firstRender.unmount();
+    render(<App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
+
+    expect((await screen.findAllByText(/Terkirim · SIMULASI/)).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/Gagal · SIMULASI/).length).toBeGreaterThan(1);
+    expect(screen.getAllByRole("img", { name: /Ikon (Terkirim|Gagal)/ })).not.toHaveLength(0);
+  });
+
+  it("memberi HRD akses baca terhadap log notifikasi tanpa kontrol penerima", async () => {
+    render(
+      <App
+        initialEntries={["/administrasi/notifikasi"]}
+        initialPersona="hrd"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Log notifikasi simulasi" })).toBeInTheDocument();
+    expect(screen.getByText(/Gagal · SIMULASI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Tambah penerima" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Uji berhasil" })).not.toBeInTheDocument();
+  });
+
   it("menampilkan riwayat Pelanggaran yang dapat ditelusuri tanpa snapshot", async () => {
     const user = userEvent.setup();
 
