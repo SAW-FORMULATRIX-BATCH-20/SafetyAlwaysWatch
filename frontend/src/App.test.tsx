@@ -16,6 +16,83 @@ const withCameras = (cameras: DemoData["cameras"]): DemoData => ({
 });
 
 describe("SAW application", () => {
+  it("menyajikan laporan Kepatuhan APD HRD yang menurunkan ringkasan dan grafik dari observasi yang sama", async () => {
+    render(
+      <App
+        initialEntries={["/laporan-kepatuhan"]}
+        initialPersona="hrd"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText("8 observasi Kepatuhan APD")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Laporan Kepatuhan APD" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tren Kepatuhan APD" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Breakdown Kelas APD Kanonis" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Distribusi status keselamatan" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Live Monitoring" })).not.toBeInTheDocument();
+  });
+
+  it("memperbarui seluruh laporan ketika filter Zona Berbahaya, departemen, Karyawan, dan tanggal digabungkan", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/laporan-kepatuhan"]}
+        initialPersona="hrd"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Laporan Kepatuhan APD" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Zona Berbahaya laporan" }), "ZON-03");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter departemen laporan" }), "Gudang");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Karyawan laporan" }), "EMP-05");
+    fireEvent.change(screen.getByLabelText("Dari tanggal laporan"), { target: { value: "2026-09-03" } });
+    fireEvent.change(screen.getByLabelText("Sampai tanggal laporan"), { target: { value: "2026-09-03" } });
+
+    expect(screen.getByText("1 observasi Kepatuhan APD")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tren Kepatuhan APD" })).toHaveTextContent("03 Sep");
+    expect(screen.getByRole("region", { name: "Breakdown Kelas APD Kanonis" })).toHaveTextContent("Helm Keselamatan");
+    expect(screen.getByRole("region", { name: "Distribusi status keselamatan" })).toHaveTextContent("Waspada");
+  });
+
+  it("menampilkan no-result dan dapat membersihkan filter laporan", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/laporan-kepatuhan"]}
+        initialPersona="hrd"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByText("8 observasi Kepatuhan APD");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter Zona Berbahaya laporan" }), "ZON-04");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter departemen laporan" }), "Produksi");
+
+    expect(screen.getByText("Tidak ada hasil laporan yang cocok.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Bersihkan filter laporan" }));
+    expect(screen.getByText("8 observasi Kepatuhan APD")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["loading", "Memuat laporan Kepatuhan APD…"],
+    ["empty", "Belum ada observasi Kepatuhan APD"],
+    ["error", "Laporan Kepatuhan APD tidak dapat dimuat"],
+  ] as const)("menampilkan state %s pada laporan Kepatuhan APD", async (scenario, expectedText) => {
+    render(
+      <App
+        initialEntries={["/laporan-kepatuhan"]}
+        initialPersona="hrd"
+        service={createMockSawService({ scenario, storage: null })}
+      />,
+    );
+
+    expect(await screen.findByText(expectedText)).toBeInTheDocument();
+  });
+
   it("memungkinkan Admin/Safety Officer menyimpan penerima Supervisor Area dengan Chat ID yang dimasking", async () => {
     const user = userEvent.setup();
 
@@ -256,7 +333,7 @@ describe("SAW application", () => {
 
   it.each([
     ["Supervisor Area", "Live Monitoring"],
-    ["HRD", "Laporan Kepatuhan"],
+    ["HRD", "Laporan Kepatuhan APD"],
   ])("mengarahkan %s ke %s setelah login demo", async (persona, landingPage) => {
     const user = userEvent.setup();
 
