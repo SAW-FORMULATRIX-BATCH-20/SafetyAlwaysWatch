@@ -1,6 +1,19 @@
 import { animate, createScope } from "animejs";
 import { useEffect, useRef, useState } from "react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   BrowserRouter,
   Link,
   MemoryRouter,
@@ -38,6 +51,7 @@ import {
   type CameraMetadata,
   type CameraScope,
   type CameraStatus,
+  type ComplianceReportData,
   type CanonicalApdClassConfiguration,
   type CanonicalApdClassMapping,
   type EpisodeStatus,
@@ -80,6 +94,7 @@ type Page = {
   path: string;
   roles: Role[];
   title: string;
+  render: (persona: Persona, service: SawService) => React.ReactNode;
 };
 
 const personas: Persona[] = [
@@ -113,17 +128,17 @@ const navigationGroupLabels = [
 ] as const;
 
 const pages: Page[] = [
-  { group: "Overview", path: "/overview", title: "Overview", roles: ["admin"] },
-  { group: "Overview", path: "/laporan-kepatuhan", title: "Laporan Kepatuhan", roles: ["admin", "hrd"] },
-  { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"] },
-  { group: "Safety Operations", path: "/pelanggaran", title: "Pelanggaran", roles: ["admin", "supervisor", "hrd"] },
-  { group: "Safety Operations", path: "/karyawan", title: "Karyawan", roles: ["admin", "supervisor", "hrd"] },
-  { group: "Configuration", path: "/konfigurasi/kamera", title: "Sumber Kamera", roles: ["admin", "supervisor"] },
-  { group: "Configuration", path: "/konfigurasi/zona", title: "Zona Berbahaya", roles: ["admin"] },
-  { group: "Configuration", path: "/konfigurasi/apd", title: "Kelas APD", roles: ["admin"] },
-  { group: "Administration", path: "/administrasi/parameter", title: "Parameter Sistem", roles: ["admin"] },
-  { group: "Administration", path: "/administrasi/reset-skor", title: "Reset Skor", roles: ["admin"] },
-  { group: "Administration", path: "/administrasi/notifikasi", title: "Notifikasi", roles: ["admin", "hrd"] },
+  { group: "Overview", path: "/overview", title: "Overview", roles: ["admin"], render: (_persona, service) => <Overview service={service} /> },
+  { group: "Overview", path: "/laporan-kepatuhan", title: "Laporan Kepatuhan", roles: ["admin", "hrd"], render: (_persona, service) => <ComplianceReport service={service} /> },
+  { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"], render: (persona, service) => <LiveMonitoring persona={persona} service={service} /> },
+  { group: "Safety Operations", path: "/pelanggaran", title: "Pelanggaran", roles: ["admin", "supervisor", "hrd"], render: (_persona, service) => <Violations service={service} /> },
+  { group: "Safety Operations", path: "/karyawan", title: "Karyawan", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => <Employees persona={persona} service={service} /> },
+  { group: "Configuration", path: "/konfigurasi/kamera", title: "Sumber Kamera", roles: ["admin", "supervisor"], render: (persona, service) => <Cameras persona={persona} service={service} /> },
+  { group: "Configuration", path: "/konfigurasi/zona", title: "Zona Berbahaya", roles: ["admin"], render: (_persona, service) => <ZonaBerbahayaEditor service={service} /> },
+  { group: "Configuration", path: "/konfigurasi/apd", title: "Kelas APD", roles: ["admin"], render: (_persona, service) => <CanonicalApdClasses service={service} /> },
+  { group: "Administration", path: "/administrasi/parameter", title: "Parameter Sistem", roles: ["admin"], render: (_persona, service) => <SafetyParameters service={service} /> },
+  { group: "Administration", path: "/administrasi/reset-skor", title: "Reset Skor", roles: ["admin"], render: (_persona, service) => <SafetyScoreReset service={service} /> },
+  { group: "Administration", path: "/administrasi/notifikasi", title: "Notifikasi", roles: ["admin", "hrd"], render: (persona, service) => <NotificationConfiguration persona={persona} service={service} /> },
 ];
 
 function getPersona(role: Role) {
@@ -275,7 +290,7 @@ function ApplicationShell({
   );
 }
 
-function Page({ title }: { title: string }) {
+function PageState({ title }: { title: string }) {
   return (
     <section>
       <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">SAW workspace</p>
@@ -384,6 +399,128 @@ const cameraStatusDetails: Record<CameraStatus, {
   degraded: { label: "Terganggu", Icon: TriangleAlert, className: "text-amber-700" },
   offline: { label: "Offline", Icon: WifiOff, className: "text-slate-600" },
 };
+
+const reportSafetyStatusLabels: Record<ScoreStatus, string> = {
+  safe: "Aman",
+  warning: "Waspada",
+  critical: "Kritis",
+};
+
+const reportSafetyStatusColors: Record<ScoreStatus, string> = {
+  safe: "#047857",
+  warning: "#b45309",
+  critical: "#b91c1c",
+};
+
+function reportDate(timestamp: string) {
+  return timestamp.slice(0, 10);
+}
+
+function formatReportDate(timestamp: string) {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(timestamp));
+}
+
+function ComplianceReport({ service }: { service: SawService }) {
+  const [report, setReport] = useState<ComplianceReportData>();
+  const [error, setError] = useState<string>();
+  const [zoneId, setZoneId] = useState("all");
+  const [departmentId, setDepartmentId] = useState("all");
+  const [employeeId, setEmployeeId] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    service.getComplianceReport().then((nextReport) => {
+      if (active) setReport(nextReport);
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Laporan Kepatuhan APD tidak dapat dimuat.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [service]);
+
+  const clearFilters = () => {
+    setZoneId("all");
+    setDepartmentId("all");
+    setEmployeeId("all");
+    setFromDate("");
+    setToDate("");
+  };
+
+  if (error) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Laporan Kepatuhan APD</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Laporan Kepatuhan APD tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
+  }
+  if (report === undefined) {
+    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Laporan Kepatuhan APD</h1><p className="mt-6 text-slate-600">Memuat laporan Kepatuhan APD…</p></section>;
+  }
+  if (report.observations.length === 0) {
+    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Laporan Kepatuhan APD</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Belum ada observasi Kepatuhan APD</p><p className="mt-1 text-sm text-slate-600">Data observasi diperlukan sebelum tren dan distribusi keselamatan dapat ditampilkan.</p></div></section>;
+  }
+
+  const zones = [...report.zones].sort((left, right) => left.name.localeCompare(right.name));
+  const departments = [...new Set(report.observations.map((observation) => observation.departmentId))].sort((left, right) => left.localeCompare(right));
+  const employees = report.employees.filter((employee) => report.observations.some((observation) => observation.employeeId === employee.id));
+  const filtered = report.observations.filter((observation) => {
+    const observedDate = reportDate(observation.observedAt);
+    return (zoneId === "all" || observation.zoneId === zoneId)
+      && (departmentId === "all" || observation.departmentId === departmentId)
+      && (employeeId === "all" || observation.employeeId === employeeId)
+      && (!fromDate || observedDate >= fromDate)
+      && (!toDate || observedDate <= toDate);
+  });
+  const hasFilters = zoneId !== "all" || departmentId !== "all" || employeeId !== "all" || fromDate !== "" || toDate !== "";
+
+  const trend = [...new Set(filtered.map((observation) => reportDate(observation.observedAt)))].sort().map((date) => {
+    const observations = filtered.filter((observation) => reportDate(observation.observedAt) === date);
+    const compliant = observations.filter((observation) => observation.isCompliant).length;
+    return { date: formatReportDate(`${date}T00:00:00+07:00`), compliant, total: observations.length, rate: Math.round((compliant / observations.length) * 100) };
+  });
+  const apdBreakdown = [...new Set(filtered.map((observation) => observation.canonicalApdClass))].sort((left, right) => left.localeCompare(right)).map((canonicalApdClass) => {
+    const observations = filtered.filter((observation) => observation.canonicalApdClass === canonicalApdClass);
+    return { canonicalApdClass, compliant: observations.filter((observation) => observation.isCompliant).length, violation: observations.filter((observation) => !observation.isCompliant).length };
+  });
+  const latestSafetyScoreByEmployee = new Map<string, number>();
+  [...filtered].sort((left, right) => left.observedAt.localeCompare(right.observedAt)).forEach((observation) => {
+    if (observation.employeeId) latestSafetyScoreByEmployee.set(observation.employeeId, observation.safetyScore);
+  });
+  const safetyDistribution = (Object.keys(reportSafetyStatusLabels) as ScoreStatus[]).map((status) => ({
+    status: reportSafetyStatusLabels[status],
+    count: [...latestSafetyScoreByEmployee.values()].filter((score) => getScoreStatus(score, report.escalationThreshold) === status).length,
+    color: reportSafetyStatusColors[status],
+  }));
+  const compliantObservations = filtered.filter((observation) => observation.isCompliant).length;
+  const complianceRate = filtered.length === 0 ? 0 : Math.round((compliantObservations / filtered.length) * 100);
+  const sortedDates = [...filtered].sort((left, right) => left.observedAt.localeCompare(right.observedAt));
+  const period = sortedDates.length === 0 ? "Tidak ada periode" : `${formatReportDate(sortedDates[0].observedAt)} – ${formatReportDate(sortedDates[sortedDates.length - 1].observedAt)}`;
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Analisis operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Laporan Kepatuhan APD</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Tinjau tren Kepatuhan APD, Kelas APD Kanonis, dan kondisi Skor Keselamatan dari observasi yang sama.</p></div><span className="border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</span></div>
+
+      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <label className="block text-sm font-medium text-slate-800">Zona Berbahaya<select aria-label="Filter Zona Berbahaya laporan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setZoneId(event.target.value)} value={zoneId}><option value="all">Semua Zona Berbahaya</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Departemen<select aria-label="Filter departemen laporan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setDepartmentId(event.target.value)} value={departmentId}><option value="all">Semua departemen</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Karyawan<select aria-label="Filter Karyawan laporan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setEmployeeId(event.target.value)} value={employeeId}><option value="all">Semua Karyawan</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeName(employee)}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-800">Dari tanggal<input aria-label="Dari tanggal laporan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} /></label>
+        <label className="block text-sm font-medium text-slate-800">Sampai tanggal<input aria-label="Sampai tanggal laporan" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} /></label>
+        <div className="flex items-end">{hasFilters && filtered.length > 0 && <Button onClick={clearFilters} variant="outline">Bersihkan filter laporan</Button>}</div>
+      </div>
+
+      {filtered.length === 0 ? <div className="mt-5 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada hasil laporan yang cocok.</p><p className="mt-1 text-sm text-slate-600">Ubah atau bersihkan filter untuk melihat observasi Kepatuhan APD.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter laporan</Button></div> : <>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Kepatuhan APD</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{complianceRate}%</p><p className="mt-2 text-sm text-slate-600">{compliantObservations} patuh dari {filtered.length} observasi</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Observasi laporan</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length}</p><p className="mt-2 text-sm text-slate-600">{filtered.length} observasi Kepatuhan APD</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Pelanggaran APD</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length - compliantObservations}</p><p className="mt-2 text-sm text-slate-600">Observasi APD tidak patuh</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Periode</p><p className="mt-2 font-mono text-lg font-semibold text-slate-950">{period}</p><p className="mt-2 text-sm text-slate-600">WIB · filter aktif</p></article></div>
+        <div className="mt-8 grid gap-5 xl:grid-cols-2"><section aria-label="Tren Kepatuhan APD" className="border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold text-slate-950">Tren Kepatuhan APD</h2><p className="mt-1 text-sm text-slate-600">Garis menunjukkan persentase patuh; batang menunjukkan jumlah observasi per hari.</p><div className="mt-5 h-64" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><ComposedChart data={trend}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis domain={[0, 100]} unit="%" /><Tooltip /><Legend /><Bar dataKey="total" fill="#cbd5e1" isAnimationActive={false} name="Observasi" /><Line dataKey="rate" isAnimationActive={false} name="Kepatuhan" stroke="#047857" strokeWidth={2} type="monotone" /></ComposedChart></ResponsiveContainer></div><p className="mt-4 font-mono text-xs text-slate-600">Periode: {period} · {filtered.length} observasi Kepatuhan APD</p></section>
+          <section aria-label="Breakdown Kelas APD Kanonis" className="border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold text-slate-950">Breakdown Kelas APD Kanonis</h2><p className="mt-1 text-sm text-slate-600">Bandingkan observasi patuh dan tidak patuh untuk setiap Kelas APD Kanonis.</p><div className="mt-5 h-64" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><BarChart data={apdBreakdown}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="canonicalApdClass" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="compliant" fill="#047857" isAnimationActive={false} name="Patuh" /><Bar dataKey="violation" fill="#b91c1c" isAnimationActive={false} name="Tidak patuh" /></BarChart></ResponsiveContainer></div><p className="mt-4 text-sm text-slate-600">{apdBreakdown.map((item) => `${item.canonicalApdClass}: ${item.compliant} patuh, ${item.violation} tidak patuh`).join(" · ")}</p></section>
+          <section aria-label="Distribusi status keselamatan" className="border border-slate-200 bg-white p-5 xl:col-span-2"><h2 className="text-lg font-semibold text-slate-950">Distribusi status keselamatan</h2><p className="mt-1 text-sm text-slate-600">Status Aman, Waspada, dan Kritis diturunkan dari Skor Keselamatan Karyawan pada observasi yang dipilih.</p><div className="mt-5 h-56" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><BarChart data={safetyDistribution} layout="vertical"><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis allowDecimals={false} type="number" /><YAxis dataKey="status" type="category" width={80} /><Tooltip /><Bar dataKey="count" isAnimationActive={false} name="Karyawan" radius={[0, 3, 3, 0]}>{safetyDistribution.map((item) => <Cell fill={item.color} key={item.status} />)}</Bar></BarChart></ResponsiveContainer></div><p className="mt-4 text-sm text-slate-600">{safetyDistribution.map((item) => `${item.status}: ${item.count}`).join(" · ")}</p></section></div>
+      </>}
+    </section>
+  );
+}
 
 function formatWib(timestamp: string) {
   return `${new Intl.DateTimeFormat("id-ID", {
@@ -1123,8 +1260,8 @@ function SafetyScoreReset({ service }: { service: SawService }) {
     }
   };
 
-  if (error && !directory) return <Page title="Reset Skor" />;
-  if (!directory || !settings) return <Page title="Memuat Reset Skor…" />;
+  if (error && !directory) return <PageState title="Reset Skor" />;
+  if (!directory || !settings) return <PageState title="Memuat Reset Skor…" />;
 
   return (
     <section>
@@ -1872,19 +2009,9 @@ function RestrictedAccess({ persona }: { persona: Persona }) {
   );
 }
 
-function ProtectedPage({ persona, allowedRoles, service, title }: { persona: Persona; allowedRoles: Role[]; service: SawService; title: string }) {
-  if (!allowedRoles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
-  if (title === "Overview") return <Overview service={service} />;
-  if (title === "Sumber Kamera") return <Cameras persona={persona} service={service} />;
-  if (title === "Live Monitoring") return <LiveMonitoring persona={persona} service={service} />;
-  if (title === "Pelanggaran") return <Violations service={service} />;
-  if (title === "Karyawan") return <Employees persona={persona} service={service} />;
-  if (title === "Parameter Sistem") return <SafetyParameters service={service} />;
-  if (title === "Reset Skor") return <SafetyScoreReset service={service} />;
-  if (title === "Kelas APD") return <CanonicalApdClasses service={service} />;
-  if (title === "Zona Berbahaya") return <ZonaBerbahayaEditor service={service} />;
-  if (title === "Notifikasi") return <NotificationConfiguration persona={persona} service={service} />;
-  return <Page title={title} />;
+function ProtectedPage({ page, persona, service }: { page: Page; persona: Persona; service: SawService }) {
+  if (!page.roles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
+  return page.render(persona, service);
 }
 
 function RoutedApplication({ initialPersona, service }: { initialPersona?: Role; service: SawService }) {
@@ -1911,7 +2038,7 @@ function RoutedApplication({ initialPersona, service }: { initialPersona?: Role;
       <Routes>
         <Route path="/login" element={<Navigate replace to={persona.landingPath} />} />
         <Route path="/" element={<Navigate replace to={persona.landingPath} />} />
-        {pages.map((page) => <Route element={<ProtectedPage allowedRoles={page.roles} persona={persona} service={service} title={page.title} />} key={page.path} path={page.path} />)}
+        {pages.map((page) => <Route element={<ProtectedPage page={page} persona={persona} service={service} />} key={page.path} path={page.path} />)}
         <Route path="*" element={<Navigate replace to={persona.landingPath} />} />
       </Routes>
     </ApplicationShell>

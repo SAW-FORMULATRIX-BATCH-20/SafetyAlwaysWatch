@@ -291,6 +291,7 @@ export type DemoData = {
   monitoringSimulation?: MonitoringSimulation;
   notificationRecipients?: NotificationRecipient[];
   notificationLogs?: NotificationSimulationLog[];
+  complianceReportObservations?: ComplianceReportObservation[];
 };
 
 export type OverviewData = {
@@ -301,9 +302,28 @@ export type OverviewData = {
   totalCameras: number;
 };
 
+export type ComplianceReportObservation = {
+  id: string;
+  observedAt: string;
+  zoneId: string;
+  departmentId: string;
+  employeeId?: string;
+  canonicalApdClass: string;
+  isCompliant: boolean;
+  safetyScore: number;
+};
+
+export type ComplianceReportData = {
+  observations: ComplianceReportObservation[];
+  zones: ZonaBerbahaya[];
+  employees: Employee[];
+  escalationThreshold: number;
+};
+
 export interface SawService {
   getOverview(): Promise<OverviewData | null>;
   resetDemoData(): Promise<OverviewData>;
+  getComplianceReport(): Promise<ComplianceReportData>;
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
   getZonaBerbahaya(): Promise<ZonaBerbahayaWithViolationHistory[]>;
@@ -362,6 +382,17 @@ const defaultNotificationRecipients: NotificationRecipient[] = [
   { id: "REC-01", name: "HRD Operasional", role: "HRD", maskedChatId: "•••• 4821", scope: { type: "global" } },
   { id: "REC-02", name: "Supervisor Produksi", role: "Supervisor Area", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
   { id: "REC-03", name: "Supervisor Pemeliharaan", role: "Supervisor Area", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Pemeliharaan" } },
+];
+
+const defaultComplianceReportObservations: ComplianceReportObservation[] = [
+  { id: "OBS-01", observedAt: "2026-09-01T08:10:00+07:00", zoneId: "ZON-01", departmentId: "Produksi", employeeId: "EMP-02", canonicalApdClass: "Rompi Keselamatan", isCompliant: false, safetyScore: 84 },
+  { id: "OBS-02", observedAt: "2026-09-01T08:12:00+07:00", zoneId: "ZON-01", departmentId: "Produksi", employeeId: "EMP-01", canonicalApdClass: "Helm Keselamatan", isCompliant: true, safetyScore: 92 },
+  { id: "OBS-03", observedAt: "2026-09-02T09:40:00+07:00", zoneId: "ZON-04", departmentId: "Gudang", canonicalApdClass: "Masker", isCompliant: false, safetyScore: 0 },
+  { id: "OBS-04", observedAt: "2026-09-03T10:05:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-05", canonicalApdClass: "Helm Keselamatan", isCompliant: false, safetyScore: 68 },
+  { id: "OBS-05", observedAt: "2026-09-03T11:30:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-06", canonicalApdClass: "Masker", isCompliant: true, safetyScore: 96 },
+  { id: "OBS-06", observedAt: "2026-09-04T11:20:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-07", canonicalApdClass: "Helm Keselamatan", isCompliant: false, safetyScore: 55 },
+  { id: "OBS-07", observedAt: "2026-09-05T13:45:00+07:00", zoneId: "ZON-01", departmentId: "Gudang", employeeId: "EMP-07", canonicalApdClass: "Rompi Keselamatan", isCompliant: false, safetyScore: 55 },
+  { id: "OBS-08", observedAt: "2026-09-05T15:10:00+07:00", zoneId: "ZON-02", departmentId: "Produksi", employeeId: "EMP-04", canonicalApdClass: "Helm Keselamatan", isCompliant: true, safetyScore: 77 },
 ];
 
 const seedData: DemoData = {
@@ -463,6 +494,7 @@ function normalizeData(input: DemoData): DemoData {
   data.zonaBerbahaya = data.zonaBerbahaya ?? clone(defaultZonaBerbahaya);
   data.notificationRecipients = data.notificationRecipients ?? clone(defaultNotificationRecipients);
   data.notificationLogs = data.notificationLogs ?? [];
+  data.complianceReportObservations = data.complianceReportObservations ?? clone(defaultComplianceReportObservations);
   data.monitoringSimulation = data.monitoringSimulation?.state
     ? data.monitoringSimulation
     : createMonitoringSimulation("normal");
@@ -640,6 +672,18 @@ export function createMockSawService({
       const data = normalizeData(seedData);
       persist(data);
       return calculateOverview(data);
+    },
+    async getComplianceReport() {
+      if (scenario === "loading") return new Promise<ComplianceReportData>(() => undefined);
+      if (scenario === "error") throw new Error("Laporan Kepatuhan APD tidak dapat dimuat.");
+
+      const data = readData();
+      return {
+        observations: scenario === "empty" ? [] : clone(data.complianceReportObservations ?? []),
+        zones: clone(data.zonaBerbahaya ?? []),
+        employees: clone(data.employees),
+        escalationThreshold: data.escalationThreshold,
+      };
     },
     async getCameras(scope = "all") {
       if (scenario === "loading") return new Promise<Camera[]>(() => undefined);
