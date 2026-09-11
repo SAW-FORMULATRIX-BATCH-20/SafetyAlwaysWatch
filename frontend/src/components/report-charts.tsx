@@ -19,8 +19,8 @@ type TrendPoint = {
   total: number;
 };
 
-type ApdBreakdown = {
-  canonicalApdClass: string;
+type PpeBreakdown = {
+  canonicalPpeClass: string;
   compliant: number;
   violation: number;
 };
@@ -32,13 +32,13 @@ type SafetyDistribution = {
 };
 
 export function ReportCharts({
-  apdBreakdown,
+  ppeBreakdown,
   filteredObservationCount,
   period,
   safetyDistribution,
   trend,
 }: {
-  apdBreakdown: ApdBreakdown[];
+  ppeBreakdown: PpeBreakdown[];
   filteredObservationCount: number;
   period: string;
   safetyDistribution: SafetyDistribution[];
@@ -46,22 +46,22 @@ export function ReportCharts({
 }) {
   return (
     <div className="mt-8 grid gap-5 xl:grid-cols-2">
-      <section aria-label="Tren Kepatuhan APD" className="border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-slate-950">Tren Kepatuhan APD</h2>
-        <p className="mt-1 text-sm text-slate-600">Garis menunjukkan persentase patuh; batang menunjukkan jumlah observasi per hari.</p>
-        <div aria-hidden="true" className="mt-5 h-64"><ResponsiveContainer height="100%" width="100%"><ComposedChart data={trend}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis domain={[0, 100]} unit="%" /><Tooltip /><Legend /><Bar dataKey="total" fill="#cbd5e1" isAnimationActive={false} name="Observasi" /><Line dataKey="rate" isAnimationActive={false} name="Kepatuhan" stroke="#047857" strokeWidth={2} type="monotone" /></ComposedChart></ResponsiveContainer></div>
-        <p className="mt-4 font-mono text-xs text-slate-600">Periode: {period} · {filteredObservationCount} observasi Kepatuhan APD</p>
+      <section aria-label="PPE Compliance trend" className="border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-950">PPE Compliance trend</h2>
+        <p className="mt-1 text-sm text-slate-600">The line shows the compliance percentage; bars show observations per day.</p>
+        <div aria-hidden="true" className="mt-5 h-64"><ResponsiveContainer height="100%" width="100%"><ComposedChart data={trend}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis domain={[0, 100]} unit="%" /><Tooltip /><Legend /><Bar dataKey="total" fill="#cbd5e1" isAnimationActive={false} name="Observations" /><Line dataKey="rate" isAnimationActive={false} name="Compliance" stroke="#047857" strokeWidth={2} type="monotone" /></ComposedChart></ResponsiveContainer></div>
+        <p className="mt-4 font-mono text-xs text-slate-600">Period: {period} · {filteredObservationCount} PPE Compliance observations</p>
       </section>
-      <section aria-label="Breakdown Kelas APD Kanonis" className="border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-slate-950">Breakdown Kelas APD Kanonis</h2>
-        <p className="mt-1 text-sm text-slate-600">Bandingkan observasi patuh dan tidak patuh untuk setiap Kelas APD Kanonis.</p>
-        <div aria-hidden="true" className="mt-5 h-64"><ResponsiveContainer height="100%" width="100%"><BarChart data={apdBreakdown}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="canonicalApdClass" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="compliant" fill="#047857" isAnimationActive={false} name="Patuh" /><Bar dataKey="violation" fill="#b91c1c" isAnimationActive={false} name="Tidak patuh" /></BarChart></ResponsiveContainer></div>
-        <p className="mt-4 text-sm text-slate-600">{apdBreakdown.map((item) => `${item.canonicalApdClass}: ${item.compliant} patuh, ${item.violation} tidak patuh`).join(" · ")}</p>
+      <section aria-label="Canonical PPE Classes breakdown" className="border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-950">Canonical PPE Classes breakdown</h2>
+        <p className="mt-1 text-sm text-slate-600">Compare compliant and non-compliant observations for each Canonical PPE Class.</p>
+        <div aria-hidden="true" className="mt-5 h-64"><ResponsiveContainer height="100%" width="100%"><BarChart data={ppeBreakdown}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="canonicalPpeClass" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="compliant" fill="#047857" isAnimationActive={false} name="Compliant" /><Bar dataKey="violation" fill="#b91c1c" isAnimationActive={false} name="Non-compliant" /></BarChart></ResponsiveContainer></div>
+        <p className="mt-4 text-sm text-slate-600">{ppeBreakdown.map((item) => `${item.canonicalPpeClass}: ${item.compliant} compliant, ${item.violation} non-compliant`).join(" · ")}</p>
       </section>
-      <section aria-label="Distribusi status keselamatan" className="border border-slate-200 bg-white p-5 xl:col-span-2">
-        <h2 className="text-lg font-semibold text-slate-950">Distribusi status keselamatan</h2>
-        <p className="mt-1 text-sm text-slate-600">Status Aman, Waspada, dan Kritis diturunkan dari Skor Keselamatan Karyawan pada observasi yang dipilih.</p>
-        <div aria-hidden="true" className="mt-5 h-56"><ResponsiveContainer height="100%" width="100%"><BarChart data={safetyDistribution} layout="vertical"><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis allowDecimals={false} type="number" /><YAxis dataKey="status" type="category" width={80} /><Tooltip /><Bar dataKey="count" isAnimationActive={false} name="Karyawan" radius={[0, 3, 3, 0]}>{safetyDistribution.map((item) => <Cell fill={item.color} key={item.status} />)}</Bar></BarChart></ResponsiveContainer></div>
+      <section aria-label="Safety status distribution" className="border border-slate-200 bg-white p-5 xl:col-span-2">
+        <h2 className="text-lg font-semibold text-slate-950">Safety status distribution</h2>
+        <p className="mt-1 text-sm text-slate-600">Safe, Warning, and Critical are derived from the Employees' Safety Scores in the selected observations.</p>
+        <div aria-hidden="true" className="mt-5 h-56"><ResponsiveContainer height="100%" width="100%"><BarChart data={safetyDistribution} layout="vertical"><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis allowDecimals={false} type="number" /><YAxis dataKey="status" type="category" width={80} /><Tooltip /><Bar dataKey="count" isAnimationActive={false} name="Employee" radius={[0, 3, 3, 0]}>{safetyDistribution.map((item) => <Cell fill={item.color} key={item.status} />)}</Bar></BarChart></ResponsiveContainer></div>
         <p className="mt-4 text-sm text-slate-600">{safetyDistribution.map((item) => `${item.status}: ${item.count}`).join(" · ")}</p>
       </section>
     </div>

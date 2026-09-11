@@ -3,18 +3,18 @@ export type ServiceScenario = "ready" | "loading" | "empty" | "error";
 export type CameraStatus = "online" | "degraded" | "offline";
 
 export type SafetyDeduction = {
-  canonicalApdClass: string;
+  canonicalPpeClass: string;
   points: number;
 };
 
-export type ApdComplianceCategory = "compliance" | "violation";
+export type PpeComplianceCategory = "compliance" | "violation";
 
-export type CanonicalApdClassMapping = {
+export type CanonicalPpeClassMapping = {
   id: string;
   yoloIndex: number;
   rawLabel: string;
-  canonicalApdClass: string;
-  complianceCategory: ApdComplianceCategory;
+  canonicalPpeClass: string;
+  complianceCategory: PpeComplianceCategory;
   active: boolean;
 };
 
@@ -24,8 +24,8 @@ export type OnnxModelMetadata = {
   mimeType: string;
 };
 
-export type CanonicalApdClassConfiguration = {
-  mappings: CanonicalApdClassMapping[];
+export type CanonicalPpeClassConfiguration = {
+  mappings: CanonicalPpeClassMapping[];
   modelFileMetadata?: OnnxModelMetadata;
 };
 
@@ -45,10 +45,10 @@ export const defaultSafetySettings: SafetySettings = {
   initialScore: 100,
   escalationThreshold: 60,
   deductions: [
-    { canonicalApdClass: "Helm Keselamatan", points: 10 },
-    { canonicalApdClass: "Rompi Keselamatan", points: 8 },
-    { canonicalApdClass: "Sepatu Keselamatan", points: 12 },
-    { canonicalApdClass: "Pelindung Pendengaran", points: 6 },
+    { canonicalPpeClass: "Safety Helmet", points: 10 },
+    { canonicalPpeClass: "Safety Vest", points: 8 },
+    { canonicalPpeClass: "Safety Boots", points: 12 },
+    { canonicalPpeClass: "Hearing Protection", points: 6 },
   ],
   confirmThresholdSeconds: 5,
   clearThresholdSeconds: 3,
@@ -77,21 +77,21 @@ export type NormalizedZoneBounds = {
   height: number;
 };
 
-export type ZonaBerbahaya = {
+export type HazardousZone = {
   id: string;
   name: string;
   cameraId: string;
   active: boolean;
   bounds: NormalizedZoneBounds;
-  requiredCanonicalApdClasses: string[];
+  requiredCanonicalPpeClasses: string[];
   supervisorAreas: string[];
 };
 
-export type ZonaBerbahayaWithViolationHistory = ZonaBerbahaya & {
+export type HazardousZoneWithViolationHistory = HazardousZone & {
   hasViolationHistory: boolean;
 };
 
-export type ZonaBerbahayaInput = Omit<ZonaBerbahaya, "id"> & { id?: string };
+export type HazardousZoneInput = Omit<HazardousZone, "id"> & { id?: string };
 export type ViolationTimelineEntry = {
   status: EpisodeStatus;
   occurredAt: string;
@@ -143,7 +143,7 @@ export type ViolationRecord = {
   cameraId?: string;
   episodeId?: string;
   employeeId?: string;
-  missingCanonicalApdClasses?: string[];
+  missingCanonicalPpeClasses?: string[];
   confidence?: number;
   detectedAt?: string;
   updatedAt?: string;
@@ -152,7 +152,7 @@ export type ViolationRecord = {
   timeline?: ViolationTimelineEntry[];
 };
 
-export type MonitoringScenario = "normal" | "missing-apd" | "unidentified" | "camera-offline" | "score-escalation";
+export type MonitoringScenario = "normal" | "missing-ppe" | "unidentified" | "camera-offline" | "score-escalation";
 export type EpisodeStatus = "candidate" | "confirmed" | "clearing" | "cleared";
 export type MonitoringSimulationState = "normal" | "episode" | "offline";
 export type MonitoringFrame = {
@@ -171,7 +171,7 @@ export type MonitoringSimulation = {
   identity: "employee" | "unidentified";
   employeeId?: string;
   identityLabel: string;
-  missingCanonicalApdClasses: string[];
+  missingCanonicalPpeClasses: string[];
   confirmationElapsedSeconds: number;
   clearingElapsedSeconds: number;
   eventId?: string;
@@ -202,7 +202,7 @@ export type EmployeeDirectoryData = {
 
 export const safetyScoreResetReasons = [
   "TeguranBriefingDiberikan",
-  "TrainingSelesai",
+  "TrainingCleared",
   "InvestigasiDitutup",
   "PerbaikanFisikZona",
   "Lainnya",
@@ -212,9 +212,9 @@ export type SafetyScoreResetReason = (typeof safetyScoreResetReasons)[number];
 
 export const safetyScoreResetReasonLabels: Record<SafetyScoreResetReason, string> = {
   TeguranBriefingDiberikan: "Teguran dan briefing telah diberikan",
-  TrainingSelesai: "Pelatihan telah selesai",
+  TrainingCleared: "Pelatihan telah selesai",
   InvestigasiDitutup: "Investigasi telah ditutup",
-  PerbaikanFisikZona: "Perbaikan fisik Zona Berbahaya telah selesai",
+  PerbaikanFisikZona: "Perbaikan fisik Hazardous Zone telah selesai",
   Lainnya: "Lainnya",
 };
 
@@ -225,7 +225,7 @@ export type SafetyScorePeriod = {
   closedAt: string;
   finalScoreBeforeReset: number;
   totalViolations: number;
-  violationsByCanonicalApdClass: Record<string, number>;
+  violationsByCanonicalPpeClass: Record<string, number>;
   trigger: "Manual";
   resetReason: SafetyScoreResetReason;
   note?: string;
@@ -281,13 +281,13 @@ export type DemoData = {
   employees: Employee[];
   escalationThreshold: number;
   safetySettings?: SafetySettings;
-  canonicalApdClassConfiguration?: CanonicalApdClassConfiguration;
+  canonicalPpeClassConfiguration?: CanonicalPpeClassConfiguration;
   scorePeriods?: SafetyScorePeriod[];
   safetyScoreLedger?: SafetyScoreLedgerEntry[];
   safetyScoreResetLogs?: SafetyScoreResetLog[];
   violations: ViolationRecord[];
   zones: string[];
-  zonaBerbahaya?: ZonaBerbahaya[];
+  hazardousZones?: HazardousZone[];
   monitoringSimulation?: MonitoringSimulation;
   notificationRecipients?: NotificationRecipient[];
   notificationLogs?: NotificationSimulationLog[];
@@ -297,7 +297,7 @@ export type DemoData = {
 export type OverviewData = {
   activeCameras: number;
   activeViolations: number;
-  apdCompliance: number;
+  ppeCompliance: number;
   employeesBelowEscalationThreshold: number;
   totalCameras: number;
 };
@@ -308,45 +308,89 @@ export type ComplianceReportObservation = {
   zoneId: string;
   departmentId: string;
   employeeId?: string;
-  canonicalApdClass: string;
+  canonicalPpeClass: string;
   isCompliant: boolean;
   safetyScore: number;
 };
 
 export type ComplianceReportData = {
   observations: ComplianceReportObservation[];
-  zones: ZonaBerbahaya[];
+  zones: HazardousZone[];
   employees: Employee[];
   escalationThreshold: number;
 };
 
-export interface SawService {
+export interface OverviewCapability {
   getOverview(): Promise<OverviewData | null>;
   resetDemoData(): Promise<OverviewData>;
+}
+
+export interface ComplianceReportingCapability {
   getComplianceReport(): Promise<ComplianceReportData>;
+}
+
+export interface CameraSourceCapability {
   getCameras(scope?: CameraScope): Promise<Camera[]>;
   updateCameraMetadata(id: string, metadata: CameraMetadata): Promise<Camera>;
-  getZonaBerbahaya(): Promise<ZonaBerbahayaWithViolationHistory[]>;
-  saveZonaBerbahaya(zone: ZonaBerbahayaInput): Promise<ZonaBerbahayaWithViolationHistory>;
-  deactivateZonaBerbahaya(id: string): Promise<ZonaBerbahayaWithViolationHistory>;
-  deleteZonaBerbahaya(id: string): Promise<void>;
+}
+
+export interface HazardousZoneCapability {
+  getHazardousZone(): Promise<HazardousZoneWithViolationHistory[]>;
+  saveHazardousZone(zone: HazardousZoneInput): Promise<HazardousZoneWithViolationHistory>;
+  deactivateHazardousZone(id: string): Promise<HazardousZoneWithViolationHistory>;
+  deleteHazardousZone(id: string): Promise<void>;
+}
+
+export interface ViolationHistoryCapability {
   getViolationHistory(): Promise<ViolationRecord[]>;
+}
+
+export interface EmployeeDirectoryCapability {
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
+}
+
+export interface SafetyScoreCapability {
   getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
   resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
+}
+
+export interface SafetySettingsCapability {
   getSafetySettings(): Promise<SafetySettings>;
   updateSafetySettings(settings: SafetySettings): Promise<SafetySettings>;
-  getCanonicalApdClassConfiguration(): Promise<CanonicalApdClassConfiguration>;
-  updateCanonicalApdClassConfiguration(configuration: CanonicalApdClassConfiguration): Promise<CanonicalApdClassConfiguration>;
+}
+
+export interface CanonicalPpeClassCapability {
+  getCanonicalPpeClassConfiguration(): Promise<CanonicalPpeClassConfiguration>;
+  updateCanonicalPpeClassConfiguration(configuration: CanonicalPpeClassConfiguration): Promise<CanonicalPpeClassConfiguration>;
+}
+
+export interface NotificationCapability {
   getNotificationRecipients(): Promise<NotificationRecipient[]>;
   saveNotificationRecipient(input: NotificationRecipientInput): Promise<NotificationRecipient>;
   deleteNotificationRecipient(id: string): Promise<void>;
   getNotificationSimulationLogs(): Promise<NotificationSimulationLog[]>;
   simulateNotification(recipientId: string, deliveryStatus: "sent" | "failed"): Promise<NotificationSimulationLog>;
+}
+
+export interface MonitoringCapability {
   getMonitoringSimulation(): Promise<MonitoringSimulation>;
   selectMonitoringScenario(scenario: MonitoringScenario): Promise<MonitoringSimulation>;
   processMonitoringFrame(frame: MonitoringFrame): Promise<MonitoringSimulation>;
 }
+
+/** The router composes every capability; feature screens receive only what they use. */
+export type SawApplicationCapabilities =
+  & OverviewCapability
+  & ComplianceReportingCapability
+  & CameraSourceCapability
+  & HazardousZoneCapability
+  & ViolationHistoryCapability
+  & EmployeeDirectoryCapability
+  & SafetyScoreCapability
+  & SafetySettingsCapability
+  & CanonicalPpeClassCapability
+  & NotificationCapability
+  & MonitoringCapability;
 
 type MockServiceOptions = {
   initialData?: DemoData;
@@ -356,105 +400,105 @@ type MockServiceOptions = {
 
 const storageKey = "saw-demo-data";
 
-const defaultCanonicalApdClassConfiguration: CanonicalApdClassConfiguration = {
+const defaultCanonicalPpeClassConfiguration: CanonicalPpeClassConfiguration = {
   mappings: [
-    { id: "APD-01", yoloIndex: 0, rawLabel: "helmet", canonicalApdClass: "Helm Keselamatan", complianceCategory: "compliance", active: true },
-    { id: "APD-02", yoloIndex: 1, rawLabel: "hardhat", canonicalApdClass: "Helm Keselamatan", complianceCategory: "compliance", active: true },
-    { id: "APD-03", yoloIndex: 2, rawLabel: "mask", canonicalApdClass: "Masker", complianceCategory: "compliance", active: true },
-    { id: "APD-04", yoloIndex: 3, rawLabel: "Masker", canonicalApdClass: "Masker", complianceCategory: "compliance", active: true },
-    { id: "APD-05", yoloIndex: 4, rawLabel: "no_vest", canonicalApdClass: "Rompi Keselamatan", complianceCategory: "violation", active: true },
+    { id: "PPE-01", yoloIndex: 0, rawLabel: "helmet", canonicalPpeClass: "Safety Helmet", complianceCategory: "compliance", active: true },
+    { id: "PPE-02", yoloIndex: 1, rawLabel: "hardhat", canonicalPpeClass: "Safety Helmet", complianceCategory: "compliance", active: true },
+    { id: "PPE-03", yoloIndex: 2, rawLabel: "mask", canonicalPpeClass: "Face Mask", complianceCategory: "compliance", active: true },
+    { id: "PPE-04", yoloIndex: 3, rawLabel: "Face Mask", canonicalPpeClass: "Face Mask", complianceCategory: "compliance", active: true },
+    { id: "PPE-05", yoloIndex: 4, rawLabel: "no_vest", canonicalPpeClass: "Safety Vest", complianceCategory: "violation", active: true },
   ],
   modelFileMetadata: {
-    fileName: "saw-apd-demo.onnx",
+    fileName: "saw-ppe-demo.onnx",
     sizeBytes: 2048000,
     mimeType: "application/octet-stream",
   },
 };
 
-const defaultZonaBerbahaya: ZonaBerbahaya[] = [
-  { id: "ZON-01", name: "Zona Gerbang Utama", cameraId: "CAM-01", active: true, bounds: { x: 0.12, y: 0.18, width: 0.3, height: 0.52 }, requiredCanonicalApdClasses: ["Helm Keselamatan", "Rompi Keselamatan"], supervisorAreas: ["Produksi"] },
-  { id: "ZON-02", name: "Zona Mesin Press", cameraId: "CAM-01", active: true, bounds: { x: 0.58, y: 0.2, width: 0.25, height: 0.43 }, requiredCanonicalApdClasses: ["Helm Keselamatan"], supervisorAreas: ["Produksi"] },
-  { id: "ZON-03", name: "Zona Bongkar Gudang", cameraId: "CAM-02", active: true, bounds: { x: 0.16, y: 0.32, width: 0.26, height: 0.38 }, requiredCanonicalApdClasses: ["Helm Keselamatan", "Masker"], supervisorAreas: ["Gudang"] },
-  { id: "ZON-04", name: "Zona Rak Bahan", cameraId: "CAM-02", active: false, bounds: { x: 0.55, y: 0.2, width: 0.28, height: 0.48 }, requiredCanonicalApdClasses: ["Rompi Keselamatan"], supervisorAreas: ["Gudang"] },
+const defaultHazardousZone: HazardousZone[] = [
+  { id: "ZON-01", name: "Main Gate Zone", cameraId: "CAM-01", active: true, bounds: { x: 0.12, y: 0.18, width: 0.3, height: 0.52 }, requiredCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], supervisorAreas: ["Production"] },
+  { id: "ZON-02", name: "Press Machine Zone", cameraId: "CAM-01", active: true, bounds: { x: 0.58, y: 0.2, width: 0.25, height: 0.43 }, requiredCanonicalPpeClasses: ["Safety Helmet"], supervisorAreas: ["Production"] },
+  { id: "ZON-03", name: "Warehouse Loading Zone", cameraId: "CAM-02", active: true, bounds: { x: 0.16, y: 0.32, width: 0.26, height: 0.38 }, requiredCanonicalPpeClasses: ["Safety Helmet", "Face Mask"], supervisorAreas: ["Warehouse"] },
+  { id: "ZON-04", name: "Material Rack Zone", cameraId: "CAM-02", active: false, bounds: { x: 0.55, y: 0.2, width: 0.28, height: 0.48 }, requiredCanonicalPpeClasses: ["Safety Vest"], supervisorAreas: ["Warehouse"] },
 ];
 
 const defaultNotificationRecipients: NotificationRecipient[] = [
   { id: "REC-01", name: "HRD Operasional", role: "HRD", maskedChatId: "•••• 4821", scope: { type: "global" } },
-  { id: "REC-02", name: "Supervisor Produksi", role: "Supervisor Area", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
-  { id: "REC-03", name: "Supervisor Pemeliharaan", role: "Supervisor Area", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Pemeliharaan" } },
+  { id: "REC-02", name: "Supervisor Production", role: "Supervisor Area", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
+  { id: "REC-03", name: "Supervisor Maintenance", role: "Supervisor Area", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Maintenance" } },
 ];
 
 const defaultComplianceReportObservations: ComplianceReportObservation[] = [
-  { id: "OBS-01", observedAt: "2026-09-01T08:10:00+07:00", zoneId: "ZON-01", departmentId: "Produksi", employeeId: "EMP-02", canonicalApdClass: "Rompi Keselamatan", isCompliant: false, safetyScore: 84 },
-  { id: "OBS-02", observedAt: "2026-09-01T08:12:00+07:00", zoneId: "ZON-01", departmentId: "Produksi", employeeId: "EMP-01", canonicalApdClass: "Helm Keselamatan", isCompliant: true, safetyScore: 92 },
-  { id: "OBS-03", observedAt: "2026-09-02T09:40:00+07:00", zoneId: "ZON-04", departmentId: "Gudang", canonicalApdClass: "Masker", isCompliant: false, safetyScore: 0 },
-  { id: "OBS-04", observedAt: "2026-09-03T10:05:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-05", canonicalApdClass: "Helm Keselamatan", isCompliant: false, safetyScore: 68 },
-  { id: "OBS-05", observedAt: "2026-09-03T11:30:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-06", canonicalApdClass: "Masker", isCompliant: true, safetyScore: 96 },
-  { id: "OBS-06", observedAt: "2026-09-04T11:20:00+07:00", zoneId: "ZON-03", departmentId: "Gudang", employeeId: "EMP-07", canonicalApdClass: "Helm Keselamatan", isCompliant: false, safetyScore: 55 },
-  { id: "OBS-07", observedAt: "2026-09-05T13:45:00+07:00", zoneId: "ZON-01", departmentId: "Gudang", employeeId: "EMP-07", canonicalApdClass: "Rompi Keselamatan", isCompliant: false, safetyScore: 55 },
-  { id: "OBS-08", observedAt: "2026-09-05T15:10:00+07:00", zoneId: "ZON-02", departmentId: "Produksi", employeeId: "EMP-04", canonicalApdClass: "Helm Keselamatan", isCompliant: true, safetyScore: 77 },
+  { id: "OBS-01", observedAt: "2026-09-01T08:10:00+07:00", zoneId: "ZON-01", departmentId: "Production", employeeId: "EMP-02", canonicalPpeClass: "Safety Vest", isCompliant: false, safetyScore: 84 },
+  { id: "OBS-02", observedAt: "2026-09-01T08:12:00+07:00", zoneId: "ZON-01", departmentId: "Production", employeeId: "EMP-01", canonicalPpeClass: "Safety Helmet", isCompliant: true, safetyScore: 92 },
+  { id: "OBS-03", observedAt: "2026-09-02T09:40:00+07:00", zoneId: "ZON-04", departmentId: "Warehouse", canonicalPpeClass: "Face Mask", isCompliant: false, safetyScore: 0 },
+  { id: "OBS-04", observedAt: "2026-09-03T10:05:00+07:00", zoneId: "ZON-03", departmentId: "Warehouse", employeeId: "EMP-05", canonicalPpeClass: "Safety Helmet", isCompliant: false, safetyScore: 68 },
+  { id: "OBS-05", observedAt: "2026-09-03T11:30:00+07:00", zoneId: "ZON-03", departmentId: "Warehouse", employeeId: "EMP-06", canonicalPpeClass: "Face Mask", isCompliant: true, safetyScore: 96 },
+  { id: "OBS-06", observedAt: "2026-09-04T11:20:00+07:00", zoneId: "ZON-03", departmentId: "Warehouse", employeeId: "EMP-07", canonicalPpeClass: "Safety Helmet", isCompliant: false, safetyScore: 55 },
+  { id: "OBS-07", observedAt: "2026-09-05T13:45:00+07:00", zoneId: "ZON-01", departmentId: "Warehouse", employeeId: "EMP-07", canonicalPpeClass: "Safety Vest", isCompliant: false, safetyScore: 55 },
+  { id: "OBS-08", observedAt: "2026-09-05T15:10:00+07:00", zoneId: "ZON-02", departmentId: "Production", employeeId: "EMP-04", canonicalPpeClass: "Safety Helmet", isCompliant: true, safetyScore: 77 },
 ];
 
 const seedData: DemoData = {
   cameras: [
     {
       id: "CAM-01",
-      name: "Gerbang Produksi",
-      location: "Lini Produksi Utama",
+      name: "Production Gate",
+      location: "Main Production Line",
       zoneIds: ["ZON-01", "ZON-02"],
       status: "online",
       lastUpdatedAt: "2026-09-08T08:15:00+07:00",
-      supervisorArea: "Produksi",
+      supervisorArea: "Production",
     },
     {
       id: "CAM-02",
-      name: "Gudang Bahan Baku",
-      location: "Gudang Bahan Baku",
+      name: "Warehouse Raw Materials",
+      location: "Warehouse Raw Materials",
       zoneIds: ["ZON-03", "ZON-04"],
       status: "offline",
       lastUpdatedAt: "2026-09-08T07:48:00+07:00",
-      supervisorArea: "Gudang",
+      supervisorArea: "Warehouse",
     },
   ],
   zones: ["ZON-01", "ZON-02", "ZON-03", "ZON-04"],
-  departments: ["Produksi", "Gudang", "Pemeliharaan"],
+  departments: ["Production", "Warehouse", "Maintenance"],
   employees: [
-    { id: "EMP-01", name: "Karyawan Produksi 01", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 92, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T09:20:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
-    { id: "EMP-02", name: "Karyawan Produksi 02", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 84, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T14:10:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
-    { id: "EMP-03", name: "Karyawan Produksi 03", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 58, enrollmentStatus: "pending", lastAuditAt: "2026-09-05T11:40:00+07:00", auditSummary: { violationCount: 3, resetCount: 0 } },
-    { id: "EMP-04", name: "Karyawan Produksi 04", departmentId: "Produksi", supervisorArea: "Produksi", safetyScore: 77, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-04T08:15:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
-    { id: "EMP-05", name: "Karyawan Gudang 01", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 68, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T10:05:00+07:00", auditSummary: { violationCount: 2, resetCount: 1 } },
-    { id: "EMP-06", name: "Karyawan Gudang 02", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 96, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T15:25:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
-    { id: "EMP-07", name: "Karyawan Gudang 03", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 55, enrollmentStatus: "not-enrolled", lastAuditAt: "2026-09-03T13:45:00+07:00", auditSummary: { violationCount: 4, resetCount: 0 } },
-    { id: "EMP-08", name: "Karyawan Gudang 04", departmentId: "Gudang", supervisorArea: "Gudang", safetyScore: 73, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-02T09:50:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
-    { id: "EMP-09", name: "Karyawan Pemeliharaan 01", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 88, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T16:30:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
-    { id: "EMP-10", name: "Karyawan Pemeliharaan 02", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 90, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T11:10:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
-    { id: "EMP-11", name: "Karyawan Pemeliharaan 03", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 79, enrollmentStatus: "pending", lastAuditAt: "2026-08-31T10:00:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
-    { id: "EMP-12", name: "Karyawan Pemeliharaan 04", departmentId: "Pemeliharaan", supervisorArea: "Pemeliharaan", safetyScore: 65, enrollmentStatus: "enrolled", lastAuditAt: "2026-08-30T08:40:00+07:00", auditSummary: { violationCount: 2, resetCount: 0 } },
+    { id: "EMP-01", name: "Employee Production 01", departmentId: "Production", supervisorArea: "Production", safetyScore: 92, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T09:20:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
+    { id: "EMP-02", name: "Employee Production 02", departmentId: "Production", supervisorArea: "Production", safetyScore: 84, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T14:10:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-03", name: "Employee Production 03", departmentId: "Production", supervisorArea: "Production", safetyScore: 58, enrollmentStatus: "pending", lastAuditAt: "2026-09-05T11:40:00+07:00", auditSummary: { violationCount: 3, resetCount: 0 } },
+    { id: "EMP-04", name: "Employee Production 04", departmentId: "Production", supervisorArea: "Production", safetyScore: 77, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-04T08:15:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-05", name: "Employee Warehouse 01", departmentId: "Warehouse", supervisorArea: "Warehouse", safetyScore: 68, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-06T10:05:00+07:00", auditSummary: { violationCount: 2, resetCount: 1 } },
+    { id: "EMP-06", name: "Employee Warehouse 02", departmentId: "Warehouse", supervisorArea: "Warehouse", safetyScore: 96, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-07T15:25:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
+    { id: "EMP-07", name: "Employee Warehouse 03", departmentId: "Warehouse", supervisorArea: "Warehouse", safetyScore: 55, enrollmentStatus: "not-enrolled", lastAuditAt: "2026-09-03T13:45:00+07:00", auditSummary: { violationCount: 4, resetCount: 0 } },
+    { id: "EMP-08", name: "Employee Warehouse 04", departmentId: "Warehouse", supervisorArea: "Warehouse", safetyScore: 73, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-02T09:50:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-09", name: "Employee Maintenance 01", departmentId: "Maintenance", supervisorArea: "Maintenance", safetyScore: 88, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T16:30:00+07:00", auditSummary: { violationCount: 0, resetCount: 1 } },
+    { id: "EMP-10", name: "Employee Maintenance 02", departmentId: "Maintenance", supervisorArea: "Maintenance", safetyScore: 90, enrollmentStatus: "enrolled", lastAuditAt: "2026-09-01T11:10:00+07:00", auditSummary: { violationCount: 0, resetCount: 0 } },
+    { id: "EMP-11", name: "Employee Maintenance 03", departmentId: "Maintenance", supervisorArea: "Maintenance", safetyScore: 79, enrollmentStatus: "pending", lastAuditAt: "2026-08-31T10:00:00+07:00", auditSummary: { violationCount: 1, resetCount: 0 } },
+    { id: "EMP-12", name: "Employee Maintenance 04", departmentId: "Maintenance", supervisorArea: "Maintenance", safetyScore: 65, enrollmentStatus: "enrolled", lastAuditAt: "2026-08-30T08:40:00+07:00", auditSummary: { violationCount: 2, resetCount: 0 } },
   ],
   escalationThreshold: 60,
   violations: [
     {
-      id: "VIO-01", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-001", employeeId: "EMP-02", missingCanonicalApdClasses: ["Rompi Keselamatan"], confidence: 0.96, detectedAt: "2026-09-01T08:10:00+07:00", updatedAt: "2026-09-01T08:20:00+07:00", scoreChange: { before: 92, after: 84 }, notificationRecipients: [{ name: "Supervisor Produksi", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "candidate", occurredAt: "2026-09-01T08:10:00+07:00", description: "Sinyal APD hilang memasuki verifikasi." }, { status: "confirmed", occurredAt: "2026-09-01T08:10:05+07:00", description: "Peristiwa Pelanggaran dicatat dan Skor Keselamatan dikurangi." }, { status: "clearing", occurredAt: "2026-09-01T08:19:00+07:00", description: "Episode Pelanggaran memasuki Memulihkan." }, { status: "cleared", occurredAt: "2026-09-01T08:20:00+07:00", description: "Episode Pelanggaran Selesai dan tetap tersedia dalam riwayat." }],
+      id: "VIO-01", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-001", employeeId: "EMP-02", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.96, detectedAt: "2026-09-01T08:10:00+07:00", updatedAt: "2026-09-01T08:20:00+07:00", scoreChange: { before: 92, after: 84 }, notificationRecipients: [{ name: "Supervisor Production", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "candidate", occurredAt: "2026-09-01T08:10:00+07:00", description: "Sinyal PPE hilang memasuki verifikasi." }, { status: "confirmed", occurredAt: "2026-09-01T08:10:05+07:00", description: "Violation Event dicatat dan Safety Score dikurangi." }, { status: "clearing", occurredAt: "2026-09-01T08:19:00+07:00", description: "Violation Episode memasuki Clearing." }, { status: "cleared", occurredAt: "2026-09-01T08:20:00+07:00", description: "Violation Episode Cleared dan tetap tersedia dalam riwayat." }],
     },
     {
-      id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalApdClasses: ["Masker"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Orang Terdeteksi tidak dapat dicocokkan dengan Karyawan." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Peristiwa Pelanggaran untuk Tidak Dikenali dicatat." }],
+      id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalPpeClasses: ["Face Mask"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Orang Terdeteksi tidak dapat dicocokkan dengan Employee." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Violation Event untuk Unknown dicatat." }],
     },
     {
-      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalApdClasses: ["Helm Keselamatan"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Gudang", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Episode Pelanggaran Selesai." }],
+      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalPpeClasses: ["Safety Helmet"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalApdClasses: ["Helm Keselamatan", "Rompi Keselamatan"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Episode Pelanggaran Selesai." }],
+      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalApdClasses: ["Rompi Keselamatan"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Gudang", role: "Supervisor Area", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Peristiwa Pelanggaran dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Episode Pelanggaran Selesai." }],
+      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Supervisor Area", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Violation Episode Cleared." }],
     },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
   notificationRecipients: defaultNotificationRecipients,
   notificationLogs: [
-    { id: "NTF-01", recipientId: "REC-02", recipientName: "Supervisor Produksi", recipientRole: "Supervisor Area", deliveryStatus: "sent", violationId: "VIO-01", occurredAt: "2026-09-01T08:10:05+07:00" },
-    { id: "NTF-02", recipientId: "REC-03", recipientName: "Supervisor Pemeliharaan", recipientRole: "Supervisor Area", deliveryStatus: "failed", violationId: "VIO-05", occurredAt: "2026-09-05T13:45:05+07:00" },
+    { id: "NTF-01", recipientId: "REC-02", recipientName: "Supervisor Production", recipientRole: "Supervisor Area", deliveryStatus: "sent", violationId: "VIO-01", occurredAt: "2026-09-01T08:10:05+07:00" },
+    { id: "NTF-02", recipientId: "REC-03", recipientName: "Supervisor Maintenance", recipientRole: "Supervisor Area", deliveryStatus: "failed", violationId: "VIO-05", occurredAt: "2026-09-05T13:45:05+07:00" },
   ],
 };
 
@@ -472,10 +516,10 @@ function normalizeSafetySettings(settings?: Partial<SafetySettings>): SafetySett
   };
 }
 
-function normalizeCanonicalApdClassConfiguration(
-  configuration?: CanonicalApdClassConfiguration,
-): CanonicalApdClassConfiguration {
-  return clone(configuration ?? defaultCanonicalApdClassConfiguration);
+function normalizeCanonicalPpeClassConfiguration(
+  configuration?: CanonicalPpeClassConfiguration,
+): CanonicalPpeClassConfiguration {
+  return clone(configuration ?? defaultCanonicalPpeClassConfiguration);
 }
 
 function normalizeData(input: DemoData): DemoData {
@@ -487,11 +531,11 @@ function normalizeData(input: DemoData): DemoData {
   data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
     escalationThreshold: data.escalationThreshold,
   });
-  data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(data.canonicalApdClassConfiguration);
+  data.canonicalPpeClassConfiguration = normalizeCanonicalPpeClassConfiguration(data.canonicalPpeClassConfiguration);
   data.scorePeriods = data.scorePeriods ?? [];
   data.safetyScoreLedger = data.safetyScoreLedger ?? [];
   data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
-  data.zonaBerbahaya = data.zonaBerbahaya ?? clone(defaultZonaBerbahaya);
+  data.hazardousZones = data.hazardousZones ?? clone(defaultHazardousZone);
   data.notificationRecipients = data.notificationRecipients ?? clone(defaultNotificationRecipients);
   data.notificationLogs = data.notificationLogs ?? [];
   data.complianceReportObservations = data.complianceReportObservations ?? clone(defaultComplianceReportObservations);
@@ -505,28 +549,28 @@ function normalizeData(input: DemoData): DemoData {
 function createMonitoringSimulation(scenario: MonitoringScenario, episodeNumber = 1): MonitoringSimulation {
   const episodeId = `EPS-SIM-${String(episodeNumber).padStart(2, "0")}`;
   switch (scenario) {
-    case "missing-apd":
-      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Karyawan Produksi 01", missingCanonicalApdClasses: ["Rompi Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+    case "missing-ppe":
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Employee Production 01", missingCanonicalPpeClasses: ["Safety Vest"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
     case "unidentified":
-      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "unidentified", identityLabel: "Tidak Dikenali", missingCanonicalApdClasses: ["Rompi Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "unidentified", identityLabel: "Unknown", missingCanonicalPpeClasses: ["Safety Vest"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
     case "camera-offline":
-      return { scenario, cameraId: "CAM-02", state: "offline", episodeStatus: "cleared", confidence: 0, identity: "unidentified", identityLabel: "Tidak Dikenali", missingCanonicalApdClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+      return { scenario, cameraId: "CAM-02", state: "offline", episodeStatus: "cleared", confidence: 0, identity: "unidentified", identityLabel: "Unknown", missingCanonicalPpeClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
     case "score-escalation":
-      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-12", identityLabel: "Karyawan Pemeliharaan 04", missingCanonicalApdClasses: ["Helm Keselamatan"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+      return { scenario, cameraId: "CAM-01", state: "episode", episodeId, episodeStatus: "candidate", confidence: 0.96, identity: "employee", employeeId: "EMP-12", identityLabel: "Employee Maintenance 04", missingCanonicalPpeClasses: ["Safety Helmet"], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
     default:
-      return { scenario, cameraId: "CAM-01", state: "normal", episodeStatus: "cleared", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Karyawan Produksi 01", missingCanonicalApdClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
+      return { scenario, cameraId: "CAM-01", state: "normal", episodeStatus: "cleared", confidence: 0.96, identity: "employee", employeeId: "EMP-01", identityLabel: "Employee Production 01", missingCanonicalPpeClasses: [], confirmationElapsedSeconds: 0, clearingElapsedSeconds: 0 };
   }
 }
 
-function deductionFor(data: DemoData, canonicalApdClasses: string[]) {
-  return canonicalApdClasses.reduce((total, apdClass) => {
-    return total + (data.safetySettings?.deductions.find((item) => item.canonicalApdClass === apdClass)?.points ?? 0);
+function deductionFor(data: DemoData, canonicalPpeClasses: string[]) {
+  return canonicalPpeClasses.reduce((total, ppeClass) => {
+    return total + (data.safetySettings?.deductions.find((item) => item.canonicalPpeClass === ppeClass)?.points ?? 0);
   }, 0);
 }
 
 function maskChatId(chatId: string) {
   const normalized = chatId.replace(/\s/g, "");
-  if (normalized.length < 4) throw new Error("Chat ID Telegram harus berisi minimal 4 karakter.");
+  if (normalized.length < 4) throw new Error("Telegram Chat ID must contain at least 4 characters.");
   return `•••• ${normalized.slice(-4)}`;
 }
 
@@ -578,14 +622,14 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
     cameraId: simulation.cameraId,
     episodeId: simulation.episodeId,
     employeeId: simulation.employeeId,
-    missingCanonicalApdClasses: clone(simulation.missingCanonicalApdClasses),
+    missingCanonicalPpeClasses: clone(simulation.missingCanonicalPpeClasses),
     confidence: simulation.confidence,
     detectedAt: "2026-09-09T10:00:00+07:00",
     updatedAt: "2026-09-09T10:00:00+07:00",
     notificationRecipients: [],
     timeline: [
-      { status: "candidate", occurredAt: "2026-09-09T09:59:55+07:00", description: "Sinyal APD hilang memasuki verifikasi." },
-      { status: "confirmed", occurredAt: "2026-09-09T10:00:00+07:00", description: "Peristiwa Pelanggaran dicatat." },
+      { status: "candidate", occurredAt: "2026-09-09T09:59:55+07:00", description: "Sinyal PPE hilang memasuki verifikasi." },
+      { status: "confirmed", occurredAt: "2026-09-09T10:00:00+07:00", description: "Violation Event dicatat." },
     ],
   };
   data.violations.push(violation);
@@ -593,7 +637,7 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
   if (!simulation.employeeId) return;
   const employee = data.employees.find((item) => item.id === simulation.employeeId);
   if (!employee) return;
-  const deduction = deductionFor(data, simulation.missingCanonicalApdClasses);
+  const deduction = deductionFor(data, simulation.missingCanonicalPpeClasses);
   const before = employee.safetyScore;
   const after = Math.max(0, before - deduction);
   employee.safetyScore = after;
@@ -620,7 +664,7 @@ function calculateOverview(data: DemoData): OverviewData {
     activeCameras: data.cameras.filter((camera) => camera.status === "online").length,
     totalCameras: data.cameras.length,
     activeViolations: data.violations.filter((violation) => violation.status === "confirmed").length,
-    apdCompliance: data.compliance.totalObservations === 0
+    ppeCompliance: data.compliance.totalObservations === 0
       ? 0
       : Math.round((data.compliance.compliantObservations / data.compliance.totalObservations) * 100),
     employeesBelowEscalationThreshold: data.employees.filter(
@@ -629,7 +673,7 @@ function calculateOverview(data: DemoData): OverviewData {
   };
 }
 
-function withViolationHistory(data: DemoData, zone: ZonaBerbahaya): ZonaBerbahayaWithViolationHistory {
+function withViolationHistory(data: DemoData, zone: HazardousZone): HazardousZoneWithViolationHistory {
   return {
     ...clone(zone),
     hasViolationHistory: data.violations.some((violation) => violation.zoneId === zone.id),
@@ -640,7 +684,7 @@ export function createMockSawService({
   initialData,
   scenario = "ready",
   storage = typeof window === "undefined" ? null : window.localStorage,
-}: MockServiceOptions = {}): SawService {
+}: MockServiceOptions = {}): SawApplicationCapabilities {
   let inMemoryData: DemoData | undefined;
   const persist = (data: DemoData) => {
     inMemoryData = clone(data);
@@ -664,7 +708,7 @@ export function createMockSawService({
   return {
     async getOverview() {
       if (scenario === "loading") return new Promise<null>(() => undefined);
-      if (scenario === "error") throw new Error("Data demo SAW tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("SAW demo data could not be loaded.");
       if (scenario === "empty") return null;
       return calculateOverview(readData());
     },
@@ -675,19 +719,19 @@ export function createMockSawService({
     },
     async getComplianceReport() {
       if (scenario === "loading") return new Promise<ComplianceReportData>(() => undefined);
-      if (scenario === "error") throw new Error("Laporan Kepatuhan APD tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Report PPE Compliance tidak dapat dimuat.");
 
       const data = readData();
       return {
         observations: scenario === "empty" ? [] : clone(data.complianceReportObservations ?? []),
-        zones: clone(data.zonaBerbahaya ?? []),
+        zones: clone(data.hazardousZones ?? []),
         employees: clone(data.employees),
         escalationThreshold: data.escalationThreshold,
       };
     },
     async getCameras(scope = "all") {
       if (scenario === "loading") return new Promise<Camera[]>(() => undefined);
-      if (scenario === "error") throw new Error("Sumber Kamera tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Camera Sources could not be loaded.");
       if (scenario === "empty") return [];
 
       const cameras = readData().cameras;
@@ -698,42 +742,42 @@ export function createMockSawService({
     async updateCameraMetadata(id, metadata) {
       const data = readData();
       const camera = data.cameras.find((item) => item.id === id);
-      if (!camera) throw new Error("Sumber Kamera tidak ditemukan.");
+      if (!camera) throw new Error("Camera Source tidak ditemukan.");
 
       camera.name = metadata.name.trim();
       camera.location = metadata.location.trim();
       persist(data);
       return clone(camera);
     },
-    async getZonaBerbahaya() {
-      if (scenario === "loading") return new Promise<ZonaBerbahayaWithViolationHistory[]>(() => undefined);
-      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat dimuat.");
+    async getHazardousZone() {
+      if (scenario === "loading") return new Promise<HazardousZoneWithViolationHistory[]>(() => undefined);
+      if (scenario === "error") throw new Error("Hazardous Zones could not be loaded.");
       if (scenario === "empty") return [];
       const data = readData();
-      return (data.zonaBerbahaya ?? []).map((zone) => withViolationHistory(data, zone));
+      return (data.hazardousZones ?? []).map((zone) => withViolationHistory(data, zone));
     },
-    async saveZonaBerbahaya(zone) {
-      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat disimpan.");
-      if (!zone.name.trim()) throw new Error("Nama Zona Berbahaya wajib diisi.");
-      if (!zone.requiredCanonicalApdClasses.length) throw new Error("Pilih minimal satu Kelas APD Kanonis.");
-      if (!zone.supervisorAreas.length) throw new Error("Pilih minimal satu Supervisor Area.");
+    async saveHazardousZone(zone) {
+      if (scenario === "error") throw new Error("Hazardous Zone could not be saved.");
+      if (!zone.name.trim()) throw new Error("Hazardous Zone name is required.");
+      if (!zone.requiredCanonicalPpeClasses.length) throw new Error("Select at least one Canonical PPE Class.");
+      if (!zone.supervisorAreas.length) throw new Error("Select at least one Supervisor Area.");
 
       const { x, y, width, height } = zone.bounds;
       if (![x, y, width, height].every((value) => Number.isFinite(value)) || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > 1 || y + height > 1) {
-        throw new Error("Koordinat Zona Berbahaya harus berada dalam rentang 0 sampai 1.");
+        throw new Error("Hazardous Zone coordinates must be between 0 and 1.");
       }
 
       const data = readData();
-      if (!data.cameras.some((camera) => camera.id === zone.cameraId)) throw new Error("Sumber Kamera tidak ditemukan.");
+      if (!data.cameras.some((camera) => camera.id === zone.cameraId)) throw new Error("Camera Source tidak ditemukan.");
 
-      const zones = data.zonaBerbahaya ?? [];
+      const zones = data.hazardousZones ?? [];
       const id = zone.id ?? `ZON-${String(zones.length + 1).padStart(2, "0")}`;
-      const saved: ZonaBerbahaya = { ...clone(zone), id, name: zone.name.trim() };
+      const saved: HazardousZone = { ...clone(zone), id, name: zone.name.trim() };
       const existingIndex = zones.findIndex((item) => item.id === id);
       const previousCameraId = existingIndex === -1 ? undefined : zones[existingIndex].cameraId;
       if (existingIndex === -1) zones.push(saved);
       else zones[existingIndex] = saved;
-      data.zonaBerbahaya = zones;
+      data.hazardousZones = zones;
 
       if (previousCameraId && previousCameraId !== saved.cameraId) {
         const previousCamera = data.cameras.find((camera) => camera.id === previousCameraId);
@@ -744,26 +788,26 @@ export function createMockSawService({
       persist(data);
       return withViolationHistory(data, saved);
     },
-    async deactivateZonaBerbahaya(id) {
-      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat diperbarui.");
+    async deactivateHazardousZone(id) {
+      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat diperbarui.");
       const data = readData();
-      const zone = data.zonaBerbahaya?.find((item) => item.id === id);
-      if (!zone) throw new Error("Zona Berbahaya tidak ditemukan.");
+      const zone = data.hazardousZones?.find((item) => item.id === id);
+      if (!zone) throw new Error("Hazardous Zone tidak ditemukan.");
 
       zone.active = false;
       persist(data);
       return withViolationHistory(data, zone);
     },
-    async deleteZonaBerbahaya(id) {
-      if (scenario === "error") throw new Error("Zona Berbahaya tidak dapat dihapus.");
+    async deleteHazardousZone(id) {
+      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat dihapus.");
       const data = readData();
-      const zones = data.zonaBerbahaya ?? [];
-      if (!zones.some((zone) => zone.id === id)) throw new Error("Zona Berbahaya tidak ditemukan.");
+      const zones = data.hazardousZones ?? [];
+      if (!zones.some((zone) => zone.id === id)) throw new Error("Hazardous Zone tidak ditemukan.");
       if (data.violations.some((violation) => violation.zoneId === id)) {
-        throw new Error("Zona Berbahaya dengan riwayat Pelanggaran tidak dapat dihapus permanen.");
+        throw new Error("Hazardous Zone dengan riwayat Violation tidak dapat dihapus permanen.");
       }
 
-      data.zonaBerbahaya = zones.filter((zone) => zone.id !== id);
+      data.hazardousZones = zones.filter((zone) => zone.id !== id);
       data.zones = data.zones.filter((zoneId) => zoneId !== id);
       data.cameras.forEach((camera) => {
         camera.zoneIds = camera.zoneIds.filter((zoneId) => zoneId !== id);
@@ -772,13 +816,13 @@ export function createMockSawService({
     },
     async getViolationHistory() {
       if (scenario === "loading") return new Promise<ViolationRecord[]>(() => undefined);
-      if (scenario === "error") throw new Error("Riwayat Pelanggaran tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("History Violation tidak dapat dimuat.");
       if (scenario === "empty") return [];
       return clone(readData().violations);
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
-      if (scenario === "error") throw new Error("Direktori Karyawan tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Direktori Employee tidak dapat dimuat.");
       if (scenario === "empty") return { employees: [], escalationThreshold: readData().escalationThreshold };
 
       const data = readData();
@@ -797,12 +841,12 @@ export function createMockSawService({
     },
     async resetSafetyScore(request) {
       const note = request.note?.trim();
-      if (!safetyScoreResetReasons.includes(request.reason)) throw new Error("Alasan Reset Skor tidak valid.");
-      if (request.reason === "Lainnya" && !note) throw new Error("Catatan wajib diisi untuk alasan Lainnya.");
+      if (!safetyScoreResetReasons.includes(request.reason)) throw new Error("Reason Reset Skor tidak valid.");
+      if (request.reason === "Lainnya" && !note) throw new Error("Note wajib diisi untuk reason Lainnya.");
 
       const data = readData();
       const employee = data.employees.find((item) => item.id === request.employeeId);
-      if (!employee) throw new Error("Karyawan tidak ditemukan.");
+      if (!employee) throw new Error("Employee tidak ditemukan.");
 
       const timestamp = new Date().toISOString();
       const scoreBefore = employee.safetyScore;
@@ -818,7 +862,7 @@ export function createMockSawService({
         closedAt: timestamp,
         finalScoreBeforeReset: scoreBefore,
         totalViolations: employee.auditSummary?.violationCount ?? 0,
-        violationsByCanonicalApdClass: {},
+        violationsByCanonicalPpeClass: {},
         trigger: "Manual",
         resetReason: request.reason,
         ...(note ? { note } : {}),
@@ -866,11 +910,11 @@ export function createMockSawService({
     },
     async getSafetySettings() {
       if (scenario === "loading") return new Promise<SafetySettings>(() => undefined);
-      if (scenario === "error") throw new Error("Parameter keselamatan tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat dimuat.");
       return clone(readData().safetySettings ?? defaultSafetySettings);
     },
     async updateSafetySettings(settings) {
-      if (scenario === "error") throw new Error("Parameter keselamatan tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat disimpan.");
 
       const data = readData();
       const nextSettings = normalizeSafetySettings(settings);
@@ -879,13 +923,13 @@ export function createMockSawService({
       persist(data);
       return clone(nextSettings);
     },
-    async getCanonicalApdClassConfiguration() {
-      if (scenario === "loading") return new Promise<CanonicalApdClassConfiguration>(() => undefined);
-      if (scenario === "error") throw new Error("Konfigurasi Kelas APD Kanonis tidak dapat dimuat.");
-      return clone(readData().canonicalApdClassConfiguration ?? defaultCanonicalApdClassConfiguration);
+    async getCanonicalPpeClassConfiguration() {
+      if (scenario === "loading") return new Promise<CanonicalPpeClassConfiguration>(() => undefined);
+      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat dimuat.");
+      return clone(readData().canonicalPpeClassConfiguration ?? defaultCanonicalPpeClassConfiguration);
     },
-    async updateCanonicalApdClassConfiguration(configuration) {
-      if (scenario === "error") throw new Error("Konfigurasi Kelas APD Kanonis tidak dapat disimpan.");
+    async updateCanonicalPpeClassConfiguration(configuration) {
+      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat disimpan.");
 
       const duplicateIndex = configuration.mappings.find((mapping, index) =>
         configuration.mappings.some((candidate, candidateIndex) => candidateIndex !== index && candidate.yoloIndex === mapping.yoloIndex),
@@ -893,29 +937,29 @@ export function createMockSawService({
       if (duplicateIndex) throw new Error(`Indeks YOLO ${duplicateIndex.yoloIndex} sudah digunakan.`);
 
       const data = readData();
-      data.canonicalApdClassConfiguration = normalizeCanonicalApdClassConfiguration(configuration);
+      data.canonicalPpeClassConfiguration = normalizeCanonicalPpeClassConfiguration(configuration);
       persist(data);
-      return clone(data.canonicalApdClassConfiguration);
+      return clone(data.canonicalPpeClassConfiguration);
     },
     async getNotificationRecipients() {
       if (scenario === "loading") return new Promise<NotificationRecipient[]>(() => undefined);
-      if (scenario === "error") throw new Error("Konfigurasi notifikasi tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Configuration notifikasi tidak dapat dimuat.");
       return clone(readData().notificationRecipients ?? []);
     },
     async saveNotificationRecipient(input) {
       if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat disimpan.");
       const name = input.name.trim();
       const scope = input.scope;
-      if (!name) throw new Error("Nama penerima wajib diisi.");
+      if (!name) throw new Error("Name penerima wajib diisi.");
       if (input.role === "HRD" && scope.type !== "global") throw new Error("Penerima HRD harus memakai cakupan global.");
-      if (input.role === "Supervisor Area" && scope.type === "global") throw new Error("Supervisor Area harus dikaitkan dengan Zona Berbahaya atau departemen.");
+      if (input.role === "Supervisor Area" && scope.type === "global") throw new Error("Supervisor Area harus dikaitkan dengan Hazardous Zone atau department.");
 
       const data = readData();
-      if (scope.type === "zone" && !data.zonaBerbahaya?.some((zone) => zone.id === scope.zoneId)) {
-        throw new Error("Zona Berbahaya tidak ditemukan.");
+      if (scope.type === "zone" && !data.hazardousZones?.some((zone) => zone.id === scope.zoneId)) {
+        throw new Error("Hazardous Zone tidak ditemukan.");
       }
       if (scope.type === "department" && !data.departments.includes(scope.departmentId)) {
-        throw new Error("Departemen tidak ditemukan.");
+        throw new Error("Department tidak ditemukan.");
       }
       const recipient: NotificationRecipient = {
         id: nextNotificationRecipientId(data.notificationRecipients ?? []),
@@ -947,13 +991,13 @@ export function createMockSawService({
       const recipient = data.notificationRecipients?.find((item) => item.id === recipientId);
       if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
       const violationId = data.violations[0]?.id;
-      if (!violationId) throw new Error("Tidak ada Peristiwa Pelanggaran untuk simulasi.");
+      if (!violationId) throw new Error("No Violation Event untuk simulasi.");
       const log = appendNotificationSimulationLog(data, recipient, deliveryStatus, violationId, "2026-09-09T10:15:00+07:00");
       persist(data);
       return clone(log);
     },
     async getMonitoringSimulation() {
-      if (scenario === "error") throw new Error("Simulator Episode Pelanggaran tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Simulator Violation Episode tidak dapat dimuat.");
       return clone(readData().monitoringSimulation ?? createMonitoringSimulation("normal"));
     },
     async selectMonitoringScenario(nextScenario) {
@@ -992,7 +1036,7 @@ export function createMockSawService({
           if (event) {
             event.status = "clearing";
             event.updatedAt = "2026-09-09T10:00:01+07:00";
-            event.timeline?.push({ status: "clearing", occurredAt: event.updatedAt, description: "Episode Pelanggaran memasuki Memulihkan." });
+            event.timeline?.push({ status: "clearing", occurredAt: event.updatedAt, description: "Violation Episode memasuki Clearing." });
           }
         }
       } else if (simulation.episodeStatus === "clearing") {
@@ -1002,7 +1046,7 @@ export function createMockSawService({
           if (event) {
             event.status = "confirmed";
             event.updatedAt = "2026-09-09T10:00:02+07:00";
-            event.timeline?.push({ status: "confirmed", occurredAt: event.updatedAt, description: "APD kembali tidak terpenuhi; Episode Pelanggaran kembali menjadi Pelanggaran." });
+            event.timeline?.push({ status: "confirmed", occurredAt: event.updatedAt, description: "PPE kembali tidak terpenuhi; Violation Episode kembali menjadi Violation." });
           }
         }
         else {
@@ -1013,7 +1057,7 @@ export function createMockSawService({
             if (event) {
               event.status = "cleared";
               event.updatedAt = "2026-09-09T10:00:03+07:00";
-              event.timeline?.push({ status: "cleared", occurredAt: event.updatedAt, description: "Episode Pelanggaran Selesai." });
+              event.timeline?.push({ status: "cleared", occurredAt: event.updatedAt, description: "Violation Episode Cleared." });
             }
           }
         }

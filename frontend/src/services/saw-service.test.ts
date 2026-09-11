@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createMockSawService } from "./saw-service";
 
 describe("MockSawService Reset Skor", () => {
-  it("memulihkan Skor Keselamatan dan menyimpan artefak audit secara persisten", async () => {
+  it("memulihkan Safety Score dan menyimpan artefak audit secara persisten", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 
     const result = await service.resetSafetyScore({
@@ -30,32 +30,32 @@ describe("MockSawService Reset Skor", () => {
   });
 });
 
-describe("MockSawService lifecycle Zona Berbahaya", () => {
-  it("menonaktifkan Zona Berbahaya secara persisten tanpa menghapus referensi audit", async () => {
+describe("MockSawService lifecycle Hazardous Zone", () => {
+  it("menonaktifkan Hazardous Zone secara persisten tanpa menghapus referensi audit", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 
-    await service.deactivateZonaBerbahaya("ZON-01");
+    await service.deactivateHazardousZone("ZON-01");
 
     const reloadedService = createMockSawService({ storage: window.localStorage });
-    expect((await reloadedService.getZonaBerbahaya()).find((zone) => zone.id === "ZON-01")?.active).toBe(false);
+    expect((await reloadedService.getHazardousZone()).find((zone) => zone.id === "ZON-01")?.active).toBe(false);
     expect((await reloadedService.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).toContain("ZON-01");
   });
 
-  it("menghapus Zona Berbahaya tanpa riwayat Pelanggaran dan membersihkan referensi Sumber Kamera", async () => {
+  it("menghapus Hazardous Zone tanpa riwayat Violation dan membersihkan referensi Camera Source", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 
-    await service.deleteZonaBerbahaya("ZON-02");
+    await service.deleteHazardousZone("ZON-02");
 
-    expect(await service.getZonaBerbahaya()).not.toContainEqual(expect.objectContaining({ id: "ZON-02" }));
+    expect(await service.getHazardousZone()).not.toContainEqual(expect.objectContaining({ id: "ZON-02" }));
     expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).not.toContain("ZON-02");
   });
 
-  it("menolak penghapusan Zona Berbahaya yang memiliki riwayat Pelanggaran", async () => {
+  it("menolak penghapusan Hazardous Zone yang memiliki riwayat Violation", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 
-    await expect(service.deleteZonaBerbahaya("ZON-01")).rejects.toThrow("riwayat Pelanggaran");
+    await expect(service.deleteHazardousZone("ZON-01")).rejects.toThrow("riwayat Violation");
 
-    expect(await service.getZonaBerbahaya()).toContainEqual(expect.objectContaining({ id: "ZON-01" }));
+    expect(await service.getHazardousZone()).toContainEqual(expect.objectContaining({ id: "ZON-01" }));
     expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).toContain("ZON-01");
   });
 });
