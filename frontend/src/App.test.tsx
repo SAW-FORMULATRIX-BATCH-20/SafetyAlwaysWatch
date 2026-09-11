@@ -27,9 +27,9 @@ describe("SAW application", () => {
 
     expect(await screen.findByText("8 observasi Kepatuhan APD")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Laporan Kepatuhan APD" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Tren Kepatuhan APD" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Breakdown Kelas APD Kanonis" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Distribusi status keselamatan" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Tren Kepatuhan APD" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Breakdown Kelas APD Kanonis" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Distribusi status keselamatan" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Live Monitoring" })).not.toBeInTheDocument();
   });
 
@@ -1323,5 +1323,96 @@ describe("SAW application", () => {
     render(<App initialEntries={["/konfigurasi/kamera"]} initialPersona="admin" service={service} />);
     await user.click(await screen.findByRole("button", { name: "Lihat detail Gerbang Produksi" }));
     expect(screen.getByRole("list", { name: "Status Zona Berbahaya" })).toHaveTextContent("Zona Gerbang Utama · Nonaktif");
+  });
+
+  it("memungkinkan dialog konfirmasi ditutup dengan Escape dan menahan fokus di dalam dialog", async () => {
+    const user = userEvent.setup();
+    render(<App initialEntries={["/overview"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+
+    await user.click(await screen.findByRole("button", { name: "Reset data demo" }));
+    const dialog = screen.getByRole("dialog", { name: "Reset data demo?" });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Reset data" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Batal" })).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Reset data demo?" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset data demo" })).toHaveFocus();
+  });
+
+  it("menonaktifkan animasi shell ketika pengguna memilih reduced motion", async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query === "(prefers-reduced-motion: reduce)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    });
+
+    try {
+      render(<App initialEntries={["/overview"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+      await screen.findByRole("heading", { name: "Overview" });
+      expect(screen.getByRole("main")).not.toHaveAttribute("style");
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  it("menyatakan Kanvas Zone Editor sebagai lihat-saja di ponsel sambil menjaga input koordinat dapat dioperasikan", async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+      await user.click(await screen.findByRole("button", { name: "Tambah Zona Berbahaya" }));
+
+      expect(screen.getByLabelText("Kanvas Zone Editor")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Pada ponsel, frame hanya untuk dilihat. Gunakan input koordinat di bawah.")).toBeInTheDocument();
+      expect(screen.getByRole("spinbutton", { name: "Koordinat x" })).toBeEnabled();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  it("menyediakan representasi kartu berlabel untuk mapping Kelas APD Kanonis di ponsel", async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    });
+
+    try {
+      render(<App initialEntries={["/konfigurasi/apd"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+
+      const mappings = await screen.findByRole("list", { name: "Daftar mapping Kelas APD Kanonis untuk ponsel" });
+      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("Indeks YOLO");
+      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("Kelas APD Kanonis");
+      expect(within(mappings).getByRole("button", { name: "Edit mapping helmet" })).toBeEnabled();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });
