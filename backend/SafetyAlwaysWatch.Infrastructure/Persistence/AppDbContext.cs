@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Employee> Employees { get; set; }
     public DbSet<DangerZone> DangerZones { get; set; }
     public DbSet<SafetyScoreLedger> SafetyScoreLedgers { get; set; }
+    public DbSet<Department> Departments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,13 @@ public class AppDbContext : DbContext
                     .HasQueryFilter(GetIsDeletedRestriction(entityType.ClrType));
             }
         }
+
+        // Seed Departments
+        modelBuilder.Entity<Department>().HasData(
+            new Department(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Produksi"),
+            new Department(Guid.Parse("22222222-2222-2222-2222-222222222222"), "Gudang"),
+            new Department(Guid.Parse("33333333-3333-3333-3333-333333333333"), "IT")
+        );
     }
 
     private static LambdaExpression GetIsDeletedRestriction(Type type)
