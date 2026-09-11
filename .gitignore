@@ -6,3 +6,5 @@ riderModule.iml
 workflow.md
 .tmp/
 V1/
+logs/
+*.log
