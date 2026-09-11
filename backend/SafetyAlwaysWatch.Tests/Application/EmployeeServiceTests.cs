@@ -5,9 +5,11 @@ using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Mappings;
 using SafetyAlwaysWatch.Application.Services;
 using SafetyAlwaysWatch.Domain.Entities;
+using SafetyAlwaysWatch.Domain.Enums;
 using SafetyAlwaysWatch.Domain.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
+using SafetyAlwaysWatch.Application.Interfaces;
 using MockQueryable.Moq;
+using System.Reflection;
 
 namespace SafetyAlwaysWatch.Tests.Application;
 
@@ -18,6 +20,7 @@ public class EmployeeServiceTests
     private Mock<IRepository<DangerZone>> _dangerZoneRepoMock;
     private Mock<IRepository<SystemSetting>> _systemSettingRepoMock;
     private Mock<IRepository<SafetyScoreLedger>> _ledgerRepoMock;
+    private Mock<IPasswordHasher> _passwordHasherMock;
     private IMapper _mapper;
     private EmployeeService _employeeService;
 
@@ -28,6 +31,7 @@ public class EmployeeServiceTests
         _dangerZoneRepoMock = new Mock<IRepository<DangerZone>>();
         _systemSettingRepoMock = new Mock<IRepository<SystemSetting>>();
         _ledgerRepoMock = new Mock<IRepository<SafetyScoreLedger>>();
+        _passwordHasherMock = new Mock<IPasswordHasher>();
 
         var mapperMock = new Mock<IMapper>();
         mapperMock.Setup(m => m.Map<EmployeeDto>(It.IsAny<Employee>()))
@@ -35,7 +39,7 @@ public class EmployeeServiceTests
             {
                 Id = src.Id.ToString(),
                 Name = src.FullName,
-                DepartmentId = src.Department,
+                Department = src.Department?.Name ?? string.Empty,
                 SafetyScore = src.SafetyCreditScore
             });
         _mapper = mapperMock.Object;
@@ -45,7 +49,21 @@ public class EmployeeServiceTests
             _dangerZoneRepoMock.Object,
             _systemSettingRepoMock.Object,
             _ledgerRepoMock.Object,
+            _passwordHasherMock.Object,
             _mapper);
+    }
+
+    private Employee CreateEmployee(string code, string name, string departmentName, double score)
+    {
+        var deptId = Guid.NewGuid();
+        var dept = new Department(deptId, departmentName);
+        var emp = new Employee(code, name, deptId, score);
+
+        // Use reflection to set Department navigation property
+        var prop = typeof(Employee).GetProperty("Department", BindingFlags.Public | BindingFlags.Instance);
+        prop?.SetValue(emp, dept);
+
+        return emp;
     }
 
     [Test]
@@ -57,8 +75,8 @@ public class EmployeeServiceTests
             new SystemSetting { Key = "SafetyScore:EscalationThreshold", Value = "60" }
         };
 
-        var emp1 = new Employee("EMP01", "John Doe", "IT", 100);
-        var emp2 = new Employee("EMP02", "Jane Smith", "HR", 50);
+        var emp1 = CreateEmployee("EMP01", "John Doe", "IT", 100);
+        var emp2 = CreateEmployee("EMP02", "Jane Smith", "HR", 50);
 
         var employees = new List<Employee> { emp1, emp2 };
         var zones = new List<DangerZone>();
@@ -83,8 +101,8 @@ public class EmployeeServiceTests
     public async Task GetEmployeesAsync_WithSearch_ReturnsFilteredList()
     {
         // Arrange
-        var emp1 = new Employee("EMP01", "John Doe", "IT", 100);
-        var emp2 = new Employee("EMP02", "Jane Smith", "HR", 50);
+        var emp1 = CreateEmployee("EMP01", "John Doe", "IT", 100);
+        var emp2 = CreateEmployee("EMP02", "Jane Smith", "HR", 50);
 
         var employees = new List<Employee> { emp1, emp2 };
 
@@ -107,16 +125,17 @@ public class EmployeeServiceTests
     public async Task GetEmployeeByIdAsync_ValidId_ReturnsEmployeeDto()
     {
         // Arrange
-        var employee = new Employee("EMP01", "John Doe", "IT", 100);
+        var employee = CreateEmployee("EMP01", "John Doe", "IT", 100);
 
         var zone = new DangerZone("Gudang Kimia", null);
         zone.AddSupervisor(employee.Id);
         var zones = new List<DangerZone> { zone };
 
-        var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, Guid.NewGuid(), null);
+        var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, LedgerChangeType.Violation, "Violation", Guid.NewGuid(), null);
         var ledgers = new List<SafetyScoreLedger> { ledger };
 
-        _employeeRepoMock.Setup(repo => repo.GetByIdAsync(employee.Id, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+        var employees = new List<Employee> { employee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
         _dangerZoneRepoMock.Setup(repo => repo.Query()).Returns(zones.BuildMock());
         _ledgerRepoMock.Setup(repo => repo.Query()).Returns(ledgers.BuildMock());
 
@@ -136,7 +155,8 @@ public class EmployeeServiceTests
     {
         // Arrange
         var employeeId = Guid.NewGuid();
-        _employeeRepoMock.Setup(repo => repo.GetByIdAsync(employeeId, It.IsAny<CancellationToken>())).ReturnsAsync((Employee)null!);
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
 
         // Act
         var result = await _employeeService.GetEmployeeByIdAsync(employeeId, CancellationToken.None);
@@ -144,5 +164,60 @@ public class EmployeeServiceTests
         // Assert
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.ErrorMessage, Is.EqualTo("Karyawan tidak ditemukan."));
+    }
+
+    [Test]
+    public async Task CreateEmployeeAsync_ShouldFail_WhenEmployeeCodeExists()
+    {
+        // Arrange
+        var existingEmployee = CreateEmployee("EMP01", "Existing", "IT", 100);
+        var employees = new List<Employee> { existingEmployee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        var dto = new CreateEmployeeDto
+        {
+            EmployeeCode = "EMP01",
+            FullName = "New Employee",
+            DepartmentId = Guid.NewGuid()
+        };
+
+        // Act
+        var result = await _employeeService.CreateEmployeeAsync(dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.ErrorMessage, Is.EqualTo("Kode karyawan sudah digunakan."));
+    }
+
+    [Test]
+    public async Task CreateEmployeeAsync_ShouldSucceed_AndCreateLedger()
+    {
+        // Arrange
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        var settings = new List<SystemSetting>
+        {
+            new SystemSetting { Key = "SafetyScore:InitialScore", Value = "100" }
+        };
+        _systemSettingRepoMock.Setup(repo => repo.Query()).Returns(settings.BuildMock());
+        _passwordHasherMock.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed_password");
+
+        var dto = new CreateEmployeeDto
+        {
+            EmployeeCode = "EMP02",
+            FullName = "New Employee",
+            DepartmentId = Guid.NewGuid(),
+            Password = "password123",
+            Role = EmployeeRole.Admin
+        };
+
+        // Act
+        var result = await _employeeService.CreateEmployeeAsync(dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.True);
+        _employeeRepoMock.Verify(x => x.AddAsync(It.Is<Employee>(e => e.EmployeeCode == "EMP02" && e.SafetyCreditScore == 100 && e.Role == EmployeeRole.Admin), It.IsAny<CancellationToken>()), Times.Once);
+        _ledgerRepoMock.Verify(x => x.AddAsync(It.Is<SafetyScoreLedger>(l => l.ChangeType == LedgerChangeType.Initialization && l.ScoreAfter == 100), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

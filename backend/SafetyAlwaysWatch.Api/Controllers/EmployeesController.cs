@@ -15,12 +15,17 @@ namespace SafetyAlwaysWatch.Api.Controllers;
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeService _employeeService;
-    private readonly IValidator<GetEmployeesQuery> _validator;
+    private readonly IValidator<GetEmployeesQuery> _getEmployeesValidator;
+    private readonly IValidator<CreateEmployeeDto> _createEmployeeValidator;
 
-    public EmployeesController(IEmployeeService employeeService, IValidator<GetEmployeesQuery> validator)
+    public EmployeesController(
+        IEmployeeService employeeService, 
+        IValidator<GetEmployeesQuery> getEmployeesValidator,
+        IValidator<CreateEmployeeDto> createEmployeeValidator)
     {
         _employeeService = employeeService;
-        _validator = validator;
+        _getEmployeesValidator = getEmployeesValidator;
+        _createEmployeeValidator = createEmployeeValidator;
     }
 
     /// <summary>
@@ -29,7 +34,7 @@ public class EmployeesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetEmployees([FromQuery] GetEmployeesQuery query, CancellationToken cancellationToken)
     {
-        var validationResult = await _validator.ValidateAsync(query, cancellationToken);
+        var validationResult = await _getEmployeesValidator.ValidateAsync(query, cancellationToken);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -55,5 +60,30 @@ public class EmployeesController : ControllerBase
             return NotFound(result);
         }
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Mendaftarkan karyawan baru dan menginisialisasi skor keselamatan awal.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> CreateEmployee([FromBody] CreateEmployeeDto dto, CancellationToken cancellationToken)
+    {
+        var validationResult = await _createEmployeeValidator.ValidateAsync(dto, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = validationResult.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            return BadRequest(ServiceResult<Guid>.ValidationFailure(errors));
+        }
+
+        var result = await _employeeService.CreateEmployeeAsync(dto, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+
+        return CreatedAtAction(nameof(GetEmployeeById), new { id = result.Data }, result);
     }
 }

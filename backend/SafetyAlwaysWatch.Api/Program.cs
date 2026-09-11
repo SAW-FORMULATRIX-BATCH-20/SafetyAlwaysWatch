@@ -14,7 +14,10 @@ using Serilog;
 using FluentValidation;
 using SafetyAlwaysWatch.Application.Services;
 using SafetyAlwaysWatch.Application.Validators;
+using SafetyAlwaysWatch.Application.Validators.Employees;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
+using SafetyAlwaysWatch.Application.DTOs.Auth;
+using SafetyAlwaysWatch.Infrastructure.Security;
 using System.Reflection;
 
 
@@ -50,11 +53,19 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddMaps(typeof(SafetyAlwaysWatch.Application.Mappings.EmployeeProfile).Assembly);
 });
+
 builder.Services.AddScoped<IValidator<GetEmployeesQuery>, GetEmployeesQueryValidator>();
+builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValidator>();
+builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
+builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
 
 
 // Configure JWT Authentication

@@ -1,4 +1,5 @@
 using SafetyAlwaysWatch.Domain.Common;
+using SafetyAlwaysWatch.Domain.Enums;
 
 namespace SafetyAlwaysWatch.Domain.Entities;
 
@@ -11,6 +12,8 @@ public class SafetyScoreLedger : BaseEntity
     public double ScoreAfter { get; private set; }
     public Guid? RelatedViolationEventId { get; private set; }
     public Guid? RelatedScoreResetLogId { get; private set; }
+    public LedgerChangeType ChangeType { get; private set; }
+    public string? Description { get; private set; }
     public DateTimeOffset Timestamp { get; private set; }
 
     private SafetyScoreLedger()
@@ -22,6 +25,8 @@ public class SafetyScoreLedger : BaseEntity
         double changeAmount,
         double scoreBefore,
         double scoreAfter,
+        LedgerChangeType changeType,
+        string? description = null,
         Guid? relatedViolationEventId = null,
         Guid? relatedScoreResetLogId = null)
     {
@@ -32,6 +37,8 @@ public class SafetyScoreLedger : BaseEntity
         ScoreAfter = scoreAfter;
         RelatedViolationEventId = relatedViolationEventId;
         RelatedScoreResetLogId = relatedScoreResetLogId;
+        ChangeType = changeType;
+        Description = description;
         Timestamp = DateTimeOffset.UtcNow;
     }
 }

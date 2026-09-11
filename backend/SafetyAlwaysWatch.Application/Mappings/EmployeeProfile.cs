@@ -11,7 +11,7 @@ public class EmployeeProfile : Profile
         CreateMap<Employee, EmployeeDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.ToString()))
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FullName))
-            .ForMember(dest => dest.DepartmentId, opt => opt.MapFrom(src => src.Department))
+            .ForMember(dest => dest.Department, opt => opt.MapFrom(src => src.Department.Name))
             .ForMember(dest => dest.SafetyScore, opt => opt.MapFrom(src => src.SafetyCreditScore))
             .ForMember(dest => dest.EnrollmentStatus, opt => opt.MapFrom(src => src.HasFaceEnrolled ? "enrolled" : "not-enrolled"))
             .ForMember(dest => dest.SupervisorArea, opt => opt.Ignore())

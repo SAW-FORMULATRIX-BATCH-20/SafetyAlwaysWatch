@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SafetyAlwaysWatch.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using SafetyAlwaysWatch.Infrastructure.Persistence;
 namespace SafetyAlwaysWatch.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911024112_MigrasiDepartment")]
+    partial class MigrasiDepartment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -130,10 +133,6 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.Property<Guid>("DepartmentId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.Property<string>("EmployeeCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -149,19 +148,6 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<bool>("RequiresPasswordChange")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("Role")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<double>("SafetyCreditScore")
                         .HasColumnType("double precision");
@@ -182,29 +168,10 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("Email");
-
                     b.HasIndex("EmployeeCode")
                         .IsUnique();
 
                     b.ToTable("Employees");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            DepartmentId = new Guid("33333333-3333-3333-3333-333333333333"),
-                            Email = "admin@saw.local",
-                            EmployeeCode = "ADM-001",
-                            FullName = "Admin SAW",
-                            HasFaceEnrolled = false,
-                            IsDeleted = false,
-                            PasswordHash = "ZwSkDi51ttJOzuV3FCIMhw==.HHGErah3ZRjpwAi3AoHjL+2aqn3cZH0W0agtD+WkMI4=",
-                            RequiresPasswordChange = false,
-                            Role = "Admin",
-                            SafetyCreditScore = 100.0,
-                            Status = 1
-                        });
                 });
 
             modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.SafetyScoreLedger", b =>
@@ -216,19 +183,11 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.Property<double>("ChangeAmount")
                         .HasColumnType("double precision");
 
-                    b.Property<string>("ChangeType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("uuid");

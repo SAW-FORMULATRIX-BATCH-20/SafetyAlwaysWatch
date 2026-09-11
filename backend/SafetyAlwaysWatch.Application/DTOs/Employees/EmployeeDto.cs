@@ -9,7 +9,7 @@ public class EmployeeAuditSummaryDto
 public class EmployeeDto
 {
     public string Id { get; set; } = string.Empty;
-    public string DepartmentId { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
     public double SafetyScore { get; set; }
     public string? SafetyScorePeriodStartedAt { get; set; }
     public string? Name { get; set; }

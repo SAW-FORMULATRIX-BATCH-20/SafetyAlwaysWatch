@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SafetyAlwaysWatch.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using SafetyAlwaysWatch.Infrastructure.Persistence;
 namespace SafetyAlwaysWatch.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911033015_AddAuthAndEmployeeCredentials")]
+    partial class AddAuthAndEmployeeCredentials
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -216,19 +219,11 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.Property<double>("ChangeAmount")
                         .HasColumnType("double precision");
 
-                    b.Property<string>("ChangeType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("uuid");
