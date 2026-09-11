@@ -10,6 +10,13 @@ public class SafetyScoreLedgerConfiguration : IEntityTypeConfiguration<SafetySco
     {
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.ChangeType)
+            .HasConversion<string>()
+            .IsRequired();
+
+        builder.Property(x => x.Description)
+            .HasMaxLength(255);
+
         builder.HasIndex(x => x.EmployeeId);
         builder.HasIndex(x => x.Timestamp);
     }
