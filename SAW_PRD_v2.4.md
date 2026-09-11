@@ -1,14 +1,14 @@
 **SAW (Safety Always Watch!) — Sistem Pemantauan Zona Berbahaya & Kepatuhan APD**
 
-|                          |                                                                                                                           |
-|--------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| **Field**                | **Nilai**                                                                                                                 |
-| Status                   | Draft untuk Review                                                                                                        |
-| Versi Dokumen            | 2.2.0-draft                                                                                                               |
-| Tanggal Penyusunan       | 5 September 2026 (revisi 7 September 2026)                                                                                |
-| Disusun untuk            | Tim Produk & Engineering NETFace                                                                                          |
-| Basis Kode Acuan         | NETFace.Attendance (.NET 8, Clean Architecture — Api / Application / Domain / Infrastructure)                             |
-| Perubahan pada versi ini | Rebranding proyek dari NETGuard menjadi SAW (Safety Always Watch!); menambahkan Bab 23 — Panduan Pengembangan .NET (Development Guidelines) sebagai SOP & standar teknis wajib tim engineering |
+|                          |                                                                                                                                                                                                |
+|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Field**                | **Nilai**                                                                                                                                                                                      |
+| Status                   | Draft untuk Review                                                                                                                                                                             |
+| Versi Dokumen            | 2.4.0-draft                                                                                                                                                                                    |
+| Tanggal Penyusunan       | 5 September 2026 (revisi 11 September 2026)                                                                                                                                                    |
+| Disusun untuk            | Bootcamp Software Engineer Formulatrix Batch 20                                                                                                                                                |
+| Basis Kode Acuan         | NETFace.Attendance (.NET 8, Clean Architecture — Api / Application / Domain / Infrastructure)                                                                                                  |
+| Perubahan pada versi ini | Menambahkan enrollment wajah karyawan, snapshot pelanggaran sementara yang langsung dikirim ke Telegram tanpa penyimpanan server, label Unknown, roadmap dua minggu, dan backlog OpenProject berbahasa Inggris |
 
 # Daftar Isi
 
@@ -50,6 +50,8 @@
 
 [Alur 2b — Admin Mengonfigurasi Kelas APD dari Model YOLO [1](#alur-2b-admin-mengonfigurasi-kelas-apd-dari-model-yolo)](#alur-2b-admin-mengonfigurasi-kelas-apd-dari-model-yolo)
 
+[Alur 2c — Admin Mendaftarkan Wajah Karyawan (Baru — v2.4) [1](#alur-2c-admin-mendaftarkan-wajah-karyawan-baru-v24)](#alur-2c-admin-mendaftarkan-wajah-karyawan-baru-v24)
+
 [Alur 3 — Deteksi Real-Time & Penilaian Kepatuhan [1](#alur-3-deteksi-real-time-penilaian-kepatuhan)](#alur-3-deteksi-real-time-penilaian-kepatuhan)
 
 [Alur 4 — Pencatatan Pelanggaran & Pengurangan Skor (Direvisi — v2.1) [1](#alur-4-pencatatan-pelanggaran-pengurangan-skor-direvisi-v2.1)](#alur-4-pencatatan-pelanggaran-pengurangan-skor-direvisi-v2.1)
@@ -85,6 +87,8 @@
 [7.11 Stabilisasi Status Pelanggaran — Confirm/Clear State Machine (Baru — v2.1) [1](#stabilisasi-status-pelanggaran-confirmclear-state-machine-baru-v2.1)](#stabilisasi-status-pelanggaran-confirmclear-state-machine-baru-v2.1)
 
 [7.12 Mesin Reset Skor — Terjadwal & Manual (Baru — v2.1) [1](#mesin-reset-skor-terjadwal-manual-baru-v2.1)](#mesin-reset-skor-terjadwal-manual-baru-v2.1)
+
+[7.13 Enrollment Wajah Karyawan (Baru — v2.4) [1](#enrollment-wajah-karyawan-baru-v24)](#enrollment-wajah-karyawan-baru-v24)
 
 [8. Kebutuhan Non-Fungsional [1](#kebutuhan-non-fungsional)](#kebutuhan-non-fungsional)
 
@@ -138,6 +142,10 @@
 
 [10.11 ScoreResetLog (Baru — v2.1) [1](#scoreresetlog-baru-v2.1)](#scoreresetlog-baru-v2.1)
 
+[10.12 EmployeeFaceEmbedding (Baru — v2.4) [1](#employeefaceembedding-baru-v24)](#employeefaceembedding-baru-v24)
+
+[10.13 TransientViolationSnapshot (Objek Memori — v2.4) [1](#transientviolationsnapshot-objek-memori-v24)](#transientviolationsnapshot-objek-memori-v24)
+
 [11. Ringkasan Perubahan API [1](#ringkasan-perubahan-api)](#ringkasan-perubahan-api)
 
 [12. Model Machine Learning [1](#model-machine-learning)](#model-machine-learning)
@@ -158,7 +166,7 @@
 
 [18. Metrik Keberhasilan (Ilustratif — Perlu Validasi Stakeholder) [1](#metrik-keberhasilan-ilustratif-perlu-validasi-stakeholder)](#metrik-keberhasilan-ilustratif-perlu-validasi-stakeholder)
 
-[19. Roadmap Implementasi (Usulan Fase) [1](#roadmap-implementasi-usulan-fase)](#roadmap-implementasi-usulan-fase)
+[19. Roadmap Implementasi Dua Minggu [1](#roadmap-implementasi-dua-minggu)](#roadmap-implementasi-dua-minggu)
 
 [20. Kriteria Penerimaan (Acceptance Criteria) — Ringkasan Fitur Inti [1](#kriteria-penerimaan-acceptance-criteria-ringkasan-fitur-inti)](#kriteria-penerimaan-acceptance-criteria-ringkasan-fitur-inti)
 
@@ -168,7 +176,9 @@
 
 [23. Panduan Pengembangan .NET (Development Guidelines) [1](#panduan-pengembangan-net-development-guidelines)](#panduan-pengembangan-net-development-guidelines)
 
-[24. Riwayat Revisi Dokumen [1](#riwayat-revisi-dokumen)](#riwayat-revisi-dokumen)
+[24. Backlog OpenProject [1](#backlog-openproject)](#backlog-openproject)
+
+[25. Riwayat Revisi Dokumen [1](#riwayat-revisi-dokumen)](#riwayat-revisi-dokumen)
 
 # 1. Latar Belakang
 
@@ -262,6 +272,9 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 | Model YOLO (.onnx)                                    | Model deteksi objek yang dipakai untuk mendeteksi kelas-kelas APD pada frame video.                                                                                                                                               |
 | Re-identifikasi (Re-ID)                               | Proses mengaitkan sebuah bounding box orang pada frame video dengan identitas karyawan terdaftar (memanfaatkan pipeline wajah YuNet + SFace dari V1).                                                                             |
 | Edge/Inference Worker                                 | Komponen yang menjalankan inferensi model (YOLO + wajah) terhadap umpan video secara berkelanjutan.                                                                                                                               |
+| Face Enrollment                                       | Proses Admin mengambil atau mengunggah sampel wajah karyawan, memvalidasi kualitasnya, membentuk embedding, dan menautkannya ke data Employee untuk kebutuhan identifikasi.                                                        |
+| Unknown                                               | Label baku untuk orang yang terdeteksi tetapi wajahnya tidak berhasil dicocokkan dengan karyawan terdaftar. Violation Event tetap dicatat, tetapi tidak mengubah skor karyawan.                                                     |
+| Snapshot Sementara                                    | Frame bukti yang dibuat di memori saat episode menjadi Confirmed, langsung dikirim sebagai lampiran Telegram, lalu dihapus dari memori. File snapshot tidak disimpan di filesystem, object storage, atau database server aplikasi.    |
 
 # 4. Ruang Lingkup
 
@@ -281,13 +294,13 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 - (Baru — v2.1) Mesin reset skor kredit keamanan, terjadwal harian dan manual dengan alasan tercatat, beserta ringkasan periode dan log audit reset.
 
-- Pencatatan dan riwayat peristiwa pelanggaran (dengan bukti/snapshot).
+- Pencatatan dan riwayat peristiwa pelanggaran; snapshot bukti dibuat sementara di memori dan langsung dikirim sebagai lampiran Telegram tanpa disimpan di server aplikasi.
 
 - Notifikasi otomatis ke HRD dan Supervisor pengawas via Telegram saat skor di bawah threshold.
 
 - Dashboard pemantauan dan pelaporan kepatuhan.
 
-- Reuse modul identitas karyawan dan pipeline wajah (YuNet + SFace) dari V1 untuk keperluan identifikasi individu.
+- Reuse modul identitas karyawan dan pipeline wajah (YuNet + SFace) dari V1, termasuk antarmuka enrollment untuk menambah, melihat jumlah, dan menghapus sampel wajah karyawan.
 
 ## 4.2 Di Luar Lingkup (Out of Scope / Non-Goals) V2
 
@@ -301,6 +314,8 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 - Aplikasi mobile native (V2 difokuskan pada dashboard web dan notifikasi Telegram).
 
+- Penyimpanan permanen snapshot pelanggaran pada filesystem, database, atau object storage milik server aplikasi.
+
 - (Baru — v2.1) Pemulihan skor secara bertahap/parsial — reset skor bersifat total ke nilai awal, bukan pemulihan berangsur.
 
 ## 4.3 Asumsi
@@ -311,9 +326,11 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 - Setiap zona berbahaya terhubung ke satu sumber kamera tertentu; satu kamera dapat memiliki lebih dari satu zona.
 
-- Setiap pekerja yang perlu diidentifikasi sudah terdaftar wajahnya melalui modul enrollment yang sudah ada di V1 (EmployeesFacesController), sehingga skor dapat diatribusikan ke individu yang benar.
+- Data karyawan dasar tersedia dari V1. Admin dapat mendaftarkan sampel wajah melalui fitur Face Enrollment pada V2 sebelum karyawan dipantau, sehingga identitas dan skor dapat diatribusikan dengan benar.
 
 - Bot Telegram dan grup/nomor chat HRD serta masing-masing Supervisor akan disediakan/dikonfigurasi oleh tim operasional.
+
+- Server aplikasi dapat mengakses Telegram Bot API saat kejadian. Bila koneksi gagal, snapshot hanya boleh disimpan dalam buffer memori berumur pendek untuk retry terbatas dan tidak boleh ditulis ke penyimpanan persisten.
 
 - Definisi angka pasti (skor awal, besaran pengurangan per pelanggaran, nilai threshold, ConfirmThresholdSeconds, ClearThresholdSeconds, jadwal reset) merupakan parameter yang dapat dikonfigurasi, dengan nilai contoh sebagai ilustrasi awal, bukan keputusan final.
 
@@ -358,6 +375,16 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 15. Pemetaan ini menjadi rujukan yang dipakai seluruh zona.
 
+## Alur 2c — Admin Mendaftarkan Wajah Karyawan (Baru — v2.4)
+
+15a. Admin membuka detail Employee lalu memilih menu Face Enrollment.
+
+15b. Admin mengambil foto melalui kamera atau mengunggah gambar wajah yang memenuhi batas format dan ukuran.
+
+15c. Sistem mendeteksi tepat satu wajah, memeriksa kualitas minimum, membentuk embedding menggunakan pipeline YuNet dan SFace, lalu menolak gambar yang tidak valid atau duplikat.
+
+15d. Sistem menautkan embedding ke Employee, menampilkan jumlah sampel wajah yang aktif, dan mengizinkan Admin menghapus sampel yang salah. Maksimum sampel mengikuti batas V1, yaitu lima embedding per karyawan.
+
 ## Alur 3 — Deteksi Real-Time & Penilaian Kepatuhan
 
 16. Edge/Inference Worker menerima frame dari kamera secara berkelanjutan.
@@ -366,7 +393,7 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 18. Untuk tiap orang terlacak, sistem menjalankan deteksi APD (YOLO) pada area sekitar orang tersebut.
 
-19. Sistem mencocokkan wajah (reuse YuNet + SFace) untuk mengaitkan track dengan identitas karyawan terdaftar (atau menandai sebagai “Tidak Dikenali” bila tidak berhasil).
+19. Sistem mencocokkan wajah (reuse YuNet + SFace) untuk mengaitkan track dengan identitas karyawan terdaftar. Jika pencocokan tidak berhasil, label orang ditetapkan menjadi **Unknown**.
 
 20. Sistem memeriksa apakah bounding box orang tersebut berpotongan/berada di dalam salah satu zona berbahaya.
 
@@ -380,7 +407,7 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 24. Selama durasi non-compliant berlangsung terus-menerus, sistem menahan pembuatan insiden hingga durasi mencapai ConfirmThresholdSeconds; barulah episode dinyatakan Confirmed.
 
-25. Tepat pada saat Confirmed, sistem membuat satu Violation Event (snapshot dari frame terbaru), menjalankan Identity Resolver, dan mengurangi skor kredit keamanan individu sekali untuk episode tersebut.
+25. Tepat pada saat Confirmed, sistem membuat satu Violation Event, mengambil snapshot dari frame terbaru ke buffer memori, menjalankan Identity Resolver, dan mengurangi skor kredit keamanan satu kali hanya bila Employee berhasil dikenali. Label **Unknown** tidak mengubah skor karyawan mana pun.
 
 26. Perubahan skor dicatat pada riwayat skor (ledger) untuk keperluan audit.
 
@@ -388,13 +415,13 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 ## Alur 5 — Notifikasi Eskalasi via Telegram
 
-28. Setiap kali skor individu diperbarui, sistem memeriksa apakah skor terbaru berada di bawah threshold yang dikonfigurasi.
+28. Pada setiap transisi episode ke Confirmed, sistem menentukan penerima Telegram dan memeriksa skor terbaru bila Employee dikenali. Skor di bawah threshold hanya menandai pesan sebagai eskalasi; event berlabel **Unknown** tetap dikirim sebagai bukti non-atributif.
 
-29. Jika ya, sistem menyusun pesan notifikasi (nama, zona, APD yang dilanggar, waktu, skor terkini, opsional snapshot).
+29. Jika pelanggaran telah Confirmed, sistem menyusun pesan notifikasi yang memuat nama atau label **Unknown**, zona, APD yang dilanggar, waktu, dan skor terkini bila tersedia. Snapshot wajib dilampirkan.
 
-30. Sistem mengirim pesan tersebut ke HRD dan ke Supervisor yang mengawasi zona/departemen terkait melalui Telegram Bot API.
+30. Sistem langsung mengirim pesan dan snapshot sebagai lampiran Telegram ke HRD dan Supervisor terkait. Setelah berhasil dikirim, byte snapshot dihapus dari memori dan tidak disimpan di server aplikasi.
 
-31. Status pengiriman dicatat pada log notifikasi.
+31. Status pengiriman dan TelegramMessageId dicatat pada log notifikasi. Bila pengiriman gagal, sistem melakukan retry terbatas menggunakan buffer memori berumur pendek; setelah batas retry tercapai, buffer dihapus dan kegagalan tetap tercatat.
 
 ## Alur 6 — Dashboard & Pelaporan
 
@@ -402,7 +429,7 @@ Kebutuhan bisnis bergeser: kamera yang semula dipakai untuk memindai wajah saat 
 
 33. Pengguna dapat memfilter berdasarkan zona, departemen, individu, atau rentang tanggal.
 
-34. Pengguna dapat membuka detail sebuah pelanggaran untuk melihat snapshot bukti.
+34. Pengguna dapat membuka detail pelanggaran untuk melihat metadata kejadian dan status pengiriman bukti ke Telegram. Dashboard tidak mengambil atau menyimpan file snapshot dari server aplikasi.
 
 ## Alur 7 — Reset Skor Kredit Keamanan, Terjadwal dan Manual (Baru — v2.1)
 
@@ -450,7 +477,7 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 | FR-11  | Sistem harus mendeteksi dan melacak (tracking) setiap individu yang muncul dalam frame agar identitas track (TrackId) tetap konsisten antar-frame — TrackId ini menjadi bagian kunci episode pelanggaran (lihat FR-39). | M             |
 | FR-12  | Sistem harus menjalankan model YOLO (.onnx) untuk mendeteksi kelas-kelas APD pada tiap individu terlacak.                                                                                                               | M             |
 | FR-13  | Sistem harus memanfaatkan kembali pipeline wajah V1 (YuNet untuk deteksi wajah, SFace untuk pencocokan) guna mengaitkan sebuah track dengan identitas karyawan terdaftar.                                               | M             |
-| FR-14  | Jika wajah tidak dapat dikenali/dicocokkan, sistem tetap mencatat kejadian sebagai “Tidak Dikenali” beserta snapshot, agar tidak ada celah pengawasan yang hilang begitu saja.                                          | S             |
+| FR-14  | Jika wajah tidak dapat dikenali atau dicocokkan, sistem harus menggunakan label **Unknown** pada overlay, Violation Event, dan notifikasi Telegram. Event tetap dicatat, tetapi tidak boleh mengurangi skor Employee mana pun.                                                       | M             |
 | FR-15  | Sistem harus menentukan apakah bounding box seseorang berada di dalam salah satu zona berbahaya yang terdefinisi.                                                                                                       | M             |
 
 ## 7.4 Overlay Visual (Bounding Box & Skor)
@@ -479,8 +506,8 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 |        |                                                                                                                                                                                           |               |
 |--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | **ID** | **Kebutuhan**                                                                                                                                                                             | **Prioritas** |
-| FR-25  | Sistem harus menyimpan setiap Violation Event beserta zona, waktu, individu (atau status “Tidak Dikenali”), dan kelas APD yang tidak terpenuhi.                                           | M             |
-| FR-26  | Sistem harus menyimpan snapshot gambar sebagai bukti pada setiap Violation Event, diambil dari frame terbaru saat episode dinyatakan Confirmed (bukan frame pertama kandidat terdeteksi). | S             |
+| FR-25  | Sistem harus menyimpan setiap Violation Event beserta zona, waktu, EmployeeId bila dikenali atau label **Unknown**, kelas APD yang tidak terpenuhi, serta status pengiriman bukti ke Telegram.                                                            | M             |
+| FR-26  | Saat episode dinyatakan Confirmed, sistem harus mengambil snapshot dari frame terbaru ke buffer memori dan langsung mengirimnya sebagai lampiran Telegram. Snapshot tidak boleh disimpan pada filesystem, database, atau object storage server aplikasi. | M             |
 | FR-27  | Pengguna berwenang harus dapat melihat riwayat pelanggaran dengan filter zona, individu, departemen, dan rentang tanggal.                                                                 | M             |
 
 ## 7.7 Notifikasi Telegram
@@ -488,10 +515,10 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 |        |                                                                                                                                                                 |               |
 |--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | **ID** | **Kebutuhan**                                                                                                                                                   | **Prioritas** |
-| FR-28  | Sistem harus memeriksa skor individu terhadap threshold yang dikonfigurasi setiap kali skor diperbarui.                                                         | M             |
-| FR-29  | Jika skor berada di bawah threshold, sistem harus mengirim notifikasi ke HRD dan ke Supervisor yang mengawasi zona/departemen terkait melalui Telegram Bot API. | M             |
-| FR-30  | Pesan notifikasi harus memuat identitas individu, zona, waktu kejadian, APD yang dilanggar, dan skor terkini.                                                   | M             |
-| FR-31  | Sistem harus mencatat status keberhasilan/kegagalan pengiriman tiap notifikasi.                                                                                 | S             |
+| FR-28  | Setiap Violation Event yang Confirmed harus memicu pengiriman bukti ke penerima Telegram yang dikonfigurasi, tanpa menunggu skor berada di bawah threshold.                                               | M             |
+| FR-29  | Sistem harus memeriksa skor setelah event. Bila skor berada di bawah threshold, notifikasi diberi status eskalasi dan dikirim ke HRD serta Supervisor terkait.                                           | M             |
+| FR-30  | Pesan harus memuat nama dan kode karyawan atau label **Unknown**, zona, waktu kejadian, APD yang dilanggar, skor terkini bila tersedia, dan snapshot JPEG sebagai lampiran.                              | M             |
+| FR-31  | Sistem harus mencatat status pengiriman, jumlah percobaan, timestamp, TelegramMessageId bila berhasil, dan pesan error bila gagal. Byte snapshot tidak disimpan di log.                                  | M             |
 | FR-32  | Admin harus dapat mengonfigurasi/memetakan penerima notifikasi (chat ID Telegram) untuk peran HRD dan untuk tiap Supervisor.                                    | M             |
 
 ## 7.8 Dashboard & Pelaporan
@@ -525,9 +552,9 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 | **ID** | **Kebutuhan**                                                                                                                                                                                                                                                                                                                                                                                               | **Prioritas** |
 | FR-39  | Sistem harus mengidentifikasi setiap episode pelanggaran dengan kunci komposit (TrackId, DangerZoneId, MissingPpeClassId) — bukan langsung EmployeeId — karena identitas wajah dapat telat/gagal diresolusi sementara tracking tetap berjalan.                                                                                                                                                              | M             |
 | FR-40  | Saat kandidat pelanggaran pertama terdeteksi untuk suatu episode, sistem harus membuat state Candidate dan mencatat FirstDetectedAt; setiap frame non-compliant berikutnya memperbarui LastNonCompliantAt.                                                                                                                                                                                                  | M             |
-| FR-41  | Ketika (LastNonCompliantAt − FirstDetectedAt) ≥ ConfirmThresholdSeconds, status harus berpindah ke Confirmed dan sistem membuat tepat satu Violation Event, dengan snapshot diambil dari frame terbaru saat threshold terlampaui (bukan frame pertama).                                                                                                                                                     | M             |
-| FR-42  | Pada saat transisi ke Confirmed, sistem harus menjalankan Identity Resolver (memanfaatkan cache track bila tersedia) untuk mengisi EmployeeId; kegagalan resolusi dicatat sebagai “Tidak Dikenali” (FR-14).                                                                                                                                                                                                 | M             |
-| FR-43  | Pengurangan skor kredit keamanan harus terjadi tepat satu kali pada titik transisi ke Confirmed — tidak per-frame dan tidak per-siklus cooldown.                                                                                                                                                                                                                                                            | M             |
+| FR-41  | Ketika (LastNonCompliantAt − FirstDetectedAt) ≥ ConfirmThresholdSeconds, status harus berpindah ke Confirmed dan sistem membuat tepat satu Violation Event. Snapshot diambil dari frame terbaru ke memori, bukan dari frame pertama, lalu diteruskan ke Notification Dispatcher.                                                                                                                                    | M             |
+| FR-42  | Pada saat transisi ke Confirmed, sistem harus menjalankan Identity Resolver dengan cache track bila tersedia untuk mengisi EmployeeId. Kegagalan resolusi menggunakan label **Unknown** sesuai FR-14.                                                                                                                                                                                                           | M             |
+| FR-43  | Pengurangan skor harus terjadi tepat satu kali pada transisi ke Confirmed untuk Employee yang dikenali. Event berlabel **Unknown** tidak mengubah skor karyawan mana pun.                                                                                                                                                                                                                                       | M             |
 | FR-44  | Ketika kondisi kembali compliant, sistem mencatat LastCompliantAt dan status berpindah ke Clearing; jika (waktu sekarang − LastCompliantAt) ≥ ClearThresholdSeconds maka status berpindah ke Cleared (episode selesai). Jika sebelum ClearThresholdSeconds tercapai kondisi kembali melanggar, LastCompliantAt direset ke null, status kembali ke Confirmed, dan sistem TIDAK membuat Violation Event baru. | M             |
 | FR-45  | Frame dengan confidence di bawah Detection:MinConfidenceThreshold harus diabaikan sepenuhnya: tidak dihitung sebagai compliant maupun non-compliant, tidak mereset FirstDetectedAt, dan tidak memajukan LastNonCompliantAt/LastCompliantAt.                                                                                                                                                                 | M             |
 | FR-46  | Jika track hilang sebelum episode mencapai Confirmed, state Candidate harus dihapus/digugurkan tanpa membuat insiden apa pun. (Asumsi ini ditandai TODO untuk divalidasi bersama stakeholder — lihat Bab 9.4 & 21.)                                                                                                                                                                                         | S             |
@@ -545,6 +572,17 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 | FR-52  | Parameter SafetyScore:ResetTimeOfDay, SafetyScore:RecapLeadMinutes, dan SafetyScore:InitialValue harus dapat diubah Admin melalui SystemSetting tanpa deploy ulang.                                                                                                                                                                                      | M             |
 | FR-53  | Sistem dapat mengirim rekap kepada HRD/Supervisor SafetyScore:RecapLeadMinutes menit sebelum eksekusi reset terjadwal, agar tim K3 sempat meninjau pelanggaran hari itu; isi dan daftar penerima rekap perlu dikonfirmasi bersama stakeholder.                                                                                                           | S             |
 
+## 7.13 Enrollment Wajah Karyawan (Baru — v2.4)
+
+|        |                                                                                                                                                                                                                                          |               |
+|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| **ID** | **Kebutuhan**                                                                                                                                                                                                                            | **Prioritas** |
+| FR-54  | Admin harus dapat membuka Face Enrollment dari detail Employee dan mengambil foto melalui kamera atau mengunggah gambar wajah.                                                                                                          | M             |
+| FR-55  | Sistem harus menerima format JPEG atau PNG dengan batas ukuran yang dikonfigurasi, mendeteksi tepat satu wajah, dan menolak gambar tanpa wajah, dengan lebih dari satu wajah, berkualitas rendah, atau tidak memenuhi validasi input.       | M             |
+| FR-56  | Sistem harus membentuk embedding wajah menggunakan pipeline YuNet dan SFace, menautkannya ke Employee, serta mencegah penyimpanan sampel duplikat berdasarkan similarity threshold yang dikonfigurasi.                                     | M             |
+| FR-57  | Admin harus dapat melihat jumlah sampel wajah aktif dan menghapus sampel yang salah. Maksimum lima embedding aktif per Employee mengikuti batas V1.                                                                                      | M             |
+| FR-58  | Endpoint enrollment harus dibatasi untuk Admin, tidak boleh mengekspos embedding mentah ke frontend, dan harus mencatat EnrollmentLog untuk operasi tambah dan hapus.                                                                     | M             |
+
 # 8. Kebutuhan Non-Fungsional
 
 |                                                     |                                                                                                                                                                                                                       |
@@ -552,8 +590,8 @@ Prioritas: M = Must have, S = Should have, C = Could have.
 | **Kategori**                                        | **Kebutuhan**                                                                                                                                                                                                         |
 | Real-time                                           | Latensi dari frame video diambil hingga bounding box + skor tampil di layar pemantauan harus cukup rendah agar terasa “langsung” bagi pengawas (target diilustrasikan di Bab 18, perlu validasi teknis lebih lanjut). |
 | Skalabilitas                                        | Arsitektur harus mampu menambah jumlah kamera/zona tanpa perubahan besar pada desain (horizontal scaling pada Edge/Inference Worker).                                                                                 |
-| Keandalan Notifikasi                                | Kegagalan pengiriman Telegram tidak boleh membuat peristiwa pelanggaran hilang; harus ada retry dan/atau log kegagalan yang dapat ditinjau ulang.                                                                     |
-| Keamanan Data                                       | Rekaman/snapshot yang memuat wajah karyawan adalah data pribadi; akses ke data ini harus dibatasi peran (role-based) dan mengikuti kebijakan retensi data yang jelas.                                                 |
+| Keandalan Notifikasi                                | Kegagalan pengiriman Telegram tidak boleh membuat Violation Event hilang. Sistem memakai retry terbatas dan mencatat kegagalan; snapshot hanya berada pada buffer memori dengan time to live dan dihapus setelah berhasil atau retry habis. |
+| Keamanan Data                                       | Snapshot pelanggaran tidak disimpan persisten di server aplikasi. Byte gambar hanya berada sementara di memori selama pengiriman Telegram, tidak ditulis ke log, dan selalu dibuang setelah proses pengiriman selesai.                    |
 | Auditability                                        | Setiap perubahan skor, setiap pelanggaran, dan setiap reset skor harus tertelusuri (siapa/apa penyebabnya, kapan, bukti apa).                                                                                         |
 | Konfigurabilitas                                    | Kelas APD, aturan zona, parameter skor, threshold stabilisasi (Confirm/Clear), dan parameter reset skor harus dapat diubah tanpa mengubah kode program.                                                               |
 | Kompatibilitas Perangkat                            | Reuse skema autentikasi API Key/Device Token V1 untuk perangkat kamera/edge device.                                                                                                                                   |
@@ -579,7 +617,11 @@ V1 dirancang untuk alur request/response tunggal per gambar. V2 menuntut pemrose
 
 46. Score Reset Engine (Baru — v2.1) — background job terjadwal + endpoint manual untuk mereset skor kredit keamanan (lihat 9.5).
 
-47. Notification Dispatcher (Telegram) — mengirim pesan ke HRD/Supervisor saat threshold terlampaui.
+47. Face Enrollment Service (Baru — v2.4) — menerima gambar dari kamera/upload, memvalidasi tepat satu wajah, membentuk embedding, mendeteksi duplikasi, dan mengelola maksimum lima sampel per Employee.
+
+48. Violation Snapshot Buffer (Baru — v2.4) — mengambil frame saat Confirmed, menyimpan byte JPEG hanya di memori dengan time to live, dan menyerahkannya ke Notification Dispatcher tanpa menulis file ke server.
+
+49. Notification Dispatcher (Telegram) — mengirim setiap pelanggaran Confirmed beserta snapshot ke penerima yang dikonfigurasi, menandai eskalasi saat threshold skor terlampaui, lalu membuang buffer gambar.
 
 ## 9.2 Peta Komponen (Deskriptif)
 
@@ -592,9 +634,18 @@ V1 dirancang untuk alur request/response tunggal per gambar. V2 menuntut pemrose
   -> [Zone Intrusion Checker]
   -> [Compliance Evaluator]
   -> [Violation Stabilization Service: Candidate / Confirmed / Clearing / Cleared]
-  -> pada transisi ke Confirmed: [Violation Event + Safety Scoring Engine] -> [Skor Ledger]
-  -> [Threshold Checker] -> [Notification Dispatcher] -> Telegram (HRD & Supervisor)
+  -> pada transisi ke Confirmed: [Violation Event + Identity Resolver]
+       -> Employee dikenali: [Safety Scoring Engine] -> [Skor Ledger]
+       -> tidak dikenali: label [Unknown], tanpa perubahan skor
+  -> [Violation Snapshot Buffer - memory only]
+  -> [Notification Dispatcher] -> Telegram (pesan + snapshot)
+  -> [Threshold Checker] -> tandai eskalasi untuk HRD & Supervisor
   -> [Overlay Renderer] -> Live Monitoring Dashboard (bounding box + skor)
+
+[Admin Employee Detail]
+  -> [Face Enrollment Service]
+  -> [YuNet Validation + SFace Embedding]
+  -> [Employee Face Embeddings + EnrollmentLog]
 
 [Score Reset Engine] (terjadwal harian / manual)
   -> [SafetyScorePeriodSummary] -> [Reset Skor] -> [ScoreResetLog]
@@ -602,13 +653,15 @@ V1 dirancang untuk alur request/response tunggal per gambar. V2 menuntut pemrose
 
 ## 9.3 Pertimbangan Implementasi
 
-- Lapisan Application/Domain/Infrastructure pada basis kode existing tetap relevan sebagai pola; komponen baru (IPpeDetectionService, IZoneIntrusionService, IViolationStabilizationService, ISafetyScoringService, IScoreResetService, ITelegramNotificationService) mengikuti pola yang sama agar konsisten dengan basis kode V1.
+- Lapisan Application/Domain/Infrastructure pada basis kode existing tetap relevan sebagai pola; komponen baru (IPpeDetectionService, IZoneIntrusionService, IViolationStabilizationService, ISafetyScoringService, IScoreResetService, IFaceEnrollmentService, IViolationSnapshotBuffer, ITelegramNotificationService) mengikuti pola yang sama agar konsisten dengan basis kode V1.
 
 - Perlu keputusan teknik lebih lanjut apakah inferensi video real-time dijalankan langsung di proses API .NET atau dipisah menjadi layanan inferensi khusus (edge worker) — dicatat sebagai pertanyaan terbuka di Bab 21.
 
 - Skema autentikasi ganda (JWT untuk dashboard admin, API Key/Device Token untuk perangkat) dari V1 tetap dipertahankan.
 
 - (Baru — v2.1) Job reset terjadwal diusulkan sebagai .NET BackgroundService/hosted service (atau Hangfire bila dibutuhkan penjadwalan lebih kaya), berjalan sekali per hari per konfigurasi ResetTimeOfDay.
+
+- (Baru — v2.4) IViolationSnapshotBuffer dilarang menggunakan penyimpanan file persisten. Implementasi menggunakan stream/byte array di memori, batas ukuran, cancellation token, time to live, dan disposal pada blok finally agar buffer selalu dilepas setelah pengiriman atau kegagalan akhir.
 
 ## 9.4 Detail Desain — Violation Stabilization Service (Confirm/Clear State Machine) (Baru — v2.1)
 
@@ -626,7 +679,7 @@ Episode diidentifikasi oleh kombinasi (TrackId, DangerZoneId, MissingPpeClassId)
 
 Candidate
   --durasi non-compliant >= ConfirmThresholdSeconds--> Confirmed
-    (buat 1 ViolationEvent + kurangi skor 1x)
+    (buat 1 ViolationEvent + snapshot ke Telegram + kurangi skor 1x bila dikenali)
 
 Confirmed
   --kembali compliant--> Clearing
@@ -641,7 +694,7 @@ Candidate
 
 ### Aturan Transisi
 
-- Candidate → Confirmed: kandidat pelanggaran pertama terdeteksi membuat state Candidate dan mencatat FirstDetectedAt; tiap frame non-compliant berikutnya memperbarui LastNonCompliantAt. Saat (LastNonCompliantAt − FirstDetectedAt) ≥ ConfirmThresholdSeconds: status berpindah ke Confirmed; sistem membuat ViolationEvent sekali, dengan snapshot dari frame terbaru saat threshold terlampaui (bukan frame pertama); Identity Resolver dijalankan (memakai cache track bila ada) untuk mengisi EmployeeId, gagal → “Tidak Dikenali” (FR-14); skor dikurangi sekali pada titik ini — tidak per-frame, tidak per-cooldown.
+- Candidate → Confirmed: kandidat pelanggaran pertama terdeteksi membuat state Candidate dan mencatat FirstDetectedAt; tiap frame non-compliant berikutnya memperbarui LastNonCompliantAt. Saat (LastNonCompliantAt − FirstDetectedAt) ≥ ConfirmThresholdSeconds, status berpindah ke Confirmed dan sistem membuat ViolationEvent sekali. Snapshot dari frame terbaru disimpan sementara di memori dan langsung dikirim ke Telegram. Identity Resolver mengisi EmployeeId bila cocok; bila gagal, event dan overlay memakai label **Unknown**. Skor hanya dikurangi satu kali untuk Employee yang dikenali.
 
 - Confirmed → Clearing → Cleared: kondisi kembali compliant mencatat LastCompliantAt dan memindahkan status ke Clearing. Jika (waktu sekarang − LastCompliantAt) ≥ ClearThresholdSeconds → status ke Cleared (episode selesai). Jika sebelum threshold tercapai kondisi melanggar lagi → LastCompliantAt = null, status kembali ke Confirmed, TIDAK membuat ViolationEvent baru.
 
@@ -656,6 +709,10 @@ Candidate
 - Pelanggaran berdurasi < ConfirmThreshold tidak pernah menghasilkan ViolationEvent atau pengurangan skor.
 
 - Pelanggaran panjang menghasilkan tepat 1 ViolationEvent sampai episode Cleared.
+
+- Setiap ViolationEvent Confirmed menghasilkan satu percobaan pengiriman snapshot Telegram; snapshot tidak ditemukan pada penyimpanan persisten server setelah proses selesai.
+
+- Event berlabel Unknown tidak mengubah skor Employee mana pun.
 
 - Kondisi sempat compliant namun < ClearThreshold di tengah pelanggaran tidak menutup episode dan tidak membuat insiden baru.
 
@@ -736,11 +793,11 @@ Score Reset Engine terdiri dari dua jalur eksekusi yang berbagi logika inti (pen
 |---------------------------|--------------------|--------------------------------------------------------------|
 | **Field**                 | **Tipe**           | **Keterangan**                                               |
 | Id                        | Guid               | Identitas unik                                               |
-| EmployeeId                | Guid?              | Nullable — dapat “Tidak Dikenali” (FR-14)                    |
+| EmployeeId                | Guid?              | Nullable; null berarti label orang **Unknown** (FR-14)       |
 | DangerZoneId              | Guid               | Zona tempat pelanggaran terjadi                              |
 | MissingPpeClassIds        | `List<Guid>`       | APD wajib yang tidak terdeteksi dipakai                      |
 | DetectedAt                | DateTimeOffset     | Waktu kejadian (saat episode Confirmed)                      |
-| SnapshotImagePath         | string?            | Path/URL bukti gambar (frame terbaru saat Confirmed)         |
+| EvidenceDeliveryStatus    | enum               | Pending, Sent, atau Failed untuk pengiriman snapshot Telegram |
 | ScoreDeducted             | double             | Jumlah skor yang dikurangi akibat kejadian ini               |
 | ViolationCandidateStateId | Guid (Baru — v2.1) | Referensi ke episode stabilisasi yang menghasilkan event ini |
 
@@ -775,9 +832,11 @@ Score Reset Engine terdiri dari dua jalur eksekusi yang berbagi logika inti (pen
 | Id               | Guid                | Identitas unik                  |
 | ViolationEventId | Guid                | Referensi kejadian pemicu       |
 | RecipientId      | Guid                | Referensi NotificationRecipient |
-| Status           | enum (Sent, Failed) | Status pengiriman               |
-| SentAt           | DateTimeOffset      | Waktu pengiriman/percobaan      |
-| ErrorMessage     | string?             | Detail bila gagal               |
+| Status           | enum (Pending, Sent, Failed) | Status pengiriman               |
+| AttemptCount     | int                 | Jumlah percobaan pengiriman     |
+| TelegramMessageId | string?            | ID pesan Telegram bila berhasil |
+| SentAt           | DateTimeOffset?     | Waktu pengiriman berhasil       |
+| ErrorMessage     | string?             | Detail bila gagal; tidak memuat byte gambar |
 
 ## 10.9 ViolationCandidateState (Baru — v2.1)
 
@@ -794,7 +853,7 @@ Merepresentasikan satu episode pelanggaran yang sedang berjalan pada mesin stabi
 | FirstDetectedAt         | DateTimeOffset                                 | Waktu kandidat pelanggaran pertama terdeteksi                                            |
 | LastNonCompliantAt      | DateTimeOffset                                 | Waktu frame non-compliant terakhir tercatat                                              |
 | LastCompliantAt         | DateTimeOffset?                                | Waktu mulai kembali compliant (null di luar status Clearing)                             |
-| EmployeeId              | Guid?                                          | Diisi oleh Identity Resolver pada saat transisi ke Confirmed; null bila “Tidak Dikenali” |
+| EmployeeId              | Guid?                                          | Diisi oleh Identity Resolver pada saat transisi ke Confirmed; null berarti **Unknown**    |
 | ViolationEventId        | Guid?                                          | Referensi ke ViolationEvent yang dibuat saat episode Confirmed                           |
 | ConfirmedAt / ClearedAt | DateTimeOffset?                                | Timestamp transisi status, untuk audit & analitik                                        |
 
@@ -825,6 +884,34 @@ Merepresentasikan satu episode pelanggaran yang sedang berjalan pada mesin stabi
 | TriggerType            | enum (Scheduled, Manual)                                                                          | Jenis pemicu reset                                   |
 | RelatedPeriodSummaryId | Guid                                                                                              | Referensi ke SafetyScorePeriodSummary terkait        |
 
+## 10.12 EmployeeFaceEmbedding (Reuse dan Perluasan V1 — v2.4)
+
+|                 |                |                                                                                     |
+|-----------------|----------------|-------------------------------------------------------------------------------------|
+| **Field**       | **Tipe**       | **Keterangan**                                                                      |
+| Id              | Guid           | Identitas unik sampel                                                               |
+| EmployeeId      | Guid           | Employee pemilik sampel                                                             |
+| Embedding       | binary/vector  | Embedding SFace; tidak pernah dikirim kembali ke frontend                           |
+| IsActive        | bool           | Status sampel yang dapat dipakai Identity Resolver                                  |
+| CreatedAt       | DateTimeOffset | Waktu enrollment                                                                    |
+| CreatedBy       | Guid           | Admin yang melakukan enrollment                                                     |
+| QualityScore    | double?        | Nilai kualitas opsional untuk audit validasi                                         |
+
+Constraint: maksimum lima embedding aktif per Employee dan duplikasi ditolak berdasarkan similarity threshold yang dikonfigurasi.
+
+## 10.13 TransientViolationSnapshot (Objek Memori — v2.4)
+
+Objek ini bukan entitas database dan tidak memiliki tabel. Objek hanya hidup selama proses pengiriman Telegram.
+
+|                   |                |                                                        |
+|-------------------|----------------|--------------------------------------------------------|
+| **Field**         | **Tipe**       | **Keterangan**                                         |
+| ViolationEventId  | Guid           | Event pemilik snapshot                                 |
+| Content           | byte[]/Stream  | JPEG di memori; wajib di-dispose                       |
+| ContentType       | string         | image/jpeg                                             |
+| CapturedAt        | DateTimeOffset | Waktu frame diambil saat Confirmed                     |
+| ExpiresAt         | DateTimeOffset | Batas hidup buffer untuk retry terbatas                |
+
 # 11. Ringkasan Perubahan API
 
 |                     |                                                                  |                                                                          |                        |
@@ -835,14 +922,16 @@ Merepresentasikan satu episode pelanggaran yang sedang berjalan pada mesin stabi
 | PUT                 | /api/danger-zones/{id}/required-ppe                              | Menetapkan APD wajib untuk suatu zona                                    | Baru                   |
 | POST / WS           | /api/monitoring/stream/{cameraId} atau /ws/monitoring/{cameraId} | Menerima/streaming frame untuk diproses pipeline deteksi                 | Baru                   |
 | GET                 | /api/employees/{id}/safety-score                                 | Melihat skor & riwayat skor individu                                     | Baru                   |
-| GET                 | /api/violations                                                  | Daftar riwayat pelanggaran (dengan filter)                               | Baru                   |
+| GET                 | /api/violations                                                  | Daftar riwayat pelanggaran dan status pengiriman bukti Telegram          | Baru                   |
 | GET/PUT             | /api/notifications/recipients                                    | Kelola pemetaan penerima Telegram (HRD/Supervisor)                       | Baru                   |
 | GET                 | /api/notifications/logs                                          | Log status pengiriman notifikasi                                         | Baru                   |
 | POST                | /api/employees/{id}/safety-score/reset                           | Reset skor manual — wajib ResetReason (+Note jika Lainnya), khusus Admin | Baru (v2.1)            |
 | GET                 | /api/employees/{id}/safety-score/period-summaries                | Riwayat SafetyScorePeriodSummary individu                                | Baru (v2.1)            |
 | GET                 | /api/employees/{id}/safety-score/reset-logs                      | Riwayat ScoreResetLog individu (audit reset)                             | Baru (v2.1)            |
 | GET/POST            | /api/employees                                                   | Manajemen data karyawan                                                  | Reuse V1               |
-| POST                | /api/employees/{id}/faces                                        | Pendaftaran wajah karyawan                                               | Reuse V1               |
+| GET                 | /api/employees/{id}/faces                                        | Melihat metadata dan jumlah sampel wajah aktif tanpa embedding mentah    | Reuse & perluasan v2.4 |
+| POST                | /api/employees/{id}/faces                                        | Enrollment wajah dari kamera atau upload JPEG/PNG                        | Reuse & perluasan v2.4 |
+| DELETE              | /api/employees/{id}/faces/{faceId}                               | Menghapus atau menonaktifkan sampel wajah yang salah                     | Reuse & perluasan v2.4 |
 | GET/PUT             | /api/settings                                                    | Pengaturan sistem (threshold, skor awal, jadwal reset, dsb.)             | Reuse & perluasan V1   |
 | POST                | /api/auth/login                                                  | Autentikasi admin (JWT)                                                  | Reuse V1               |
 | POST                | /api/recognition/attempt                                         | Endpoint pengenalan wajah tunggal V1                                     | Dipertahankan/opsional |
@@ -922,9 +1011,9 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 | ConfirmThresholdSeconds (Direvisi v2.1)           | mis. 3–5 detik (contoh)            | Menggantikan konsep “cooldown deduplikasi” pada draft v2.0 — durasi non-compliant berkelanjutan sebelum episode dinyatakan Confirmed dan skor dikurangi (lihat Bab 9.4) |
 | ClearThresholdSeconds (Baru v2.1)                 | mis. beberapa detik (contoh)       | Durasi compliant berkelanjutan sebelum episode dinyatakan Cleared (lihat Bab 9.4)                                                                                       |
 | Detection:MinConfidenceThreshold (Baru v2.1)      | mis. 0.5 (contoh)                  | Frame di bawah nilai ini diabaikan total oleh mesin stabilisasi                                                                                                         |
-| Threshold notifikasi                              | Skor < 60                         | Saat terlampaui, sistem mengirim notifikasi ke HRD dan Supervisor terkait sekaligus                                                                                     |
+| Threshold eskalasi notifikasi                     | Skor < 60                         | Setiap event Confirmed tetap mengirim bukti; nilai ini hanya menandai notifikasi sebagai eskalasi ke HRD dan Supervisor terkait                                         |
 
-> ***Catatan:** threshold bertingkat (mis. peringatan ke Supervisor saja pada skor < 70, eskalasi ke HRD pada skor < 40) dapat dipertimbangkan pada fase berikutnya, namun kebutuhan inti V2 adalah satu threshold yang memicu notifikasi ke HRD dan Supervisor secara bersamaan.*
+> ***Catatan:** threshold bertingkat (mis. peringatan ke Supervisor saja pada skor < 70, eskalasi ke HRD pada skor < 40) dapat dipertimbangkan pada fase berikutnya. Pada kebutuhan inti V2.4, setiap event Confirmed tetap mengirim pesan dan snapshot ke penerima yang dikonfigurasi; satu threshold hanya menentukan status eskalasi dan cakupan penerima tambahan.*
 
 ## 13.2 Parameter Reset Skor (Baru — v2.1)
 
@@ -941,15 +1030,19 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 
 - Mekanisme: Bot Telegram terpisah (token disimpan sebagai secret/konfigurasi sistem), mengirim pesan ke chat_id yang telah dipetakan untuk tiap penerima (HRD bersifat global; Supervisor dipetakan per zona/departemen melalui NotificationRecipient).
 
-- Isi pesan notifikasi (usulan template): nama & kode karyawan (atau “Tidak Dikenali”), nama zona berbahaya, waktu kejadian (saat episode Confirmed), daftar APD yang tidak terpenuhi, skor kredit keamanan terkini, dan (opsional) tautan/lampiran snapshot bukti.
+- Trigger: setiap episode yang berpindah ke Confirmed mengirim satu notifikasi bukti. Threshold skor tidak menjadi syarat pengiriman snapshot; threshold hanya menentukan bahwa notifikasi tersebut merupakan eskalasi.
 
-- Keandalan: setiap pengiriman dicatat pada NotificationLog dengan status Sent/Failed; kegagalan tidak menghapus Violation Event terkait sehingga dapat ditinjau ulang dari dashboard.
+- Isi pesan: nama dan kode karyawan atau label **Unknown**, nama zona, waktu Confirmed, daftar APD yang tidak terpenuhi, skor terkini bila tersedia, serta snapshot JPEG sebagai lampiran.
+
+- Pengelolaan snapshot: frame terbaru dienkode ke JPEG dalam memory stream, dikirim menggunakan Telegram Bot API, kemudian di-dispose. Server aplikasi tidak membuat file sementara dan tidak menyimpan byte gambar pada database atau log.
+
+- Keandalan: setiap pengiriman dicatat pada NotificationLog. Retry memakai buffer memori berumur pendek dengan batas jumlah percobaan dan batas ukuran. Setelah berhasil atau batas retry tercapai, buffer selalu dihapus. Violation Event tetap tersimpan walaupun bukti gagal terkirim.
 
 - (Baru — v2.1) Notifikasi pelanggaran kini dipicu tepat satu kali per episode (saat transisi ke Confirmed), bukan berulang per-frame; rekap pra-reset (SafetyScore:RecapLeadMinutes) adalah jalur notifikasi terpisah yang perlu dikonfirmasi cakupannya.
 
 # 15. Deskripsi Antarmuka Pengguna (Konseptual)
 
-48. Live Monitoring View — menampilkan umpan video per kamera dengan overlay: garis batas zona berbahaya, bounding box tiap individu, dan label nama + skor kredit keamanan pada tiap box (warna berbeda untuk status patuh vs. melanggar).
+48. Live Monitoring View — menampilkan umpan video per kamera dengan overlay: garis batas zona berbahaya, bounding box tiap individu, dan label nama serta skor kredit keamanan. Bila wajah tidak cocok, bounding box menampilkan label **Unknown** tanpa skor karyawan.
 
 49. Zone Editor — antarmuka untuk menggambar/mengedit area persegi panjang di atas pratinjau kamera, memilih kelas APD wajib untuk zona tersebut, dan menautkan Supervisor penanggung jawab.
 
@@ -957,7 +1050,7 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 
 51. Papan Skor Karyawan — daftar seluruh karyawan dengan skor kredit keamanan terkini, dapat difilter per departemen/zona, dengan indikator warna (aman/waspada/kritis).
 
-52. Riwayat Pelanggaran — daftar Violation Event dengan filter zona/individu/tanggal, status episode (mis. sedang Confirmed vs. sudah Cleared — v2.1), serta detail snapshot bukti.
+52. Riwayat Pelanggaran — daftar Violation Event dengan filter zona, individu, tanggal, status episode, dan status pengiriman bukti. Halaman tidak memuat file snapshot dari server aplikasi.
 
 53. Pengaturan Notifikasi — antarmuka untuk memetakan chat ID Telegram HRD dan tiap Supervisor, serta mengatur nilai threshold, skor awal, dan besaran pengurangan.
 
@@ -965,12 +1058,14 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 
 55. (Baru — v2.1) Riwayat Reset Skor & Ringkasan Periode — daftar ScoreResetLog dan SafetyScorePeriodSummary per karyawan, untuk keperluan audit HRD.
 
+56. (Baru — v2.4) Face Enrollment — tersedia pada detail Employee untuk mengambil gambar melalui kamera atau upload JPEG/PNG, menampilkan validasi kualitas, jumlah sampel aktif, batas maksimum lima sampel, dan aksi hapus. Embedding mentah tidak pernah ditampilkan ke frontend.
+
 # 16. Migrasi dari V1 ke V2
 
 |                                                                         |                                                                                                                                                         |
 |-------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Komponen V1**                                                         | **Status di V2**                                                                                                                                        |
-| Employee, enrollment wajah (EmployeesFacesController)                   | Reuse & diperluas (tambah skor, supervisor, departemen)                                                                                                 |
+| Employee, enrollment wajah (EmployeesFacesController)                   | Reuse dan diperluas dengan UI kamera/upload, validasi satu wajah, deteksi duplikasi, jumlah sampel, penghapusan, serta EnrollmentLog (v2.4)             |
 | IFaceDetectionService (YuNet), IFaceEmbeddingExtractor/matching (SFace) | Reuse sebagai modul Identity Resolver, kini juga dipakai oleh Violation Stabilization Service (v2.1)                                                    |
 | Autentikasi JWT (admin) & API Key/Device Token (perangkat)              | Reuse tanpa perubahan mendasar                                                                                                                          |
 | SystemSetting (key-value config)                                        | Reuse pola untuk parameter skor/threshold, termasuk parameter stabilisasi dan reset (v2.1)                                                              |
@@ -985,11 +1080,12 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 |-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Risiko**                                                                  | **Dampak**                                                                           | **Mitigasi**                                                                                                                                               |
 | Daftar kelas APD & model YOLO belum final                                   | Keterlambatan pengembangan fitur kepatuhan                                           | Desain sistem sepenuhnya config-driven untuk kelas APD (Bab 10.2, 12)                                                                                      |
-| False positive/negative deteksi APD                                         | Skor individu bisa turun secara tidak adil, atau pelanggaran nyata tidak tercatat    | Simpan snapshot bukti pada setiap Violation Event; pertimbangkan mekanisme banding/koreksi skor oleh Admin                                                 |
-| Privasi data wajah & rekaman video                                          | Risiko kepatuhan regulasi perlindungan data pribadi                                  | Kontrol akses berbasis peran, kebijakan retensi data snapshot, tinjau kepatuhan regulasi sebelum go-live                                                   |
+| False positive/negative deteksi APD                                         | Skor individu bisa turun secara tidak adil, atau pelanggaran nyata tidak tercatat    | Kirim snapshot bukti langsung ke Telegram dan gunakan NotificationLog; pertimbangkan mekanisme banding/koreksi skor oleh Admin                              |
+| Privasi data wajah & rekaman video                                          | Risiko kepatuhan regulasi perlindungan data pribadi                                  | Batasi enrollment ke Admin; jangan mengekspos embedding; snapshot hanya di memori dan langsung dibuang setelah pengiriman                                  |
 | Beban komputasi inferensi real-time multi-kamera                            | Latensi tinggi, sistem tidak responsif                                               | Evaluasi kebutuhan GPU/edge inference; batasi frame rate; pertimbangkan pemisahan Edge/Inference Worker                                                    |
-| Koneksi Telegram/internet terputus saat insiden kritis                      | Eskalasi tidak sampai ke HRD/Supervisor tepat waktu                                  | Retry otomatis, NotificationLog untuk audit kegagalan, alert di dashboard sebagai jalur cadangan                                                           |
-| Wajah tidak terdeteksi/tidak dikenali                                       | Pelanggaran tidak dapat diatribusikan ke individu                                    | Tetap catat sebagai “Tidak Dikenali” dengan snapshot (FR-14)                                                                                               |
+| Koneksi Telegram/internet terputus saat insiden kritis                      | Snapshot tidak dapat disimpan sebagai bukti permanen di server                       | Retry terbatas dalam memory buffer berumur pendek, NotificationLog, dan status Failed setelah buffer dihapus                                               |
+| Wajah tidak terdeteksi/tidak dikenali                                       | Pelanggaran tidak dapat diatribusikan ke individu                                    | Gunakan label **Unknown**, tetap catat event dan kirim snapshot, tetapi jangan mengubah skor Employee mana pun (FR-14)                                      |
+| Gambar enrollment tidak valid atau salah karyawan                           | Identitas track dapat keliru dan skor teratribusi ke orang yang salah                | Validasi tepat satu wajah, quality threshold, duplicate similarity check, preview sebelum simpan, dan EnrollmentLog                                         |
 | (Baru v2.1) Track hilang sebelum episode Confirmed digugurkan tanpa insiden | Pelanggaran nyata berpotensi “lolos” bila re-tracking gagal berulang (sengaja/tidak) | Tandai TODO di kode (Bab 9.4); validasi asumsi ini bersama stakeholder K3 sebelum implementasi final; pertimbangkan metrik pemantauan frekuensi track loss |
 | (Baru v2.1) Job reset terjadwal gagal/berjalan ganda                        | Skor karyawan tidak ter-reset tepat waktu, atau ter-reset dua kali dalam sehari      | Rancang job idempoten, log setiap eksekusi (ScoreResetLog), pantau kegagalan job dan sediakan mekanisme retry/re-run manual oleh Admin                     |
 | (Baru v2.1) Spesifikasi urutan pra-eksekusi reset belum lengkap (Bab 9.5)   | Ambiguitas implementasi antara pembuatan ringkasan periode dan log reset             | Lengkapi urutan detail bersama tim engineering pada fase desain teknis sebelum coding dimulai (lihat Bab 21)                                               |
@@ -998,44 +1094,82 @@ Nilai-nilai berikut adalah contoh awal untuk diskusi, seluruhnya harus dapat dik
 
 - Waktu dari terjadinya pelanggaran (episode Confirmed) hingga notifikasi Telegram terkirim: target awal beberapa detik.
 
-- Persentase pelanggaran yang berhasil diatribusikan ke individu terdaftar (vs. “Tidak Dikenali”).
+- Persentase pelanggaran yang berhasil diatribusikan ke individu terdaftar dibanding label **Unknown**.
 
 - Tren penurunan jumlah pelanggaran tercatat per zona dari waktu ke waktu setelah sistem berjalan.
 
 - Tingkat keberhasilan pengiriman notifikasi Telegram (Sent vs. Failed).
 
+- Persentase Violation Event Confirmed yang berhasil mengirim snapshot Telegram dan tidak meninggalkan file gambar pada server aplikasi.
+
+- Tingkat keberhasilan Face Enrollment, penolakan gambar invalid, dan rasio duplicate enrollment yang berhasil dicegah.
+
 - (Baru v2.1) Rasio jumlah kandidat pelanggaran (Candidate) terhadap jumlah yang benar-benar Confirmed — indikator efektivitas mesin stabilisasi dalam menyaring flicker/false positive per-frame.
 
 - (Baru v2.1) Tingkat keberhasilan eksekusi reset terjadwal harian (berhasil vs. gagal/perlu re-run manual).
 
-# 19. Roadmap Implementasi (Usulan Fase)
+# 19. Roadmap Implementasi Dua Minggu
 
-|                     |                                          |                                                                                                                              |
-|---------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| **Fase**            | **Fokus**                                | **Output Utama**                                                                                                             |
-| Fase 1              | Fondasi deteksi video                    | Integrasi model YOLO ONNX, pipeline penerimaan video, deteksi & tracking orang, overlay bounding box dasar (tanpa skor/zona) |
-| Fase 2              | Zona & Kepatuhan                         | Zone Editor, konfigurasi kelas APD, logika deteksi pelanggaran zona                                                          |
-| Fase 3              | Mesin Skor & Stabilisasi (Direvisi v2.1) | Violation Stabilization Service (Confirm/Clear state machine), Safety Scoring Engine, skor kredit keamanan, ledger riwayat   |
-| Fase 3b (Baru v2.1) | Score Reset Engine                       | Background job reset terjadwal harian, endpoint reset manual, SafetyScorePeriodSummary, ScoreResetLog                        |
-| Fase 4              | Notifikasi                               | Integrasi Telegram Bot API, pemetaan penerima HRD/Supervisor, threshold checker                                              |
-| Fase 5              | Dashboard & Pelaporan                    | Live monitoring UI lengkap, papan skor, riwayat pelanggaran, riwayat reset skor, laporan tren                                |
-| Fase 6              | Hardening & Kepatuhan Data               | Kontrol akses, kebijakan retensi snapshot, pengujian beban multi-kamera, unit test lengkap untuk state machine stabilisasi   |
+## 19.1 Batas Waktu dan Kapasitas
+
+MVP dikerjakan selama 10 hari kerja oleh satu Frontend Developer dan satu Backend Developer. Kapasitas bruto adalah 160 person-hour. Backlog merencanakan 144 jam dan melindungi 16 jam untuk integrasi, issue penghambat, perubahan kontrak, dan risiko inference atau Telegram.
+
+| Peran | Kapasitas Bruto | Pekerjaan Terencana | Cadangan | Fokus |
+|---|---:|---:|---:|---|
+| Frontend Developer | 80 jam | 72 jam | 8 jam | Employee UI, Face Enrollment, Zone Editor, live overlay, history, dan testing |
+| Backend Developer | 80 jam | 72 jam | 8 jam | API, database, face embedding, inference contract, state machine, scoring, snapshot memory, Telegram, dan testing |
+| Total | 160 jam | 144 jam | 16 jam | MVP terintegrasi dan siap demo |
+
+## 19.2 Ruang Lingkup MVP
+
+MVP mencakup login Admin, Employee dan Face Enrollment, manajemen zona, konfigurasi kelas APD, satu alur kamera atau sample stream, overlay dengan label **Unknown**, evaluasi kepatuhan, state machine pelanggaran, safety score dan ledger, snapshot sementara yang langsung dikirim ke Telegram, reset skor, riwayat operasional minimum, serta audit log.
+
+Dashboard tren lengkap, HRIS, pelatihan ulang model, load test produksi multi-kamera, deployment high availability, penyimpanan snapshot server, dan threshold berbeda per zona atau kelas berada di backlog setelah MVP. Riwayat minimum tetap tersedia, tetapi dashboard analitik penuh tidak menjadi komitmen dua minggu.
+
+## 19.3 Roadmap Harian
+
+| Hari | Frontend | Backend | Hasil Integrasi |
+|---:|---|---|---|
+| 1 | Application shell, routing, environment, dan login | Clean Architecture, health check, JWT policy, dan kontrak API | Dua aplikasi berjalan dan akses Admin terproteksi |
+| 2 | Employee detail, camera/upload input, preview, dan validation state | Face enrollment endpoint, YuNet/SFace validation, duplicate check, dan EnrollmentLog | Admin dapat menambah dan menghapus sampel wajah |
+| 3 | Zone list, form, dan awal rectangle editor | DangerZone entity, migration, validator, dan endpoint | Zona dapat disimpan dan dimuat kembali |
+| 4 | Finalisasi Zone Editor dan UI kelas APD | Relasi APD per zona dan konfigurasi model | Aturan APD per zona bekerja tanpa hardcode |
+| 5 | Live monitoring, stream state, dan overlay awal | Inference Worker contract dan realtime event stream | Sample detection tampil pada UI |
+| 6 | Overlay responsif, status APD, dan label Unknown | Zone membership, compliance evaluator, dan awal state machine | Hasil compliant dan non-compliant konsisten |
+| 7 | Violation history dan score state | Finalisasi state machine, ViolationEvent, scoring ledger, dan snapshot buffer | Satu episode membuat satu event; Unknown tidak mengubah skor |
+| 8 | Telegram recipient UI, reset UI, dan delivery status | Telegram photo delivery, retry memory-only, reset endpoint/job, dan history endpoint | Snapshot terkirim tanpa file server dan audit tersedia |
+| 9 | Integration smoke test dan perbaikan state UI | Integration test, seed data, security check, dan perbaikan kontrak | Alur utama lulus smoke test; buffer dipakai bila diperlukan |
+| 10 | UAT, accessibility check, perbaikan, dan demo flow | UAT, hardening, dokumentasi lokal, dan perbaikan | Build kandidat demo tanpa issue penghambat |
+
+## 19.4 Aturan Kerja Paralel
+
+- Kontrak request, response, dan realtime event disepakati sebelum implementasi. Frontend memakai mock service sampai endpoint siap.
+- Backend menjaga kontrak kompatibel setelah integrasi dimulai. Perubahan yang memutus kompatibilitas harus dicatat pada work package terkait.
+- Sinkronisasi dilakukan 15 menit pada awal hari dan 15 menit sebelum selesai. Demo integrasi dilakukan pada hari 2, 4, 6, 8, dan 10.
+- Pull request berfokus pada satu User Story. Developer pada workstream lain menjadi reviewer untuk menjaga pemahaman silang.
+- Bila buffer habis, pekerjaan analitik atau kosmetik ditunda sebelum item prioritas Must.
+
+## 19.5 Gate Penyelesaian
+
+MVP selesai bila Admin dapat mendaftarkan sampel wajah, zona dan APD dapat dikonfigurasi, sample stream menghasilkan overlay, wajah yang tidak cocok tampil sebagai **Unknown**, episode Confirmed membuat tepat satu event, skor hanya berubah untuk Employee yang dikenali, snapshot terkirim ke Telegram tanpa file persisten di server, reset meninggalkan audit log, dan test kritis lulus.
 
 # 20. Kriteria Penerimaan (Acceptance Criteria) — Ringkasan Fitur Inti
+
+- Face Enrollment: Admin dapat mengambil gambar dari kamera atau mengunggah JPEG/PNG pada halaman Employee, sistem hanya menerima gambar dengan tepat satu wajah dan kualitas memadai, mencegah sampel duplikat, lalu menyimpan maksimum lima embedding per karyawan tanpa mengekspos embedding mentah ke frontend.
 
 - Zona Berbahaya: Admin dapat membuat zona persegi panjang kustom di atas pratinjau kamera tertentu dan menyimpannya; zona tersebut tampil sebagai garis batas pada live monitoring.
 
 - Aturan APD: Admin dapat menetapkan satu/lebih kelas APD wajib untuk suatu zona, dan sistem membedakan aturan antar zona yang berbeda.
 
-- Deteksi & Skor: ketika seseorang yang terdaftar masuk ke zona berbahaya tanpa APD wajib secara stabil (melewati ConfirmThresholdSeconds), sistem mencatat pelanggaran, mengurangi skornya tepat sekali, dan skor terbaru langsung tampil pada bounding box-nya di layar pemantauan.
+- Deteksi & Skor: ketika seseorang yang terdaftar masuk ke zona berbahaya tanpa APD wajib secara stabil (melewati ConfirmThresholdSeconds), sistem mencatat pelanggaran, mengurangi skornya tepat sekali, dan skor terbaru langsung tampil pada bounding box-nya di layar pemantauan. Wajah yang tidak cocok dengan enrollment mana pun ditampilkan dan dicatat dengan label tepat **Unknown**, serta tidak mengubah skor karyawan mana pun.
 
 - Stabilisasi (Baru v2.1): pelanggaran berdurasi singkat (di bawah ConfirmThreshold) tidak pernah menghasilkan insiden; pelanggaran panjang menghasilkan tepat satu Violation Event sampai episode Cleared; kembali patuh sesaat sebelum ClearThreshold tercapai tidak menutup episode maupun membuat insiden baru.
 
 - Reset Skor (Baru v2.1): skor seluruh karyawan kembali ke nilai awal setiap hari pada jam yang dikonfigurasi; Admin dapat mereset skor karyawan tertentu secara manual dengan alasan wajib tercatat; setiap reset menghasilkan ringkasan periode dan log audit yang dapat ditelusuri.
 
-- Notifikasi: ketika skor seseorang turun di bawah threshold yang dikonfigurasi, pesan otomatis terkirim ke chat Telegram HRD dan Supervisor terkait, memuat detail pelanggaran.
+- Bukti & Notifikasi: setiap episode yang menjadi Confirmed menghasilkan tepat satu snapshot JPEG dari frame terbaru dan satu percobaan pengiriman Telegram ke penerima yang dikonfigurasi. Snapshot hanya berada di buffer memori selama pengiriman/retry terbatas, tidak ditulis ke filesystem, database, object storage, atau log, dan selalu dihapus setelah proses selesai. Threshold skor hanya menandai notifikasi sebagai eskalasi; bukan syarat pengiriman bukti.
 
-- Audit: setiap pelanggaran, perubahan skor, dan reset skor dapat ditelusuri kembali melalui riwayat/log yang tersedia di dashboard.
+- Audit: setiap enrollment/perubahan sampel wajah, pelanggaran, perubahan skor, reset skor, serta status pengiriman Telegram dapat ditelusuri melalui metadata dan log. File snapshot tidak tersedia dari dashboard atau server aplikasi.
 
 # 21. Pertanyaan Terbuka untuk Stakeholder
 
@@ -1063,7 +1197,7 @@ Ini wajib keputusan resmi tim K3/HRD, bukan tim engineering — tapi untuk mempe
 
 ### 21.7 Kebijakan retensi data snapshot (Q62)
 
-Tidak perlu ada snapshot.
+Snapshot diperlukan sebagai bukti notifikasi, tetapi tidak disimpan pada server aplikasi. Snapshot dibuat dari frame terbaru ketika episode menjadi Confirmed, berada sementara di memory buffer selama pengiriman dan retry terbatas, langsung dikirim sebagai lampiran Telegram, lalu dihapus. Server hanya menyimpan metadata event dan NotificationLog (status, jumlah percobaan, TelegramMessageId, timestamp, dan error bila ada), bukan byte atau path gambar.
 
 ### 21.8 Nilai ConfirmThreshold/ClearThreshold/MinConfidenceThreshold (Q63)
 
@@ -1097,6 +1231,10 @@ Rekomendasi: WIB tetap untuk V2.1, karena scope saat ini tidak menyebut multi-lo
 
 - Pemrosesan Gambar: SixLabors.ImageSharp.
 
+- Enrollment Wajah: memakai kembali YuNet dan SFace untuk validasi satu wajah, quality check, ekstraksi embedding, duplicate similarity check, serta maksimum lima embedding per karyawan.
+
+- Bukti Pelanggaran: JPEG dihasilkan dan diproses sebagai stream/byte array dalam memori dengan batas ukuran dan time to live; tidak menggunakan penyimpanan file persisten pada server aplikasi.
+
 - Autentikasi: JWT Bearer (admin) + API Key/Device Token (skema Combined).
 
 - Library Numerik: MathNet.Numerics (perhitungan kemiripan/cosine similarity pada pencocokan wajah).
@@ -1125,7 +1263,7 @@ Rekomendasi: WIB tetap untuk V2.1, karena scope saat ini tidak menyebut multi-lo
 Data yang masuk dan keluar aplikasi harus dikontrol ketat, strictly typed, dan divalidasi penuh sebelum menyentuh logika bisnis inti.
 
 - **Data Transfer Object (DTO)** — entity database tidak boleh diekspos langsung ke client/frontend. Implementasikan Request DTO (menangkap payload masuk) dan Response DTO (membentuk data keluar) untuk mencegah kerentanan over-posting dan kebocoran skema database sensitif.
-- **AutoMapper** — hindari mapping objek manual yang repetitif dan rawan error (mis. `dto.Name = entity.Name`); gunakan AutoMapper dengan mapping profile di Application layer untuk menerjemahkan Entity ke DTO dan sebaliknya.
+- **AutoMapper** — hindari mapping objek manual yang repetitif dan rawan error (mis. `dto.Name = entity.Name`); gunakan AutoMapper dengan mapping profile di Application layer untuk menerjemahkan Entity ke DTO dan sebaliknya. Gunakan versi 14.x.x.
 - **FluentValidation** — hindari Data Annotation primitif (`[Required]`, `[StringLength]`) di domain model/DTO; jaga validasi tetap decoupled dengan validator class terpisah berbasis FluentValidation untuk aturan validasi bisnis yang kompleks.
 - **FluentAPI Configuration** — jaga domain entity tetap bersih dari atribut spesifik database (`[Table]`, `[Key]`, `[ForeignKey]`); gunakan EF Core FluentAPI di method `OnModelCreating` — atau diisolasi dalam class `IEntityTypeConfiguration<T>` terpisah — untuk mendefinisikan skema tabel, primary/foreign key, cascade behavior, dan index constraint.
 
@@ -1179,13 +1317,114 @@ Aplikasi harus mengikuti gaya konfigurasi "twelve-factor app" yang aman, yang me
 - **Secure Secret Management** — kredensial infrastruktur, connection string database, JWT secret key, atau API key pihak ketiga sama sekali tidak boleh di-hardcode di dalam file source code. Gunakan `appsettings.json` hanya untuk properti struktural yang tidak sensitif. Untuk pengembangan di mesin lokal, manfaatkan .NET Secret Manager atau environment variable lokal.
 - **CI/CD Pipeline Readiness** — bangun codebase agar sepenuhnya kompatibel dengan sistem build otomatis. Pastikan hook konfigurasi memungkinkan continuous integration server (seperti Jenkins) melakukan checkout repository, me-restore package secara otomatis, menjalankan automated code style check, mengeksekusi unit test suite, dan mengganti token environment secara dinamis selama build lokal atau packaging artifact otomatis.
 
-# 24. Riwayat Revisi Dokumen
+# 24. OpenProject Backlog
+
+## 24.1 Work Package Hierarchy and Planning Rules
+
+The backlog uses the following OpenProject hierarchy:
+
+- **Epic** = a major product capability or large module.
+- **User Story** = a functional or technical need that can be completed by a developer and demonstrated to a stakeholder.
+- **Task** = a technical implementation unit that contributes to one User Story.
+- **Issue** = a defect or unexpected problem discovered during implementation or testing; Issues are created when found and consume the protected buffer.
+
+The two-week commitment is limited to 144 planned hours: 72 hours for the Frontend Developer and 72 hours for the Backend Developer. Each developer retains an additional 8-hour buffer, for a total capacity of 160 hours. Estimates below are person-hours and may be copied into OpenProject as **Work**.
+
+## 24.2 Epics
+
+| ID | Type | Epic | Objective | Priority |
+|---|---|---|---|---|
+| EP-01 | Epic | Platform Foundation and Employee Identity | Provide secure application access, employee management, and reliable face enrollment. | Must |
+| EP-02 | Epic | Danger Zone and PPE Configuration | Allow administrators to define monitored areas and required PPE rules without code changes. | Must |
+| EP-03 | Epic | Live Monitoring and Compliance Detection | Show real-time detections, identify enrolled employees, label unmatched faces as Unknown, and evaluate PPE compliance. | Must |
+| EP-04 | Epic | Violation Scoring and Evidence Delivery | Stabilize violations, update recognized employee scores, and send memory-only evidence snapshots to Telegram. | Must |
+| EP-05 | Epic | Score Reset and Operational History | Support audited score reset and minimum operational histories required for MVP verification. | Must |
+| EP-06 | Epic | Integration Quality and Demo Release | Validate the end-to-end MVP and prepare a stable demonstration build. | Must |
+
+## 24.3 User Stories
+
+| ID | Parent | Type | User Story | Acceptance Summary | FE | BE | Total |
+|---|---|---|---|---|---:|---:|---:|
+| US-01 | EP-01 | User Story | As an Admin, I want to sign in securely so that only authorized users can access configuration features. | Valid credentials create a protected session; unauthorized access is rejected. | 4 | 4 | 8 |
+| US-02 | EP-01 | User Story | As an Admin, I want to view and maintain employee records so that monitoring uses current employee data. | Employee list and detail views support validated create/update operations. | 5 | 3 | 8 |
+| US-03 | EP-01 | User Story | As an Admin, I want to enroll an employee face from a camera or image so that the employee can be recognized during monitoring. | Exactly one valid face is accepted; duplicates are rejected; at most five embeddings are stored per employee; samples can be removed and are audited. | 8 | 7 | 15 |
+| US-04 | EP-02 | User Story | As an Admin, I want to manage danger zones so that each monitored camera has explicit safety boundaries. | A validated rectangular zone can be created, updated, disabled, and retrieved for its camera. | 6 | 5 | 11 |
+| US-05 | EP-02 | User Story | As an Admin, I want to draw a zone on a camera preview so that coordinates are easy to configure accurately. | The editor saves normalized coordinates and redraws the same boundary on different screen sizes. | 8 | 2 | 10 |
+| US-06 | EP-02 | User Story | As an Admin, I want to assign required PPE classes to a zone so that compliance rules differ by area. | One or more active PPE classes can be mapped to each zone and loaded without hardcoding. | 6 | 5 | 11 |
+| US-07 | EP-03 | User Story | As an Operator, I want to receive live inference events so that the monitoring screen reflects the current camera stream. | A sample stream publishes track, face, PPE, confidence, and zone data through the agreed realtime contract. | 4 | 6 | 10 |
+| US-08 | EP-03 | User Story | As an Operator, I want responsive overlays with employee identity or the exact label Unknown so that I can interpret detections immediately. | Bounding boxes remain aligned; unmatched faces display **Unknown**; raw embeddings are never exposed. | 8 | 4 | 12 |
+| US-09 | EP-03 | User Story | As a Safety Officer, I want zone entry and PPE compliance evaluated consistently so that only relevant non-compliance becomes a candidate violation. | Zone membership and required PPE results are deterministic for the same detection input. | 3 | 7 | 10 |
+| US-10 | EP-04 | User Story | As a Safety Officer, I want transient detections stabilized so that one sustained episode produces exactly one violation. | The Confirm/Clear thresholds suppress flicker and prevent duplicate events until the episode is cleared. | 2 | 8 | 10 |
+| US-11 | EP-04 | User Story | As HRD, I want confirmed violations to affect only recognized employees so that safety scores remain attributable and auditable. | A recognized employee receives one ledger deduction per episode; **Unknown** creates an event without any employee score change. | 4 | 7 | 11 |
+| US-12 | EP-04 | User Story | As HRD, I want each confirmed violation snapshot sent directly to Telegram so that evidence is available without consuming server storage. | The latest frame is encoded in memory, sent once with bounded retries, then disposed; no image file, path, database blob, or log payload remains on the server. | 2 | 6 | 8 |
+| US-13 | EP-05 | User Story | As an Admin, I want scheduled and manual score reset so that each scoring period starts correctly and every reset is auditable. | Daily reset is idempotent; manual reset requires a reason; summaries and reset logs are recorded. | 4 | 4 | 8 |
+| US-14 | EP-05 | User Story | As an Admin, I want minimum violation, score, reset, enrollment, and delivery histories so that MVP behavior can be verified. | Paginated histories expose metadata and delivery status but never expose a server snapshot file. | 4 | 2 | 6 |
+| US-15 | EP-06 | User Story | As the Product Owner, I want the critical end-to-end flows tested and demonstrated so that the MVP is ready for review. | Enrollment, Unknown handling, zone/PPE setup, confirmed event, scoring, Telegram evidence, and reset pass the agreed test suite. | 4 | 2 | 6 |
+| **Total** |  |  |  |  | **72** | **72** | **144** |
+
+## 24.4 Tasks
+
+| ID | Parent | Type | Task | Owner | Work | Target Day | Depends On |
+|---|---|---|---|---|---:|---:|---|
+| TK-01-FE | US-01 | Task | Build the login form, protected routes, and session state. | Frontend | 4 | 1 | — |
+| TK-01-BE | US-01 | Task | Configure JWT authentication, Admin authorization policy, and login contract. | Backend | 4 | 1 | — |
+| TK-02-FE | US-02 | Task | Build employee list, detail, and validated maintenance forms. | Frontend | 5 | 1–2 | TK-01-FE |
+| TK-02-BE | US-02 | Task | Implement employee query and maintenance endpoints with validation. | Backend | 3 | 1–2 | TK-01-BE |
+| TK-03-FE | US-03 | Task | Build camera/upload capture, preview, quality feedback, sample counter, and delete interaction. | Frontend | 8 | 2 | TK-02-FE |
+| TK-03-BE | US-03 | Task | Implement YuNet/SFace enrollment, one-face and quality validation, duplicate check, five-sample limit, and EnrollmentLog. | Backend | 7 | 2 | TK-02-BE |
+| TK-04-FE | US-04 | Task | Build danger-zone list, form, status controls, and error states. | Frontend | 6 | 3 | TK-01-FE |
+| TK-04-BE | US-04 | Task | Implement DangerZone entity, migration, validation, and CRUD endpoints. | Backend | 5 | 3 | TK-01-BE |
+| TK-05-FE | US-05 | Task | Build the responsive rectangle editor and normalized-coordinate preview. | Frontend | 8 | 3–4 | TK-04-FE |
+| TK-05-BE | US-05 | Task | Add normalized-coordinate rules and camera-dimension contract tests. | Backend | 2 | 3–4 | TK-04-BE |
+| TK-06-FE | US-06 | Task | Build PPE class selection and per-zone rule configuration UI. | Frontend | 6 | 4 | TK-04-FE |
+| TK-06-BE | US-06 | Task | Implement PPE class definitions, zone mappings, validation, and endpoints. | Backend | 5 | 4 | TK-04-BE |
+| TK-07-FE | US-07 | Task | Implement realtime client state, reconnect behavior, and sample-stream controls. | Frontend | 4 | 5 | TK-01-FE |
+| TK-07-BE | US-07 | Task | Implement the inference-worker contract and publish sample realtime events. | Backend | 6 | 5 | TK-06-BE |
+| TK-08-FE | US-08 | Task | Render responsive boxes, PPE state, current score, employee label, and exact Unknown label. | Frontend | 8 | 5–6 | TK-07-FE |
+| TK-08-BE | US-08 | Task | Integrate face matching and emit a nullable EmployeeId with Unknown display metadata. | Backend | 4 | 5–6 | TK-03-BE, TK-07-BE |
+| TK-09-FE | US-09 | Task | Present compliant, candidate, confirmed, and cleared visual states. | Frontend | 3 | 6 | TK-08-FE |
+| TK-09-BE | US-09 | Task | Implement zone membership and required-PPE compliance evaluation with tests. | Backend | 7 | 6 | TK-05-BE, TK-06-BE, TK-07-BE |
+| TK-10-FE | US-10 | Task | Handle candidate and confirmed episode states without duplicate UI notifications. | Frontend | 2 | 6–7 | TK-09-FE |
+| TK-10-BE | US-10 | Task | Implement the Confirm/Clear state machine, track-loss behavior, and idempotency tests. | Backend | 8 | 6–7 | TK-09-BE |
+| TK-11-FE | US-11 | Task | Display score changes for recognized employees and no-score state for Unknown. | Frontend | 4 | 7 | TK-10-FE |
+| TK-11-BE | US-11 | Task | Persist ViolationEvent and SafetyScoreLedger atomically; skip score changes for Unknown. | Backend | 7 | 7 | TK-10-BE |
+| TK-12-FE | US-12 | Task | Show Telegram recipient configuration and evidence-delivery status. | Frontend | 2 | 8 | TK-11-FE |
+| TK-12-BE | US-12 | Task | Implement in-memory JPEG snapshot, Telegram photo send, bounded retry, disposal, and NotificationLog metadata. | Backend | 6 | 8 | TK-11-BE |
+| TK-13-FE | US-13 | Task | Build manual-reset interaction, required reason, schedule display, and result state. | Frontend | 4 | 8 | TK-11-FE |
+| TK-13-BE | US-13 | Task | Implement idempotent scheduled reset, manual reset, period summary, transaction, and audit log. | Backend | 4 | 8 | TK-11-BE |
+| TK-14-FE | US-14 | Task | Build paginated minimum history views and filters for operational verification. | Frontend | 4 | 7–8 | TK-11-FE |
+| TK-14-BE | US-14 | Task | Expose paginated history and delivery-status queries without snapshot content. | Backend | 2 | 7–8 | TK-11-BE |
+| TK-15-FE | US-15 | Task | Execute UI smoke, accessibility, error-state, and demo-flow tests; fix blocking findings. | Frontend | 4 | 9–10 | All FE Must tasks |
+| TK-15-BE | US-15 | Task | Execute integration, security, cleanup, and critical-path tests; fix blocking findings. | Backend | 2 | 9–10 | All BE Must tasks |
+| **Total** |  |  |  |  | **144** |  |  |
+
+## 24.5 Suggested OpenProject Setup
+
+- Create the six Epics first, then create each User Story under its Epic and each Task under its User Story.
+- Use **Assignee** values `Frontend Developer` and `Backend Developer`, and store the estimate in **Work** as hours.
+- Use **Priority = Must** for all committed items. Create discovered defects as **Issue** work packages and charge them to the 8-hour buffer of the responsible workstream.
+- Use target dates based on Day 1 through Day 10, with integration milestones at the end of Days 2, 4, 6, 8, and 10.
+- A User Story is Done only when its acceptance summary passes, related tests pass, reviewer feedback is resolved, and no unresolved blocking Issue remains.
+
+### OpenProject Import Validation
+
+| Work Package Type | Count | Planned Work | Validation |
+|---|---:|---:|---|
+| Epic | 6 | Not estimated | Every committed capability has one owning Epic. |
+| User Story | 15 | 144 hours | Story totals equal 72 Frontend hours and 72 Backend hours. |
+| Task | 30 | 144 hours | Every User Story has one Frontend Task and one Backend Task. |
+| Issue | Created as discovered | Uses 16-hour team buffer | An Issue must reference the blocked Task or User Story and the responsible workstream. |
+| **Capacity Check** |  | **160 hours** | **144 planned hours plus 16 buffer hours; no over-allocation.** |
+
+# 25. Riwayat Revisi Dokumen
 
 |             |                   |                                                                                                                                                                                                                                                                                                                                                                        |
 |-------------|-------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Versi**   | **Tanggal**       | **Perubahan**                                                                                                                                                                                                                                                                                                                                                          |
 | 2.0.0-draft | 5 September 2026  | Draf awal PRD V2 SAW (Safety Always Watch!) (evolusi dari NETFace Attendance).                                                                                                                                                                                                                                                                                        |
 | 2.1.0-draft | 5 September 2026  | Menambahkan spesifikasi Violation Stabilization State Machine (Confirm/Clear) dan Score Reset Engine (terjadwal + manual). Merevisi Bab 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20, 21, 22 untuk mengakomodasi kedua fitur baru tersebut. Menambahkan Bab 12.1 berisi dataset sumber Roboflow Universe untuk model YOLO APD dan usulan pemetaan kelas. |
-| 2.2.0-draft | 7 September 2026  | Rebranding nama proyek dari NETGuard menjadi **SAW (Safety Always Watch!)** pada judul dan riwayat dokumen. Menambahkan Bab 23 — Panduan Pengembangan .NET (Development Guidelines) — berisi SOP & best practice wajib tim engineering (Clean Architecture/N-Tier, DTO & FluentValidation, pola `ServiceResult<T>` & global exception handling, JWT & RBAC, Serilog & Swagger, unit testing & static analysis, EF Core migrations & soft delete, async/pagination/caching, secure secret management & CI/CD). Riwayat Revisi Dokumen berpindah menjadi Bab 24. Merapikan format Bab 21 (Pertanyaan Terbuka) menjadi sub-bagian bernomor 21.1–21.12.                        |
+| 2.2.0-draft | 7 September 2026  | Rebranding nama proyek dari NETGuard menjadi **SAW (Safety Always Watch!)** pada judul dan riwayat dokumen. Menambahkan Bab 23 — Panduan Pengembangan .NET (Development Guidelines) — berisi SOP & best practice wajib tim engineering. Riwayat Revisi Dokumen berpindah menjadi Bab 24. |
+| 2.3.0-draft | 10 September 2026 | Menambahkan roadmap dua minggu, pembagian pekerjaan Frontend/Backend, serta backlog awal Epic, User Story, dan Task untuk OpenProject. |
+| 2.4.0-draft | 11 September 2026 | Menambahkan Face Enrollment karyawan; menetapkan label **Unknown** untuk wajah yang tidak dikenali; mewajibkan snapshot pelanggaran Confirmed dikirim langsung ke Telegram melalui memory-only buffer tanpa penyimpanan server; memperbarui acceptance criteria, arsitektur, data, API, risiko, roadmap; dan menulis ulang Epic, User Story, serta Task dalam bahasa Inggris. |
 
-*Dokumen ini adalah draf PRD V2.2 dan dimaksudkan sebagai dasar diskusi bersama stakeholder (Admin/Safety, HRD, Engineering) sebelum masuk ke tahap desain teknis rinci.*
+*Dokumen ini adalah draf PRD V2.4 dan dimaksudkan sebagai dasar diskusi bersama stakeholder (Admin/Safety, HRD, Engineering) sebelum masuk ke tahap desain teknis rinci.*
