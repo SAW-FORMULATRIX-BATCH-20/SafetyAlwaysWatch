@@ -18,8 +18,10 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(x => x.Department)
-            .HasMaxLength(100);
+        builder.HasOne(x => x.Department)
+            .WithMany()
+            .HasForeignKey(x => x.DepartmentId)
+            .IsRequired();
 
         builder.HasIndex(x => x.EmployeeCode).IsUnique();
     }

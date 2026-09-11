@@ -37,7 +37,7 @@ public class EmployeeService : IEmployeeService
         var escalationThresholdSetting = settings.FirstOrDefault(x => x.Key == "SafetyScore:EscalationThreshold");
         double escalationThreshold = escalationThresholdSetting != null ? double.Parse(escalationThresholdSetting.Value) : 60;
 
-        var dbQuery = _employeeRepository.Query();
+        var dbQuery = _employeeRepository.Query().Include(x => x.Department).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -47,7 +47,7 @@ public class EmployeeService : IEmployeeService
 
         if (!string.IsNullOrWhiteSpace(query.Department))
         {
-            dbQuery = dbQuery.Where(x => x.Department == query.Department);
+            dbQuery = dbQuery.Where(x => x.Department.Name == query.Department);
         }
 
         if (!string.IsNullOrWhiteSpace(query.SafetyStatus))
@@ -85,7 +85,7 @@ public class EmployeeService : IEmployeeService
                 .Select(z => z.Name)
                 .ToListAsync(cancellationToken);
 
-            dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department;
+            dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department.Name;
             employeeDtos.Add(dto);
         }
 
@@ -100,7 +100,7 @@ public class EmployeeService : IEmployeeService
 
     public async Task<ServiceResult<EmployeeDto>> GetEmployeeByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var emp = await _employeeRepository.GetByIdAsync(id, cancellationToken);
+        var emp = await _employeeRepository.Query().Include(x => x.Department).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (emp == null)
         {
             return ServiceResult<EmployeeDto>.Failure("Karyawan tidak ditemukan.");
@@ -113,7 +113,7 @@ public class EmployeeService : IEmployeeService
             .Select(z => z.Name)
             .ToListAsync(cancellationToken);
 
-        dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department;
+        dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department?.Name ?? string.Empty;
 
         var ledgers = await _safetyScoreLedgerRepository.Query()
             .Where(x => x.EmployeeId == emp.Id)

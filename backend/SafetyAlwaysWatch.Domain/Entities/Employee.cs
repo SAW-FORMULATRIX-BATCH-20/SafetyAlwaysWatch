@@ -13,19 +13,20 @@ public class Employee : BaseEntity
     // Extensions for V2
     public double SafetyCreditScore { get; private set; }
     public Guid? SupervisorId { get; private set; }
-    public string Department { get; private set; } = string.Empty;
+    public Guid DepartmentId { get; private set; }
+    public Department Department { get; private set; } = null!;
     public bool HasFaceEnrolled { get; private set; }
 
     private Employee()
     {
     }
 
-    public Employee(string employeeCode, string fullName, string department, double initialSafetyScore)
+    public Employee(string employeeCode, string fullName, Guid departmentId, double initialSafetyScore)
     {
         Id = Guid.NewGuid();
         EmployeeCode = employeeCode;
         FullName = fullName;
-        Department = department;
+        DepartmentId = departmentId;
         Status = EmployeeStatus.Active;
         SafetyCreditScore = initialSafetyScore;
         HasFaceEnrolled = false;
