@@ -18,11 +18,25 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(x => x.Email)
+            .HasMaxLength(256);
+
+        builder.Property(x => x.PasswordHash)
+            .HasMaxLength(512);
+
+        builder.Property(x => x.Role)
+            .HasConversion<string>()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.RequiresPasswordChange)
+            .HasDefaultValue(false);
+
         builder.HasOne(x => x.Department)
             .WithMany()
             .HasForeignKey(x => x.DepartmentId)
             .IsRequired();
 
         builder.HasIndex(x => x.EmployeeCode).IsUnique();
+        builder.HasIndex(x => x.Email);
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SafetyAlwaysWatch.Domain.Common;
 using SafetyAlwaysWatch.Domain.Entities;
+using SafetyAlwaysWatch.Domain.Enums;
 using System.Reflection;
 using System.Linq.Expressions;
 
@@ -40,6 +41,20 @@ public class AppDbContext : DbContext
             new Department(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Produksi"),
             new Department(Guid.Parse("22222222-2222-2222-2222-222222222222"), "Gudang"),
             new Department(Guid.Parse("33333333-3333-3333-3333-333333333333"), "IT")
+        );
+
+        // Seed Initial Admin Account (Issue #47)
+        modelBuilder.Entity<Employee>().HasData(
+            new Employee(
+                Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                "ADM-001",
+                "Admin SAW",
+                Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                100.0,
+                "admin@saw.local",
+                "ZwSkDi51ttJOzuV3FCIMhw==.HHGErah3ZRjpwAi3AoHjL+2aqn3cZH0W0agtD+WkMI4=",
+                EmployeeRole.Admin,
+                false)
         );
     }
 
