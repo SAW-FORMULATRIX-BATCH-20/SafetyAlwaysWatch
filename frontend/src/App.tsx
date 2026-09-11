@@ -1,18 +1,5 @@
 import { animate, createScope } from "animejs";
-import { useEffect, useRef, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Link,
@@ -78,6 +65,8 @@ import {
   safetyScoreResetReasonLabels,
   safetyScoreResetReasons,
 } from "./services/saw-service";
+
+const ReportCharts = lazy(() => import("./components/report-charts").then((module) => ({ default: module.ReportCharts })));
 
 type Role = "admin" | "supervisor" | "hrd";
 
@@ -303,6 +292,63 @@ function PageState({ title }: { title: string }) {
   );
 }
 
+function AccessibleDialog({
+  children,
+  label,
+  onDismiss,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onDismiss: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const initialFocus = dialogRef.current?.querySelector<HTMLElement>("[data-dialog-initial-focus], button, [href], input, select, textarea");
+    initialFocus?.focus();
+    return () => previousFocusRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onDismiss();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])") ?? [])];
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return <section aria-label={label} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" onKeyDown={handleKeyDown} ref={dialogRef} role="dialog">{children}</section>;
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const update = () => setMatches(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
+
 function Metric({ value, suffix = "" }: { suffix?: string; value: number }) {
   const [displayedValue, setDisplayedValue] = useState(value);
   const previousValue = useRef(value);
@@ -385,7 +431,7 @@ function Overview({ service }: { service: SawService }) {
         <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Kepatuhan APD hari ini</p><Metric suffix="%" value={overview.apdCompliance} /></article>
         <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Karyawan di bawah Ambang Eskalasi</p><Metric value={overview.employeesBelowEscalationThreshold} /></article>
       </div>
-      {confirmingReset && <div aria-labelledby="reset-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-md bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold" id="reset-title">Reset data demo?</h2><p className="mt-2 text-sm leading-6 text-slate-600">Semua perubahan demo akan dikembalikan ke seed awal.</p><div className="mt-6 flex justify-end gap-3"><Button onClick={() => setConfirmingReset(false)} variant="outline">Batal</Button><Button onClick={() => void resetDemoData()}>Reset data</Button></div></div></div>}
+      {confirmingReset && <AccessibleDialog label="Reset data demo?" onDismiss={() => setConfirmingReset(false)}><div className="w-full max-w-md bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold">Reset data demo?</h2><p className="mt-2 text-sm leading-6 text-slate-600">Semua perubahan demo akan dikembalikan ke seed awal.</p><div className="mt-6 flex justify-end gap-3"><Button data-dialog-initial-focus onClick={() => setConfirmingReset(false)} variant="outline">Batal</Button><Button onClick={() => void resetDemoData()}>Reset data</Button></div></div></AccessibleDialog>}
     </section>
   );
 }
@@ -514,9 +560,7 @@ function ComplianceReport({ service }: { service: SawService }) {
 
       {filtered.length === 0 ? <div className="mt-5 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">Tidak ada hasil laporan yang cocok.</p><p className="mt-1 text-sm text-slate-600">Ubah atau bersihkan filter untuk melihat observasi Kepatuhan APD.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter laporan</Button></div> : <>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Kepatuhan APD</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{complianceRate}%</p><p className="mt-2 text-sm text-slate-600">{compliantObservations} patuh dari {filtered.length} observasi</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Observasi laporan</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length}</p><p className="mt-2 text-sm text-slate-600">{filtered.length} observasi Kepatuhan APD</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Pelanggaran APD</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length - compliantObservations}</p><p className="mt-2 text-sm text-slate-600">Observasi APD tidak patuh</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Periode</p><p className="mt-2 font-mono text-lg font-semibold text-slate-950">{period}</p><p className="mt-2 text-sm text-slate-600">WIB · filter aktif</p></article></div>
-        <div className="mt-8 grid gap-5 xl:grid-cols-2"><section aria-label="Tren Kepatuhan APD" className="border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold text-slate-950">Tren Kepatuhan APD</h2><p className="mt-1 text-sm text-slate-600">Garis menunjukkan persentase patuh; batang menunjukkan jumlah observasi per hari.</p><div className="mt-5 h-64" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><ComposedChart data={trend}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis domain={[0, 100]} unit="%" /><Tooltip /><Legend /><Bar dataKey="total" fill="#cbd5e1" isAnimationActive={false} name="Observasi" /><Line dataKey="rate" isAnimationActive={false} name="Kepatuhan" stroke="#047857" strokeWidth={2} type="monotone" /></ComposedChart></ResponsiveContainer></div><p className="mt-4 font-mono text-xs text-slate-600">Periode: {period} · {filtered.length} observasi Kepatuhan APD</p></section>
-          <section aria-label="Breakdown Kelas APD Kanonis" className="border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold text-slate-950">Breakdown Kelas APD Kanonis</h2><p className="mt-1 text-sm text-slate-600">Bandingkan observasi patuh dan tidak patuh untuk setiap Kelas APD Kanonis.</p><div className="mt-5 h-64" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><BarChart data={apdBreakdown}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="canonicalApdClass" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="compliant" fill="#047857" isAnimationActive={false} name="Patuh" /><Bar dataKey="violation" fill="#b91c1c" isAnimationActive={false} name="Tidak patuh" /></BarChart></ResponsiveContainer></div><p className="mt-4 text-sm text-slate-600">{apdBreakdown.map((item) => `${item.canonicalApdClass}: ${item.compliant} patuh, ${item.violation} tidak patuh`).join(" · ")}</p></section>
-          <section aria-label="Distribusi status keselamatan" className="border border-slate-200 bg-white p-5 xl:col-span-2"><h2 className="text-lg font-semibold text-slate-950">Distribusi status keselamatan</h2><p className="mt-1 text-sm text-slate-600">Status Aman, Waspada, dan Kritis diturunkan dari Skor Keselamatan Karyawan pada observasi yang dipilih.</p><div className="mt-5 h-56" aria-hidden="true"><ResponsiveContainer height="100%" width="100%"><BarChart data={safetyDistribution} layout="vertical"><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis allowDecimals={false} type="number" /><YAxis dataKey="status" type="category" width={80} /><Tooltip /><Bar dataKey="count" isAnimationActive={false} name="Karyawan" radius={[0, 3, 3, 0]}>{safetyDistribution.map((item) => <Cell fill={item.color} key={item.status} />)}</Bar></BarChart></ResponsiveContainer></div><p className="mt-4 text-sm text-slate-600">{safetyDistribution.map((item) => `${item.status}: ${item.count}`).join(" · ")}</p></section></div>
+        <Suspense fallback={<p aria-busy="true" className="mt-8 text-sm text-slate-600">Memuat visualisasi laporan…</p>}><ReportCharts apdBreakdown={apdBreakdown} filteredObservationCount={filtered.length} period={period} safetyDistribution={safetyDistribution} trend={trend} /></Suspense>
       </>}
     </section>
   );
@@ -1299,8 +1343,8 @@ function SafetyScoreReset({ service }: { service: SawService }) {
         <article className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">Log Reset Skor</h2>{audit.resetLogs.length === 0 ? <p className="mt-4 text-sm text-slate-600">Belum ada log Reset Skor.</p> : <div className="mt-4 space-y-4 text-sm">{audit.resetLogs.map((log) => <dl className="border-t border-slate-100 pt-4 first:border-0 first:pt-0" key={log.id}><div><dt className="text-slate-500">Pemicu</dt><dd className="mt-1 text-slate-950">{log.trigger}</dd></div><div className="mt-2"><dt className="text-slate-500">Alasan</dt><dd className="mt-1 text-slate-950">{safetyScoreResetReasonLabels[log.reason]}</dd></div>{log.note && <div className="mt-2"><dt className="text-slate-500">Catatan</dt><dd className="mt-1 text-slate-950">{log.note}</dd></div>}<div className="mt-2"><dt className="text-slate-500">Pelaku</dt><dd className="mt-1 text-slate-950">{log.actor}</dd></div><div className="mt-2"><dt className="text-slate-500">Waktu</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(log.occurredAt)}</dd></div></dl>)}</div>}</article>
       </section>}
 
-      {step === "review" && employee && reason && <div aria-labelledby="score-reset-review-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-xl bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Tinjau perubahan</p><h2 className="mt-2 text-xl font-semibold text-slate-950" id="score-reset-review-title">Tinjau Reset Skor</h2><dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Karyawan</dt><dd className="mt-1 font-medium text-slate-950">{employeeName(employee)}</dd></div><div><dt className="text-slate-500">Periode Skor yang ditutup</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScorePeriodStartedAt ? formatWib(employee.safetyScorePeriodStartedAt) : "Periode demo berjalan"} – sekarang</dd></div><div><dt className="text-slate-500">Skor sebelum</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScore}</dd></div><div><dt className="text-slate-500">Skor sesudah</dt><dd className="mt-1 font-mono text-slate-950">{settings.initialScore}</dd></div><div><dt className="text-slate-500">Alasan</dt><dd className="mt-1 text-slate-950">{safetyScoreResetReasonLabels[reason]}</dd></div>{note.trim() && <div><dt className="text-slate-500">Catatan</dt><dd className="mt-1 text-slate-950">{note}</dd></div>}</dl><div className="mt-6 flex justify-end gap-3"><Button onClick={() => setStep("form")} variant="outline">Kembali</Button><Button onClick={() => setStep("confirm")}>Lanjut ke konfirmasi</Button></div></div></div>}
-      {step === "confirm" && employee && <div aria-labelledby="score-reset-confirm-title" aria-modal="true" className="fixed inset-0 grid place-items-center bg-slate-950/40 p-5" role="dialog"><div className="w-full max-w-md bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-red-700">Konfirmasi final</p><h2 className="mt-2 text-xl font-semibold text-slate-950" id="score-reset-confirm-title">Konfirmasi Reset Skor</h2><p className="mt-3 text-sm leading-6 text-slate-600">Tindakan ini menutup Periode Skor {employeeName(employee)}, memperbarui ledger, dan menyimpan log audit.</p><div className="mt-6 flex justify-end gap-3"><Button disabled={isSaving} onClick={() => setStep("form")} variant="outline">Batal</Button><Button disabled={isSaving} onClick={() => void confirmReset()}>Konfirmasi Reset Skor</Button></div></div></div>}
+      {step === "review" && employee && reason && <AccessibleDialog label="Tinjau Reset Skor" onDismiss={() => setStep("form")}><div className="w-full max-w-xl bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Tinjau perubahan</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Tinjau Reset Skor</h2><dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Karyawan</dt><dd className="mt-1 font-medium text-slate-950">{employeeName(employee)}</dd></div><div><dt className="text-slate-500">Periode Skor yang ditutup</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScorePeriodStartedAt ? formatWib(employee.safetyScorePeriodStartedAt) : "Periode demo berjalan"} – sekarang</dd></div><div><dt className="text-slate-500">Skor sebelum</dt><dd className="mt-1 font-mono text-slate-950">{employee.safetyScore}</dd></div><div><dt className="text-slate-500">Skor sesudah</dt><dd className="mt-1 font-mono text-slate-950">{settings.initialScore}</dd></div><div><dt className="text-slate-500">Alasan</dt><dd className="mt-1 text-slate-950">{safetyScoreResetReasonLabels[reason]}</dd></div>{note.trim() && <div><dt className="text-slate-500">Catatan</dt><dd className="mt-1 text-slate-950">{note}</dd></div>}</dl><div className="mt-6 flex justify-end gap-3"><Button data-dialog-initial-focus onClick={() => setStep("form")} variant="outline">Kembali</Button><Button onClick={() => setStep("confirm")}>Lanjut ke konfirmasi</Button></div></div></AccessibleDialog>}
+      {step === "confirm" && employee && <AccessibleDialog label="Konfirmasi Reset Skor" onDismiss={() => setStep("form")}><div className="w-full max-w-md bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-red-700">Konfirmasi final</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Konfirmasi Reset Skor</h2><p className="mt-3 text-sm leading-6 text-slate-600">Tindakan ini menutup Periode Skor {employeeName(employee)}, memperbarui ledger, dan menyimpan log audit.</p><div className="mt-6 flex justify-end gap-3"><Button data-dialog-initial-focus disabled={isSaving} onClick={() => setStep("form")} variant="outline">Batal</Button><Button disabled={isSaving} onClick={() => void confirmReset()}>Konfirmasi Reset Skor</Button></div></div></AccessibleDialog>}
     </section>
   );
 }
@@ -1529,6 +1573,7 @@ function CanonicalApdClasses({ service }: { service: SawService }) {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const phoneLayout = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     let active = true;
@@ -1631,13 +1676,16 @@ function CanonicalApdClasses({ service }: { service: SawService }) {
       {notice && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{notice}</p>}
       {error && !yoloIndexError && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
 
-      <div className="mt-8 overflow-x-auto border border-slate-200 bg-white">
+      {!phoneLayout && <div className="mt-8 overflow-x-auto border border-slate-200 bg-white">
         <table className="w-full min-w-[48rem] text-left text-sm">
           <caption className="sr-only">Daftar mapping Kelas APD Kanonis</caption>
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr><th className="px-4 py-3">Indeks YOLO</th><th className="px-4 py-3">Label mentah</th><th className="px-4 py-3">Kelas APD Kanonis</th><th className="px-4 py-3">Kategori</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Tindakan</span></th></tr></thead>
           <tbody>{configuration.mappings.map((mapping) => <tr className="border-b border-slate-100 last:border-0" key={mapping.id}><td className="px-4 py-3 font-mono text-slate-950">{mapping.yoloIndex}</td><td className="px-4 py-3 font-mono text-slate-700">{mapping.rawLabel}</td><td className="px-4 py-3 font-medium text-slate-950">{mapping.canonicalApdClass}</td><td className="px-4 py-3">{apdComplianceCategoryLabel(mapping.complianceCategory)}</td><td className="px-4 py-3">{mapping.active ? "Aktif" : "Nonaktif"}</td><td className="px-4 py-3 text-right"><Button onClick={() => { setDraft(createApdMappingDraft(mapping)); setError(undefined); setNotice(undefined); }} size="sm" variant="outline">Edit mapping {mapping.rawLabel}</Button></td></tr>)}</tbody>
         </table>
-      </div>
+      </div>}
+      {phoneLayout && <div aria-label="Daftar mapping Kelas APD Kanonis untuk ponsel" className="mt-8 space-y-3" role="list">
+        {configuration.mappings.map((mapping) => <article aria-label={mapping.rawLabel} className="border border-slate-200 bg-white p-4" key={mapping.id} role="listitem"><dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm"><div><dt className="text-slate-500">Indeks YOLO</dt><dd className="mt-1 font-mono text-slate-950">{mapping.yoloIndex}</dd></div><div><dt className="text-slate-500">Status</dt><dd className="mt-1 font-medium text-slate-950">{mapping.active ? "Aktif" : "Nonaktif"}</dd></div><div><dt className="text-slate-500">Label mentah</dt><dd className="mt-1 text-slate-950">{mapping.rawLabel}</dd></div><div><dt className="text-slate-500">Kelas APD Kanonis</dt><dd className="mt-1 font-medium text-slate-950">{mapping.canonicalApdClass}</dd></div><div className="col-span-2"><dt className="text-slate-500">Kategori</dt><dd className="mt-1 text-slate-950">{apdComplianceCategoryLabel(mapping.complianceCategory)}</dd></div></dl><Button className="mt-4" onClick={() => { setDraft(createApdMappingDraft(mapping)); setError(undefined); setNotice(undefined); }} size="sm" variant="outline">Edit mapping {mapping.rawLabel}</Button></article>)}
+      </div>}
 
       {draft && <form className="mt-6 border border-slate-200 bg-white p-5 sm:p-6" noValidate onSubmit={(event) => void submitMapping(event)}>
         <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{draft.id ? "Edit mapping" : "Tambah mapping"}</h2><p className="mt-1 text-sm text-slate-600">Setiap indeks YOLO hanya boleh digunakan satu kali.</p></div><Button onClick={() => setDraft(undefined)} type="button" variant="outline">Batal</Button></div>
@@ -1711,10 +1759,6 @@ function copyZonaBerbahaya(zone: ZonaBerbahaya): ZonaBerbahayaDraft {
   };
 }
 
-function isPhoneZoneEditor() {
-  return window.matchMedia("(max-width: 767px)").matches;
-}
-
 function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const [cameras, setCameras] = useState<Camera[]>();
   const [zones, setZones] = useState<ZonaBerbahayaWithViolationHistory[]>();
@@ -1729,6 +1773,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   const [lifecycleAction, setLifecycleAction] = useState<ZoneLifecycleAction>();
   const [changingLifecycle, setChangingLifecycle] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const phoneZoneEditor = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     let active = true;
@@ -1824,7 +1869,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   };
 
   const beginDrawing = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!draft || draft.id || !selectedCamera || isPhoneZoneEditor()) return;
+    if (!draft || draft.id || !selectedCamera || phoneZoneEditor) return;
     const point = pointInZone(event, event.currentTarget);
     setBounds({ x: point.x, y: point.y, width: 0.01, height: 0.01 });
     setDrag({ kind: "resize", pointer: point, bounds: { x: point.x, y: point.y, width: 0.01, height: 0.01 } });
@@ -1832,7 +1877,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
   };
 
   const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!draft || !drag || isPhoneZoneEditor()) return;
+    if (!draft || !drag || phoneZoneEditor) return;
     const point = pointInZone(event, event.currentTarget);
     if (drag.kind === "move") {
       const deltaX = point.x - drag.pointer.x;
@@ -1865,7 +1910,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section aria-label={`Frame Zone Editor ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
           <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3 text-sm text-slate-200"><span className="font-medium">{selectedCamera.name}</span><span className="font-mono text-xs text-slate-400">{selectedCamera.id}</span></div>
-          <div aria-label="Kanvas Zone Editor" className="relative aspect-video touch-none overflow-hidden bg-slate-900" onPointerDown={beginDrawing} onPointerMove={movePointer} onPointerUp={() => setDrag(undefined)} ref={canvasRef}>
+          <div aria-disabled={phoneZoneEditor} aria-label="Kanvas Zone Editor" className="relative aspect-video touch-none overflow-hidden bg-slate-900" onPointerDown={beginDrawing} onPointerMove={movePointer} onPointerUp={() => setDrag(undefined)} ref={canvasRef}>
             <img alt="Ilustrasi area industri fiktif untuk Zone Editor" className="pointer-events-none h-full w-full object-cover" src={industrialMonitoringScene} />
             <span className="absolute right-4 top-4 border border-amber-300 bg-slate-950/90 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-amber-200">SIMULASI</span>
             {cameraZones.map((zone, index) => {
@@ -1889,7 +1934,7 @@ function ZonaBerbahayaEditor({ service }: { service: SawService }) {
         {draftZone && <section aria-label="Lifecycle Zona Berbahaya" className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-medium text-slate-950">Lifecycle Zona Berbahaya</h3><p className="mt-1 text-sm leading-6 text-slate-600">Nonaktifkan adalah tindakan utama: Zona Berbahaya tetap tersimpan agar konteks audit dan konfigurasi dapat ditelusuri.</p>{draftZone.active ? <Button className="mt-4" onClick={() => setLifecycleAction({ kind: "deactivate", zone: draftZone })} type="button" variant="outline">Nonaktifkan Zona Berbahaya</Button> : <p className="mt-4 text-sm font-medium text-slate-700">Zona Berbahaya ini sudah nonaktif.</p>}{draftZone.hasViolationHistory ? <p className="mt-4 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Zona Berbahaya ini memiliki riwayat Pelanggaran dan tidak dapat dihapus permanen, sesuai ADR-0002.</p> : <div className="mt-4"><p className="text-sm leading-6 text-slate-600">Zona ini belum memiliki riwayat Pelanggaran dan dapat dihapus permanen.</p><Button className="mt-3" onClick={() => setLifecycleAction({ kind: "delete", zone: draftZone })} type="button" variant="outline">Hapus permanen Zona Berbahaya</Button></div>}</section>}
         <div className="mt-6 flex justify-end"><Button disabled={saving} type="submit">{saving ? "Menyimpan…" : "Simpan Zona Berbahaya"}</Button></div>
       </form>}
-      {lifecycleAction && <section aria-label={`${lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus"} ${lifecycleAction.zone.name}`} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" role="dialog"><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold text-slate-950">{lifecycleAction.kind === "deactivate" ? "Nonaktifkan Zona Berbahaya?" : "Hapus Zona Berbahaya secara permanen?"}</h2><p className="mt-3 text-sm leading-6 text-slate-700">{lifecycleAction.kind === "deactivate" ? `Zona Berbahaya ${lifecycleAction.zone.name} tidak lagi digunakan oleh monitoring aktif, tetapi tetap dapat ditemukan pada konfigurasi dan mempertahankan konteks audit.` : `Zona Berbahaya ${lifecycleAction.zone.name} akan dihapus dari konfigurasi dan Sumber Kamera terkait. Tindakan ini tidak dapat dibatalkan.`}</p><div className="mt-6 flex justify-end gap-3"><Button disabled={changingLifecycle} onClick={() => setLifecycleAction(undefined)} type="button" variant="outline">Batal</Button><Button disabled={changingLifecycle} onClick={() => void confirmLifecycleAction()} type="button">{changingLifecycle ? "Memproses…" : lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus permanen"}</Button></div></div></section>}
+      {lifecycleAction && <AccessibleDialog label={`${lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus"} ${lifecycleAction.zone.name}`} onDismiss={() => setLifecycleAction(undefined)}><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold text-slate-950">{lifecycleAction.kind === "deactivate" ? "Nonaktifkan Zona Berbahaya?" : "Hapus Zona Berbahaya secara permanen?"}</h2><p className="mt-3 text-sm leading-6 text-slate-700">{lifecycleAction.kind === "deactivate" ? `Zona Berbahaya ${lifecycleAction.zone.name} tidak lagi digunakan oleh monitoring aktif, tetapi tetap dapat ditemukan pada konfigurasi dan mempertahankan konteks audit.` : `Zona Berbahaya ${lifecycleAction.zone.name} akan dihapus dari konfigurasi dan Sumber Kamera terkait. Tindakan ini tidak dapat dibatalkan.`}</p><div className="mt-6 flex justify-end gap-3"><Button data-dialog-initial-focus disabled={changingLifecycle} onClick={() => setLifecycleAction(undefined)} type="button" variant="outline">Batal</Button><Button disabled={changingLifecycle} onClick={() => void confirmLifecycleAction()} type="button">{changingLifecycle ? "Memproses…" : lifecycleAction.kind === "deactivate" ? "Konfirmasi nonaktifkan" : "Konfirmasi hapus permanen"}</Button></div></div></AccessibleDialog>}
     </section>
   );
 }
@@ -1992,7 +2037,7 @@ function NotificationConfiguration({ persona, service }: { persona: Persona; ser
       </section>}
 
       <section className="mt-8"><div><h2 className="text-xl font-semibold text-slate-950">Log notifikasi simulasi</h2><p className="mt-1 text-sm text-slate-600">Hasil agregat pengujian dan eskalasi demo yang terkait Peristiwa Pelanggaran.</p></div>{logs.length === 0 ? <p className="mt-5 border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">Belum ada log notifikasi simulasi.</p> : <div className="mt-5 space-y-3">{[...logs].reverse().map((log) => <article className="flex flex-wrap items-start justify-between gap-4 border border-slate-200 bg-white p-4" key={log.id}><div className="flex gap-3">{log.deliveryStatus === "sent" ? <CheckCircle2 aria-label="Ikon Terkirim" className="mt-0.5 size-5 shrink-0 text-emerald-600" role="img" /> : <ShieldX aria-label="Ikon Gagal" className="mt-0.5 size-5 shrink-0 text-red-600" role="img" />}<div><p className="font-medium text-slate-950">{log.recipientName}</p><p className="mt-1 text-sm text-slate-600">{log.recipientRole} · Peristiwa Pelanggaran {log.violationId}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(log.occurredAt)}</p></div></div><span className={`border px-2 py-1 text-xs font-medium ${log.deliveryStatus === "sent" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>{log.deliveryStatus === "sent" ? "Terkirim" : "Gagal"} · SIMULASI</span></article>)}</div>}</section>
-      {selectedRecipient && <section aria-label={`Detail ${selectedRecipient.name}`} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" role="dialog"><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">SIMULASI</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Detail {selectedRecipient.name}</h2><dl className="mt-6 space-y-4 text-sm"><div><dt className="text-slate-500">Peran</dt><dd className="mt-1 font-medium text-slate-950">{selectedRecipient.role}</dd></div><div><dt className="text-slate-500">Cakupan</dt><dd className="mt-1 text-slate-950">{notificationScopeLabel(selectedRecipient, zones)}</dd></div><div><dt className="text-slate-500">Chat ID Telegram</dt><dd className="mt-1 font-mono text-slate-950">{selectedRecipient.maskedChatId}</dd></div></dl><p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Chat ID mentah tidak disimpan atau ditampilkan pada demo.</p><div className="mt-6 flex justify-end"><Button onClick={() => setSelectedRecipient(undefined)} type="button" variant="outline">Tutup detail</Button></div></div></section>}
+      {selectedRecipient && <AccessibleDialog label={`Detail ${selectedRecipient.name}`} onDismiss={() => setSelectedRecipient(undefined)}><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">SIMULASI</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Detail {selectedRecipient.name}</h2><dl className="mt-6 space-y-4 text-sm"><div><dt className="text-slate-500">Peran</dt><dd className="mt-1 font-medium text-slate-950">{selectedRecipient.role}</dd></div><div><dt className="text-slate-500">Cakupan</dt><dd className="mt-1 text-slate-950">{notificationScopeLabel(selectedRecipient, zones)}</dd></div><div><dt className="text-slate-500">Chat ID Telegram</dt><dd className="mt-1 font-mono text-slate-950">{selectedRecipient.maskedChatId}</dd></div></dl><p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Chat ID mentah tidak disimpan atau ditampilkan pada demo.</p><div className="mt-6 flex justify-end"><Button data-dialog-initial-focus onClick={() => setSelectedRecipient(undefined)} type="button" variant="outline">Tutup detail</Button></div></div></AccessibleDialog>}
     </section>
   );
 }

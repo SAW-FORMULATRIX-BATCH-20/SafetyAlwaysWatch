@@ -27,6 +27,11 @@ input {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 
+:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
