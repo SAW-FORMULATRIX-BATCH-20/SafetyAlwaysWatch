@@ -532,11 +532,28 @@ function normalizeData(input: DemoData): DemoData {
     escalationThreshold: data.escalationThreshold,
   });
   data.canonicalPpeClassConfiguration = normalizeCanonicalPpeClassConfiguration(data.canonicalPpeClassConfiguration);
-  data.scorePeriods = data.scorePeriods ?? [];
+  const legacyResetReason: Record<string, SafetyScoreResetReason> = {
+    TeguranBriefingDiberikan: "BriefingCompleted",
+    TrainingCleared: "TrainingCompleted",
+    InvestigasiDitutup: "InvestigationClosed",
+    PerbaikanFisikZona: "HazardousZoneRemediated",
+    Lainnya: "Other",
+  };
+  const legacyRecipientRole: Record<string, NotificationRecipientRole> = {
+    HRD: "Human Resources (HR)",
+    "Supervisor Area": "Area Supervisor",
+  };
+  data.scorePeriods = (data.scorePeriods ?? []).map((period) => ({
+    ...period,
+    resetReason: legacyResetReason[period.resetReason] ?? period.resetReason,
+  }));
   data.safetyScoreLedger = data.safetyScoreLedger ?? [];
   data.safetyScoreResetLogs = data.safetyScoreResetLogs ?? [];
   data.hazardousZones = data.hazardousZones ?? clone(defaultHazardousZone);
-  data.notificationRecipients = data.notificationRecipients ?? clone(defaultNotificationRecipients);
+  data.notificationRecipients = (data.notificationRecipients ?? clone(defaultNotificationRecipients)).map((recipient) => ({
+    ...recipient,
+    role: legacyRecipientRole[recipient.role] ?? recipient.role,
+  }));
   data.notificationLogs = data.notificationLogs ?? [];
   data.complianceReportObservations = data.complianceReportObservations ?? clone(defaultComplianceReportObservations);
   data.monitoringSimulation = data.monitoringSimulation?.state

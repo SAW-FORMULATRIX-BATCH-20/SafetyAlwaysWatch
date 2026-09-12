@@ -3,6 +3,23 @@ import { describe, expect, it } from "vitest";
 import { createMockSawService } from "./saw-service";
 
 describe("MockSawService Reset Skor", () => {
+  it("migrates persisted Indonesian role and Score Reset reason values", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+    await service.resetSafetyScore({ employeeId: "EMP-01", reason: "InvestigationClosed", actor: "Admin/Safety Officer" });
+
+    const persisted = JSON.parse(window.localStorage.getItem("saw-demo-data") ?? "{}") as {
+      notificationRecipients: Array<{ role: string }>;
+      scorePeriods: Array<{ resetReason: string }>;
+    };
+    persisted.notificationRecipients[0].role = "HRD";
+    persisted.scorePeriods[0].resetReason = "InvestigasiDitutup";
+    window.localStorage.setItem("saw-demo-data", JSON.stringify(persisted));
+
+    const reloadedService = createMockSawService({ storage: window.localStorage });
+    expect((await reloadedService.getNotificationRecipients())[0]?.role).toBe("Human Resources (HR)");
+    expect((await reloadedService.getSafetyScoreAudit("EMP-01")).periods[0]?.resetReason).toBe("InvestigationClosed");
+  });
+
   it("memulihkan Safety Score dan menyimpan artefak audit secara persisten", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 

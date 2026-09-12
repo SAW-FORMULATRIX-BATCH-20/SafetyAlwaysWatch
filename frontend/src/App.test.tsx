@@ -104,13 +104,13 @@ describe("SAW application", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Add penerima" }));
-    await user.type(screen.getByRole("textbox", { name: "Name penerima" }), "Supervisor Maintenance Shift B");
+    await user.click(await screen.findByRole("button", { name: "Add recipient" }));
+    await user.type(screen.getByRole("textbox", { name: "Recipient name" }), "Supervisor Maintenance Shift B");
     await user.type(screen.getByRole("textbox", { name: "Chat ID Telegram" }), "1234567890");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Peran penerima" }), "Area Supervisor");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Cakupan penerima" }), "department");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Recipient role" }), "Area Supervisor");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Recipient scope" }), "department");
     await user.selectOptions(screen.getByRole("combobox", { name: "Target department" }), "Maintenance");
-    await user.click(screen.getByRole("button", { name: "Save penerima" }));
+    await user.click(screen.getByRole("button", { name: "Save recipient" }));
 
     const recipient = await screen.findByRole("article", { name: "Supervisor Maintenance Shift B" });
     expect(recipient).toHaveTextContent("•••• 7890");
@@ -175,7 +175,7 @@ describe("SAW application", () => {
     expect(await screen.findByRole("heading", { name: "Log notifikasi simulasi" })).toBeInTheDocument();
     expect(screen.getByText(/Failed · SIMULASI/)).toBeInTheDocument();
     expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "Add penerima" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add recipient" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Uji berhasil" })).not.toBeInTheDocument();
   });
 
@@ -767,7 +767,7 @@ describe("SAW application", () => {
     expect(within(detail).getByText("Escalation Threshold")).toBeInTheDocument();
     expect(within(detail).getByText("Enrolled")).toBeInTheDocument();
     expect(within(detail).getByText("Audit summary")).toBeInTheDocument();
-    expect(within(detail).getByRole("button", { name: "Start Face Enrollment Employee Production 01" })).toBeInTheDocument();
+    expect(within(detail).getByRole("button", { name: "Enrollment unavailable" })).toBeInTheDocument();
     expect(within(detail).getByText(/requires backend integration/i)).toBeInTheDocument();
     expect(within(detail).queryByText(/webcam|capture|berhasil terdaftar/i)).not.toBeInTheDocument();
   });
