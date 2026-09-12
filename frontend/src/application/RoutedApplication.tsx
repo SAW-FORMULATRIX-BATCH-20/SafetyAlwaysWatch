@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDownUp,
   Camera as CameraIcon,
   CheckCircle2,
-  ChevronRight,
-  ChevronLeft,
   Clock3,
   MapPin,
   Search,
-  ShieldAlert,
-  ShieldCheck,
   ShieldX,
   TriangleAlert,
-  UserRound,
   WifiOff,
 } from "lucide-react";
 
@@ -20,7 +14,7 @@ import { Button } from "../components/ui/button";
 import industrialMonitoringScene from "../assets/industrial-monitoring.svg";
 import { cameraScopeFor, type Persona } from "./personas";
 import { AccessibleDialog } from "../shared/AccessibleDialog";
-import { formatRelativeWib, formatWib } from "../shared/formatters";
+import { formatWib } from "../shared/formatters";
 import {
   type Camera,
   type CameraMetadata,
@@ -32,8 +26,6 @@ import {
   type Employee,
   type EmployeeDirectoryCapability,
   type EmployeeDirectoryData,
-  type EmployeeScope,
-  type EpisodeStatus,
   type HazardousZoneCapability,
   type NormalizedZoneBounds,
   type NotificationCapability,
@@ -47,8 +39,6 @@ import {
   type SafetyScoreResetResult,
   type SafetySettings,
   type SafetySettingsCapability,
-  type ViolationHistoryCapability,
-  type ViolationRecord,
   type HazardousZone,
   type HazardousZoneInput,
   type HazardousZoneWithViolationHistory,
@@ -266,345 +256,8 @@ export function Cameras({ persona, service }: { persona: Persona; service: Camer
   );
 }
 
-type ViolationHistoryData = {
-  cameras: Camera[];
-  employees: Employee[];
-  violations: ViolationRecord[];
-  zones: HazardousZoneWithViolationHistory[];
-};
-
-const violationStatusLabels: Record<ViolationRecord["status"], string> = {
-  confirmed: "Violation",
-  clearing: "Clearing",
-  cleared: "Cleared",
-};
-
-function ViolationDetails({
-  violation,
-  camera,
-  employee,
-  zone,
-}: {
-  violation: ViolationRecord;
-  camera?: Camera;
-  employee?: Employee;
-  zone?: HazardousZoneWithViolationHistory;
-}) {
-  const identity = employee ? employeeName(employee) : "Unknown";
-
-  return (
-    <section aria-label={`Details ${violation.id}`} className="mt-6 border border-slate-200 bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Jejak audit</p><h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Details Violation Event</h2><p className="mt-2 font-mono text-sm text-slate-600">{violation.id} · {violation.episodeId ?? "Violation Episode demo"}</p></div>
-        <span className={`border px-3 py-1.5 text-sm font-medium ${violation.status === "confirmed" ? "border-red-200 bg-red-50 text-red-800" : violation.status === "clearing" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-300 bg-slate-50 text-slate-700"}`}>{violationStatusLabels[violation.status]}</span>
-      </div>
-      <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Bukti audit memakai metadata, timeline, dan perubahan Safety Score.</p>
-      <dl className="mt-6 grid gap-5 text-sm sm:grid-cols-2 xl:grid-cols-3">
-        <div><dt className="text-slate-500">Identitas</dt><dd className="mt-1 font-medium text-slate-950">{identity}</dd></div>
-        <div><dt className="text-slate-500">Hazardous Zones</dt><dd className="mt-1 text-slate-950">{zone?.name ?? violation.zoneId ?? "Tidak tersedia"}</dd></div>
-        <div><dt className="text-slate-500">Camera Sources</dt><dd className="mt-1 text-slate-950">{camera ? `${camera.name} · ${camera.location}` : violation.cameraId ?? "Tidak tersedia"}</dd></div>
-        <div><dt className="text-slate-500">PPE tidak terpenuhi</dt><dd className="mt-1 text-slate-950">{violation.missingCanonicalPpeClasses?.join(", ") || "Tidak tersedia"}</dd></div>
-        <div><dt className="text-slate-500">Detection Confidence</dt><dd className="mt-1 font-mono text-slate-950">{violation.confidence === undefined ? "Tidak tersedia" : `${Math.round(violation.confidence * 100)}%`}</dd></div>
-        <div><dt className="text-slate-500">Perubahan Safety Score</dt><dd className="mt-1 font-mono text-slate-950">{violation.scoreChange ? `${violation.scoreChange.before} → ${violation.scoreChange.after}` : "Tidak diterapkan untuk Unknown"}</dd></div>
-        <div><dt className="text-slate-500">Terdeteksi</dt><dd className="mt-1 font-mono text-slate-950">{violation.detectedAt ? `${formatWib(violation.detectedAt)} · ${formatRelativeWib(violation.detectedAt)}` : "Tidak tersedia"}</dd></div>
-        <div><dt className="text-slate-500">Latest audit</dt><dd className="mt-1 font-mono text-slate-950">{violation.updatedAt ? `${formatWib(violation.updatedAt)} · ${formatRelativeWib(violation.updatedAt)}` : "Tidak tersedia"}</dd></div>
-      </dl>
-      <div className="mt-7 grid gap-6 lg:grid-cols-2">
-        <section><h3 className="font-semibold text-slate-950">Timeline Violation Episode</h3>{violation.timeline?.length ? <ol className="mt-4 space-y-4 border-l border-slate-200 pl-4">{violation.timeline.map((entry, index) => <li key={`${entry.occurredAt}-${index}`}><p className="text-sm font-medium text-slate-950">{episodePresentation(entry.status).label}</p><p className="mt-1 text-sm text-slate-600">{entry.description}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(entry.occurredAt)}</p></li>)}</ol> : <p className="mt-4 text-sm text-slate-600">Timeline Violation Episode belum tersedia.</p>}</section>
-        <section><h3 className="font-semibold text-slate-950">Penerima notifikasi</h3>{violation.notificationRecipients?.length ? <ul className="mt-4 space-y-3">{violation.notificationRecipients.map((recipient) => <li className="border border-slate-200 p-3 text-sm" key={`${recipient.role}-${recipient.name}`}><p className="font-medium text-slate-950">{recipient.name}</p><p className="mt-1 text-slate-600">{recipient.role} · {recipient.deliveryStatus === "sent" ? "Sent" : recipient.deliveryStatus === "failed" ? "Failed" : "Menunggu"}</p></li>)}</ul> : <p className="mt-4 text-sm text-slate-600">No penerima simulasi.</p>}</section>
-      </div>
-    </section>
-  );
-}
-
-export function Violations({ service }: { service: ViolationHistoryCapability & CameraSourceCapability & HazardousZoneCapability & EmployeeDirectoryCapability }) {
-  const [data, setData] = useState<ViolationHistoryData>();
-  const [error, setError] = useState<string>();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [zoneId, setZoneId] = useState("all");
-  const [cameraId, setCameraId] = useState("all");
-  const [employeeId, setEmployeeId] = useState("all");
-  const [department, setDepartment] = useState("all");
-  const [status, setStatus] = useState<ViolationRecord["status"] | "all">("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [sort, setSort] = useState<"oldest" | "newest" | "confidence-desc">("oldest");
-  const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string>();
-  const pageSize = 3;
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([service.getViolationHistory(), service.getCameras(), service.getHazardousZone(), service.getEmployeeDirectory()]).then(([violations, cameras, zones, directory]) => {
-      if (active) setData({ violations, cameras, zones, employees: directory.employees });
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "Violation History tidak dapat dimuat.");
-    });
-    return () => { active = false; };
-  }, [service]);
-
-  if (error) return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Violation History</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Violation History tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
-  if (!data) return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Violation History</h1><p className="mt-6 text-slate-600">Loading riwayat Violation…</p></section>;
-
-  const employeeFor = (violation: ViolationRecord) => data.employees.find((employee) => employee.id === violation.employeeId);
-  const zoneFor = (violation: ViolationRecord) => data.zones.find((zone) => zone.id === violation.zoneId);
-  const cameraFor = (violation: ViolationRecord) => data.cameras.find((camera) => camera.id === violation.cameraId);
-  const query = searchTerm.trim().toLowerCase();
-  const historyZones = data.zones.filter((zone) => data.violations.some((violation) => violation.zoneId === zone.id));
-  const historyCameras = data.cameras.filter((camera) => data.violations.some((violation) => violation.cameraId === camera.id));
-  const historyEmployees = data.employees.filter((employee) => data.violations.some((violation) => violation.employeeId === employee.id));
-  const departments = [...new Set(historyEmployees.map((employee) => employee.departmentId))].sort((left, right) => left.localeCompare(right));
-  const filtered = data.violations.filter((violation) => {
-    const employee = employeeFor(violation);
-    const camera = cameraFor(violation);
-    const zone = zoneFor(violation);
-    const searchable = [violation.id, violation.episodeId ?? "", employee ? employeeName(employee) : "Unknown", camera?.name ?? "", zone?.name ?? "", violation.missingCanonicalPpeClasses?.join(" ") ?? ""].join(" ").toLowerCase();
-    const date = violation.detectedAt?.slice(0, 10) ?? "";
-    return (!query || searchable.includes(query))
-      && (zoneId === "all" || violation.zoneId === zoneId)
-      && (cameraId === "all" || violation.cameraId === cameraId)
-      && (employeeId === "all" || (employeeId === "unidentified" ? !violation.employeeId : violation.employeeId === employeeId))
-      && (department === "all" || employee?.departmentId === department)
-      && (status === "all" || violation.status === status)
-      && (!startDate || date >= startDate)
-      && (!endDate || date <= endDate);
-  }).sort((left, right) => {
-    if (sort === "confidence-desc") return (right.confidence ?? 0) - (left.confidence ?? 0);
-    const comparison = (left.detectedAt ?? "").localeCompare(right.detectedAt ?? "");
-    return sort === "newest" ? -comparison : comparison;
-  });
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const selected = data.violations.find((violation) => violation.id === selectedId);
-  const updateFilters = (update: () => void) => { update(); setPage(1); setSelectedId(undefined); };
-  const clearFilters = () => { setSearchTerm(""); setZoneId("all"); setCameraId("all"); setEmployeeId("all"); setDepartment("all"); setStatus("all"); setStartDate(""); setEndDate(""); setSort("oldest"); setPage(1); setSelectedId(undefined); };
-  const hasFilters = query || zoneId !== "all" || cameraId !== "all" || employeeId !== "all" || department !== "all" || status !== "all" || startDate || endDate || sort !== "oldest";
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Audit operasional</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Violation History</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Telusuri Violation Event yang telah dikonfirmasi dari metadata dan timeline audit.</p></div><span className="border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{data.violations.length} Violation Event</span></div>
-      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
-        <label className="block text-sm font-medium text-slate-800">Search riwayat<input aria-label="Search riwayat Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setSearchTerm(event.target.value))} placeholder="ID, Employee, PPE, zona" value={searchTerm} /></label>
-        <label className="block text-sm font-medium text-slate-800">Filter Hazardous Zones<select aria-label="Filter Hazardous Zone" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setZoneId(event.target.value))} value={zoneId}><option value="all">All Hazardous Zones</option>{historyZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Filter Camera Sources<select aria-label="Filter Camera Source" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setCameraId(event.target.value))} value={cameraId}><option value="all">All Camera Sources</option>{historyCameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Filter Employee<select aria-label="Filter Employee Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setEmployeeId(event.target.value))} value={employeeId}><option value="all">All Employee</option><option value="unidentified">Unknown</option>{historyEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employeeName(employee)}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Filter department<select aria-label="Filter department Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setDepartment(event.target.value))} value={department}><option value="all">All department</option>{departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Filter Episode status<select aria-label="Filter Episode status" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setStatus(event.target.value as ViolationRecord["status"] | "all"))} value={status}><option value="all">All Episode status</option><option value="confirmed">Violation</option><option value="clearing">Clearing</option><option value="cleared">Cleared</option></select></label>
-        <label className="block text-sm font-medium text-slate-800">Dari tanggal<input aria-label="Dari tanggal Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setStartDate(event.target.value))} type="date" value={startDate} /></label>
-        <label className="block text-sm font-medium text-slate-800">Sampai tanggal<input aria-label="Sampai tanggal Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setEndDate(event.target.value))} type="date" value={endDate} /></label>
-        <label className="block text-sm font-medium text-slate-800">Sort riwayat<select aria-label="Sort riwayat Violation" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateFilters(() => setSort(event.target.value as "oldest" | "newest" | "confidence-desc"))} value={sort}><option value="oldest">Oldest</option><option value="newest">Newest</option><option value="confidence-desc">Detection Confidence tertinggi</option></select></label>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600"><p>{filtered.length === 0 ? "No Violation Event yang cocok." : `Menampilkan ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)} dari ${filtered.length} Violation Event`}</p>{hasFilters && <Button onClick={clearFilters} size="sm" variant="outline">Bersihkan filter riwayat</Button>}</div>
-      {data.violations.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Violation Event</p><p className="mt-1 text-sm text-slate-600">Violation Episode yang belum mencapai Violation tidak ditampilkan di riwayat.</p></div> : filtered.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No hasil yang cocok.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter riwayat</Button></div> : <div aria-label="Daftar riwayat Violation" className="mt-4 space-y-3" role="list">{visible.map((violation) => { const employee = employeeFor(violation); const zone = zoneFor(violation); const camera = cameraFor(violation); return <article className="border border-slate-200 bg-white p-4" key={violation.id} role="listitem"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-xs text-slate-500">{violation.id} · {violation.episodeId ?? "Violation Episode demo"}</p><h2 className="mt-1 font-semibold text-slate-950">{employee ? employeeName(employee) : "Unknown"}</h2><p className="mt-1 text-sm text-slate-600">{zone?.name ?? violation.zoneId ?? "Zona tidak tersedia"} · {camera?.name ?? violation.cameraId ?? "Camera Source tidak tersedia"}</p></div><span className={`border px-2 py-1 text-xs font-medium ${violation.status === "confirmed" ? "border-red-200 bg-red-50 text-red-800" : violation.status === "clearing" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-300 bg-slate-50 text-slate-700"}`}>{violationStatusLabels[violation.status]}</span></div><div className="mt-4 flex flex-wrap items-end justify-between gap-3"><p className="font-mono text-xs text-slate-600">{violation.detectedAt ? formatWib(violation.detectedAt) : "Time tidak tersedia"}</p><Button aria-label={`View details ${violation.id}`} onClick={() => setSelectedId(violation.id)} size="sm" variant="outline">View details {violation.id}</Button></div></article>; })}</div>}
-      {filtered.length > pageSize && <nav aria-label="Pagination riwayat Violation" className="mt-5 flex items-center justify-between"><Button disabled={currentPage === 1} onClick={() => { setPage((current) => Math.max(1, current - 1)); setSelectedId(undefined); }} size="sm" variant="outline"><ChevronLeft aria-hidden="true" className="mr-1 size-4" />Page sebelumnya</Button><span className="font-mono text-xs text-slate-500">Page {currentPage} dari {totalPages}</span><Button disabled={currentPage === totalPages} onClick={() => { setPage((current) => Math.min(totalPages, current + 1)); setSelectedId(undefined); }} size="sm" variant="outline">Page berikutnya<ChevronRight aria-hidden="true" className="ml-1 size-4" /></Button></nav>}
-      {selected && <ViolationDetails camera={cameraFor(selected)} employee={employeeFor(selected)} violation={selected} zone={zoneFor(selected)} />}
-    </section>
-  );
-}
-
-function episodePresentation(status: EpisodeStatus) {
-  switch (status) {
-    case "candidate":
-      return { label: "Pending Confirmation", borderClass: "border-amber-400 border-dashed", labelClass: "bg-amber-400 text-slate-950" };
-    case "confirmed":
-      return { label: "Violation", borderClass: "border-red-500", labelClass: "bg-red-500 text-white" };
-    case "clearing":
-      return { label: "Clearing", borderClass: "border-amber-400", labelClass: "bg-amber-400 text-slate-950" };
-    case "cleared":
-      return { label: "Cleared", borderClass: "border-slate-400", labelClass: "bg-slate-700 text-white" };
-  }
-}
-
-type ScoreStatus = "safe" | "warning" | "critical";
-
-const scoreStatusDetailss: Record<ScoreStatus, {
-  label: string;
-  Icon: typeof ShieldCheck;
-  className: string;
-}> = {
-  safe: { label: "Safe", Icon: ShieldCheck, className: "text-emerald-700" },
-  warning: { label: "Warning", Icon: ShieldAlert, className: "text-amber-700" },
-  critical: { label: "Critical", Icon: ShieldX, className: "text-red-700" },
-};
-
-function getScoreStatus(score: number, escalationThreshold: number): ScoreStatus {
-  if (score < escalationThreshold) return "critical";
-  if (score < 80) return "warning";
-  return "safe";
-}
-
 function employeeName(employee: Employee) {
   return employee.name ?? `Employee ${employee.id}`;
-}
-
-function EmployeeScoreStatus({ score, escalationThreshold }: { score: number; escalationThreshold: number }) {
-  const status = getScoreStatus(score, escalationThreshold);
-  const { Icon, label, className } = scoreStatusDetailss[status];
-
-  return (
-    <span aria-label={`Score status: ${label}`} className={`inline-flex items-center gap-1.5 text-sm font-medium ${className}`}>
-      <Icon aria-label={`Score status icon ${label}`} className="size-4" role="img" />
-      {label}
-    </span>
-  );
-}
-
-const enrollmentLabels: Record<NonNullable<Employee["enrollmentStatus"]>, string> = {
-  enrolled: "Enrolled",
-  pending: "Menunggu integrasi",
-  "not-enrolled": "Belum terdaftar",
-};
-
-function EmployeeDetails({
-  employee,
-  escalationThreshold,
-}: {
-  employee: Employee;
-  escalationThreshold: number;
-}) {
-  const [notice, setNotice] = useState<string>();
-  const enrollmentStatus = employee.enrollmentStatus ?? "not-enrolled";
-  const auditSummary = employee.auditSummary ?? { violationCount: 0, resetCount: 0 };
-
-  return (
-    <section aria-labelledby="employee-detail-title" className="border border-slate-200 bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational profile</p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-950" id="employee-detail-title">Employee Details</h2>
-          <p className="mt-1 text-sm text-slate-600">{employeeName(employee)} · {employee.id}</p>
-        </div>
-        <EmployeeScoreStatus score={employee.safetyScore} escalationThreshold={escalationThreshold} />
-      </div>
-      <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <div><dt className="text-slate-500">Department</dt><dd className="mt-1 font-medium text-slate-950">{employee.departmentId}</dd></div>
-        <div><dt className="text-slate-500">Area Supervisor</dt><dd className="mt-1 font-medium text-slate-950">{employee.supervisorArea ?? employee.departmentId}</dd></div>
-        <div><dt className="text-slate-500">Safety Score</dt><dd className="mt-1 font-mono font-medium text-slate-950">{employee.safetyScore}</dd></div>
-        <div><dt className="text-slate-500">Escalation Threshold</dt><dd className="mt-1 font-mono font-medium text-slate-950">{escalationThreshold}</dd></div>
-        <div><dt className="text-slate-500">Enrollment status</dt><dd className="mt-1 font-medium text-slate-950">{enrollmentLabels[enrollmentStatus]}</dd></div>
-        <div><dt className="text-slate-500">Latest audit</dt><dd className="mt-1 font-mono text-slate-950">{employee.lastAuditAt ? formatWib(employee.lastAuditAt) : "No audit"}</dd></div>
-      </dl>
-      <div className="mt-6 border-t border-slate-100 pt-5">
-        <h3 className="font-medium text-slate-950">Audit summary</h3>
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-slate-500">Violation Episode</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.violationCount}</dd></div>
-          <div><dt className="text-slate-500">Score Reset</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.resetCount}</dd></div>
-        </dl>
-      </div>
-      <div className="mt-6 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">
-        <p>Enrollment requires backend integration and is not performed in the browser demo.</p>
-        <Button className="mt-3" onClick={() => setNotice("Enrollment requires backend integration.")} variant="outline">
-          Enrollment unavailable
-        </Button>
-        {notice && <p aria-live="polite" className="mt-3 text-amber-800">{notice}</p>}
-      </div>
-    </section>
-  );
-}
-
-function EmployeeCard({ employee, escalationThreshold, onSelect }: { employee: Employee; escalationThreshold: number; onSelect: () => void }) {
-  const name = employeeName(employee);
-
-  return (
-    <article aria-label={name} className="border border-slate-200 bg-white p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><UserRound aria-hidden="true" className="size-5" /></span>
-          <div><h2 className="font-semibold text-slate-950">{name}</h2><p className="mt-1 font-mono text-xs text-slate-500">{employee.id}</p></div>
-        </div>
-        <EmployeeScoreStatus score={employee.safetyScore} escalationThreshold={escalationThreshold} />
-      </div>
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-        <div><dt className="text-slate-500">Department</dt><dd className="mt-0.5 text-slate-900">{employee.departmentId}</dd></div>
-        <div><dt className="text-slate-500">Safety Score</dt><dd className="mt-0.5 font-mono text-slate-900">{employee.safetyScore}</dd></div>
-        <div><dt className="text-slate-500">Enrollment</dt><dd className="mt-0.5 text-slate-900">{enrollmentLabels[employee.enrollmentStatus ?? "not-enrolled"]}</dd></div>
-      </dl>
-      <Button className="mt-5" onClick={onSelect} variant="outline">View details {name}</Button>
-    </article>
-  );
-}
-
-type EmployeeSort = "name-asc" | "name-desc" | "score-desc" | "score-asc";
-
-export function Employees({ persona, service }: { persona: Persona; service: EmployeeDirectoryCapability }) {
-  const [directory, setDirectory] = useState<EmployeeDirectoryData>();
-  const [error, setError] = useState<string>();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [scoreFilter, setScoreFilter] = useState<ScoreStatus | "all">("all");
-  const [sort, setSort] = useState<EmployeeSort>("name-asc");
-  const [page, setPage] = useState(1);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>();
-  const pageSize = 5;
-
-  useEffect(() => {
-    let active = true;
-    const scope: EmployeeScope = persona.role === "supervisor" ? { type: "supervisor-area", area: persona.assignedArea ?? "" } : "all";
-    service.getEmployeeDirectory(scope).then((nextDirectory) => {
-      if (active) setDirectory(nextDirectory);
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "The Employees directory could not be loaded.");
-    });
-    return () => {
-      active = false;
-    };
-  }, [persona.assignedArea, persona.role, service]);
-
-  const employees = directory?.employees ?? [];
-  const departments = [...new Set(employees.map((employee) => employee.departmentId))].sort((a, b) => a.localeCompare(b));
-  const query = searchTerm.trim().toLowerCase();
-  const filteredEmployees = employees.filter((employee) => {
-    const searchable = [employeeName(employee), employee.id, employee.departmentId, employee.supervisorArea ?? ""].join(" ").toLowerCase();
-    const matchesSearch = !query || searchable.includes(query);
-    const matchesDepartment = departmentFilter === "all" || employee.departmentId === departmentFilter;
-    const matchesScore = scoreFilter === "all" || getScoreStatus(employee.safetyScore, directory?.escalationThreshold ?? 60) === scoreFilter;
-    return matchesSearch && matchesDepartment && matchesScore;
-  }).sort((a, b) => {
-    if (sort === "score-asc") return a.safetyScore - b.safetyScore;
-    if (sort === "score-desc") return b.safetyScore - a.safetyScore;
-    const comparison = employeeName(a).localeCompare(employeeName(b));
-    return sort === "name-desc" ? -comparison : comparison;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * pageSize;
-  const visibleEmployees = filteredEmployees.slice(pageStart, pageStart + pageSize);
-  const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
-  const clearFilters = () => {
-    setSearchTerm("");
-    setDepartmentFilter("all");
-    setScoreFilter("all");
-    setSort("name-asc");
-    setSelectedEmployeeId(undefined);
-  };
-
-  if (error) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Employees</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">The Employees directory could not be loaded</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
-  }
-  if (directory === undefined) {
-    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Employees</h1><p className="mt-6 text-slate-600">Loading Employees directory…</p></section>;
-  }
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational directory</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Employees</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Find Employees, their Safety Score position, and audit context without biometric capture.</p></div>
-        <span className="inline-flex items-center gap-2 border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"><UserRound aria-hidden="true" className="size-4" />{employees.length} Employee</span>
-      </div>
-      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_12rem_12rem_13rem]">
-        <label className="block text-sm font-medium text-slate-800">Search Employee<div className="relative mt-1"><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" /><input aria-label="Search Employee" className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSearchTerm(event.target.value); setPage(1); }} placeholder="Name, ID, department, atau area" value={searchTerm} /></div></label>
-        <label className="block text-sm font-medium text-slate-800">Filter department<select aria-label="Filter department" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setDepartmentFilter(event.target.value); setPage(1); }} value={departmentFilter}><option value="all">All department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Filter status skor<select aria-label="Filter status skor" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setScoreFilter(event.target.value as ScoreStatus | "all"); setPage(1); }} value={scoreFilter}><option value="all">All status</option><option value="safe">Safe</option><option value="warning">Warning</option><option value="critical">Critical</option></select></label>
-        <label className="block text-sm font-medium text-slate-800"><span className="inline-flex items-center gap-1">Sort Employee <ArrowDownUp aria-hidden="true" className="size-3.5" /></span><select aria-label="Sort Employee" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => { setSort(event.target.value as EmployeeSort); setPage(1); }} value={sort}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="score-desc">Skor tertinggi</option><option value="score-asc">Skor terendah</option></select></label>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600"><p>{filteredEmployees.length === 0 ? "Menampilkan 0 Employee" : `Menampilkan ${pageStart + 1}–${Math.min(pageStart + pageSize, filteredEmployees.length)} dari ${filteredEmployees.length} Employee`}</p>{filteredEmployees.length > 0 && (query || departmentFilter !== "all" || scoreFilter !== "all" || sort !== "name-asc") && <Button onClick={clearFilters} size="sm" variant="outline">Bersihkan filter Employee</Button>}</div>
-      {employees.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Employee</p><p className="mt-1 text-sm text-slate-600">Addkan data Employee melalui integrasi backend.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter Employee</Button></div> : filteredEmployees.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Employee yang cocok.</p><p className="mt-1 text-sm text-slate-600">Bersihkan filter untuk melihat seluruh direktori.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Bersihkan filter Employee</Button></div> : <div aria-label="Daftar Employee" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{visibleEmployees.map((employee) => <EmployeeCard employee={employee} escalationThreshold={directory.escalationThreshold} key={employee.id} onSelect={() => setSelectedEmployeeId(employee.id)} />)}</div>}
-      {filteredEmployees.length > pageSize && <nav aria-label="Pagination Employee" className="mt-5 flex items-center justify-between"><Button disabled={currentPage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} size="sm" variant="outline"><ChevronLeft aria-hidden="true" className="mr-1 size-4" />Page sebelumnya</Button><span className="font-mono text-xs text-slate-500">Page {currentPage} dari {totalPages}</span><Button disabled={currentPage === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} size="sm" variant="outline">Page berikutnya<ChevronRight aria-hidden="true" className="ml-1 size-4" /></Button></nav>}
-      {selectedEmployee && <div className="mt-6"><EmployeeDetails employee={selectedEmployee} escalationThreshold={directory.escalationThreshold} /></div>}
-    </section>
-  );
 }
 
 export function SafetyScoreReset({ service }: { service: EmployeeDirectoryCapability & SafetyScoreCapability & SafetySettingsCapability }) {

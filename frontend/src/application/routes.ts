@@ -3,13 +3,13 @@ import { createElement, type ReactNode } from "react";
 import {
   Cameras,
   CanonicalPpeClasses,
-  Employees,
   HazardousZoneEditor,
   NotificationConfiguration,
   SafetyParameters,
   SafetyScoreReset,
-  Violations,
 } from "./RoutedApplication";
+import { Employees } from "../features/employees/Employees";
+import { Violations } from "../features/violations/Violations";
 import { Overview } from "../features/overview/Overview";
 import { ComplianceReport } from "../features/compliance-report/ComplianceReport";
 import { LiveMonitoring } from "../features/live-monitoring/LiveMonitoring";
