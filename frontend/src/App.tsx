@@ -1,11 +1,12 @@
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
-import { RoutedApplication } from "./application/RoutedApplication";
+import { ApplicationRouter } from "./application/ApplicationRouter";
+import type { PersonaRole } from "./application/personas";
 import { createMockSawService, type SawApplicationCapabilities } from "./services/saw-service";
 
 type AppProps = {
   initialEntries?: string[];
-  initialPersona?: "admin" | "supervisor" | "hrd";
+  initialPersona?: PersonaRole;
   service?: SawApplicationCapabilities;
 };
 
@@ -17,8 +18,8 @@ const defaultService = createMockSawService();
  */
 export function App({ initialEntries, initialPersona, service = defaultService }: AppProps) {
   if (initialEntries) {
-    return <MemoryRouter initialEntries={initialEntries}><RoutedApplication initialPersona={initialPersona} service={service} /></MemoryRouter>;
+    return <MemoryRouter initialEntries={initialEntries}><ApplicationRouter initialPersona={initialPersona} service={service} /></MemoryRouter>;
   }
 
-  return <BrowserRouter><RoutedApplication initialPersona={initialPersona} service={service} /></BrowserRouter>;
+  return <BrowserRouter><ApplicationRouter initialPersona={initialPersona} service={service} /></BrowserRouter>;
 }

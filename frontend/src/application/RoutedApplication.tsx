@@ -1,23 +1,12 @@
-import { animate, createScope } from "animejs";
+import { animate } from "animejs";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
-  Link,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-import {
-  Activity,
   ArrowDownUp,
   Camera as CameraIcon,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
   Clock3,
-  LockKeyhole,
-  LogOut,
   MapPin,
   Search,
   ShieldAlert,
@@ -30,10 +19,12 @@ import {
 
 import { Button } from "../components/ui/button";
 import industrialMonitoringScene from "../assets/industrial-monitoring.svg";
+import { cameraScopeFor, type Persona } from "./personas";
+import { AccessibleDialog } from "../shared/AccessibleDialog";
+import { formatRelativeWib, formatWib } from "../shared/formatters";
 import {
   type Camera,
   type CameraMetadata,
-  type CameraScope,
   type CameraSourceCapability,
   type CameraStatus,
   type ComplianceReportData,
@@ -64,7 +55,6 @@ import {
   type SafetyScoreResetResult,
   type SafetySettings,
   type SafetySettingsCapability,
-  type SawApplicationCapabilities,
   type ViolationHistoryCapability,
   type ViolationRecord,
   type HazardousZone,
@@ -76,228 +66,7 @@ import {
 
 const ReportCharts = lazy(() => import("../components/report-charts").then((module) => ({ default: module.ReportCharts })));
 
-type Role = "admin" | "supervisor" | "hrd";
-
-type Persona = {
-  role: Role;
-  name: string;
-  description: string;
-  landingPath: string;
-  assignedArea?: string;
-};
-
-type Page = {
-  group: string;
-  path: string;
-  roles: Role[];
-  title: string;
-  render: (persona: Persona, service: SawApplicationCapabilities) => React.ReactNode;
-};
-
-const personas: Persona[] = [
-  {
-    role: "admin",
-    name: "Admin/Safety Officer",
-    description: "Manage SAW safety operations and configuration.",
-    landingPath: "/overview",
-  },
-  {
-    role: "supervisor",
-    name: "Area Supervisor",
-    description: "Monitor the Hazardous Zones assigned to you.",
-    landingPath: "/monitoring/live",
-    assignedArea: "Production",
-  },
-  {
-    role: "hrd",
-    name: "Human Resources (HR)",
-    description: "Review PPE Compliance trends and Employee safety records.",
-    landingPath: "/compliance-report",
-  },
-];
-
-const navigationGroupLabels = [
-  "Overview",
-  "Monitoring",
-  "Safety Operations",
-  "Configuration",
-  "Administration",
-] as const;
-
-const pages: Page[] = [
-  { group: "Overview", path: "/overview", title: "Overview", roles: ["admin"], render: (_persona, service) => <Overview service={service} /> },
-  { group: "Overview", path: "/compliance-report", title: "Compliance Report", roles: ["admin", "hrd"], render: (_persona, service) => <ComplianceReport service={service} /> },
-  { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"], render: (persona, service) => <LiveMonitoring persona={persona} service={service} /> },
-  { group: "Safety Operations", path: "/violations", title: "Violations", roles: ["admin", "supervisor", "hrd"], render: (_persona, service) => <Violations service={service} /> },
-  { group: "Safety Operations", path: "/employees", title: "Employees", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => <Employees persona={persona} service={service} /> },
-  { group: "Configuration", path: "/camera-sources", title: "Camera Sources", roles: ["admin", "supervisor"], render: (persona, service) => <Cameras persona={persona} service={service} /> },
-  { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => <HazardousZoneEditor service={service} /> },
-  { group: "Configuration", path: "/canonical-ppe-classes", title: "Canonical PPE Classes", roles: ["admin"], render: (_persona, service) => <CanonicalPpeClasses service={service} /> },
-  { group: "Administration", path: "/safety-parameters", title: "Safety Parameters", roles: ["admin"], render: (_persona, service) => <SafetyParameters service={service} /> },
-  { group: "Administration", path: "/score-reset", title: "Score Reset", roles: ["admin"], render: (_persona, service) => <SafetyScoreReset service={service} /> },
-  { group: "Administration", path: "/notifications", title: "Notifications", roles: ["admin", "hrd"], render: (persona, service) => <NotificationConfiguration persona={persona} service={service} /> },
-];
-
-const legacyRouteRedirects = {
-  "/laporan-kepatuhan": "/compliance-report",
-  "/pelanggaran": "/violations",
-  "/karyawan": "/employees",
-  "/konfigurasi/kamera": "/camera-sources",
-  "/konfigurasi/zona": "/hazardous-zones",
-  "/konfigurasi/apd": "/canonical-ppe-classes",
-  "/administrasi/parameter": "/safety-parameters",
-  "/administrasi/reset-skor": "/score-reset",
-  "/administrasi/notifikasi": "/notifications",
-} as const;
-
-function getPersona(role: Role) {
-  return personas.find((persona) => persona.role === role)!;
-}
-
-function cameraScopeFor(persona: Persona): CameraScope {
-  return persona.role === "supervisor"
-    ? { type: "supervisor-area", area: persona.assignedArea ?? "" }
-    : "all";
-}
-
-function Login({ onLogin }: { onLogin: (role: Role) => void }) {
-  const [selectedRole, setSelectedRole] = useState<Role>("admin");
-
-  return (
-    <main className="grid min-h-screen bg-slate-950 p-5 text-slate-100 lg:grid-cols-[minmax(0,1fr)_30rem] lg:p-8">
-      <section className="hidden border border-slate-800 bg-slate-900 p-10 lg:flex lg:flex-col lg:justify-between">
-        <div className="font-mono text-sm tracking-[0.24em] text-amber-400">SAW</div>
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-400">Safety Always Watch</p>
-          <h1 className="mt-4 max-w-xl text-4xl font-semibold tracking-tight text-white">
-            Run workplace safety operations with clarity.
-          </h1>
-          <p className="mt-4 max-w-lg text-slate-400">
-            Enter the demo environment to review the SAW experience for your operational role.
-          </p>
-        </div>
-        <p className="font-mono text-xs text-slate-500">DEMO ENVIRONMENT · ENGLISH</p>
-      </section>
-
-      <section className="flex items-center bg-white p-6 text-slate-900 sm:p-10">
-        <div className="mx-auto w-full max-w-md">
-          <div className="font-mono text-sm tracking-[0.24em] text-slate-950 lg:hidden">SAW</div>
-          <p className="mt-8 font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Demo access</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight">Sign in to SAW</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Choose a persona to open the workspace with the appropriate access.
-          </p>
-          <fieldset className="mt-8 space-y-3">
-            <legend className="sr-only">Demo persona</legend>
-            {personas.map((persona) => (
-              <label
-                className="flex cursor-pointer gap-3 rounded-md border border-slate-200 p-4 transition-colors hover:border-amber-400 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50"
-                key={persona.role}
-              >
-                <input
-                  checked={selectedRole === persona.role}
-                  className="mt-1 accent-amber-500"
-                  name="persona"
-                  onChange={() => setSelectedRole(persona.role)}
-                  type="radio"
-                  value={persona.role}
-                />
-                <span>
-                  <span className="block font-medium">{persona.name}</span>
-                  <span className="mt-1 block text-sm leading-5 text-slate-600">{persona.description}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-          <Button className="mt-8 w-full" onClick={() => onLogin(selectedRole)}>
-            Sign in to SAW
-            <ChevronRight aria-hidden="true" className="ml-1 size-4" />
-          </Button>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function ApplicationShell({
-  persona,
-  onLogout,
-  children,
-}: {
-  persona: Persona;
-  onLogout: () => void;
-  children: React.ReactNode;
-}) {
-  const location = useLocation();
-  const shellRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const scope = createScope({ root: shellRef });
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (!reducedMotion) {
-      scope.add(() => {
-        animate("[data-shell-content]", {
-          opacity: [0, 1],
-          duration: 180,
-          ease: "outQuad",
-        });
-      });
-    }
-
-    return () => scope.revert();
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]" ref={shellRef}>
-      <aside className="bg-slate-950 px-4 py-5 text-slate-200 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-5">
-          <Link aria-label="SAW home" className="font-mono text-lg font-medium tracking-[0.2em] text-white" to={persona.landingPath}>
-            SAW
-          </Link>
-          <span className="rounded bg-amber-400 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-slate-950">DEMO</span>
-        </div>
-        <nav aria-label="Main navigation" className="mt-6 space-y-6">
-          {navigationGroupLabels.map((group) => {
-            const allowedItems = pages.filter((page) => page.group === group && page.roles.includes(persona.role));
-            if (allowedItems.length === 0) return null;
-            return (
-              <section key={group}>
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">{group}</p>
-                <ul className="mt-2 space-y-1">
-                  {allowedItems.map((item) => {
-                    const active = location.pathname === item.path;
-                    return (
-                      <li key={item.path}>
-                        <Link
-                          aria-current={active ? "page" : undefined}
-                          className={`block rounded-md px-3 py-2 text-sm transition-colors ${active ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"}`}
-                          to={item.path}
-                        >
-                          {item.title}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
-        </nav>
-      </aside>
-      <div className="flex min-w-0 flex-col">
-        <header className="flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
-          <div className="flex items-center gap-2 text-sm text-slate-500"><Activity aria-hidden="true" className="size-4 text-amber-600" />Safety operations</div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-right text-sm sm:block"><span className="block font-medium text-slate-800">{persona.name}</span><span className="font-mono text-xs text-slate-500">DEMO-ROLE</span></span>
-            <Button aria-label="Sign out of SAW" onClick={onLogout} size="sm" variant="outline"><LogOut aria-hidden="true" className="mr-1.5 size-3.5" />Sign out</Button>
-          </div>
-        </header>
-        <main className="flex-1 p-5 sm:p-8" data-shell-content>{children}</main>
-      </div>
-    </div>
-  );
-}
+/* Feature implementations remain here until their feature-owner migrations. */
 
 function PageState({ title }: { title: string }) {
   return (
@@ -306,53 +75,10 @@ function PageState({ title }: { title: string }) {
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
       <div className="mt-6 border border-dashed border-slate-300 bg-white p-6 text-slate-600">
         <p className="font-medium">Ruang kerja siap digunakan.</p>
-        <p className="mt-1 text-sm">Konten operasional untuk halaman ini akan ditambahkan pada tiket berikutnya.</p>
+        <p className="mt-1 text-sm">Konten operasional untuk halaman ini will be added in a later ticket.</p>
       </div>
     </section>
   );
-}
-
-function AccessibleDialog({
-  children,
-  label,
-  onDismiss,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onDismiss: () => void;
-}) {
-  const dialogRef = useRef<HTMLElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const initialFocus = dialogRef.current?.querySelector<HTMLElement>("[data-dialog-initial-focus], button, [href], input, select, textarea");
-    initialFocus?.focus();
-    return () => previousFocusRef.current?.focus();
-  }, []);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onDismiss();
-      return;
-    }
-    if (event.key !== "Tab") return;
-
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])") ?? [])];
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  return <section aria-label={label} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" onKeyDown={handleKeyDown} ref={dialogRef} role="dialog">{children}</section>;
 }
 
 function useMediaQuery(query: string) {
@@ -397,7 +123,7 @@ function Metric({ value, suffix = "" }: { suffix?: string; value: number }) {
   return <strong className="mt-3 block text-3xl font-semibold tracking-tight text-slate-950">{displayedValue}{suffix}</strong>;
 }
 
-function Overview({ service }: { service: OverviewCapability }) {
+export function Overview({ service }: { service: OverviewCapability }) {
   const [overview, setOverview] = useState<OverviewData | null>();
   const [error, setError] = useState<string>();
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -490,7 +216,7 @@ function formatReportDate(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-function ComplianceReport({ service }: { service: ComplianceReportingCapability }) {
+export function ComplianceReport({ service }: { service: ComplianceReportingCapability }) {
   const [report, setReport] = useState<ComplianceReportData>();
   const [error, setError] = useState<string>();
   const [zoneId, setZoneId] = useState("all");
@@ -584,26 +310,6 @@ function ComplianceReport({ service }: { service: ComplianceReportingCapability 
       </>}
     </section>
   );
-}
-
-function formatWib(timestamp: string) {
-  return `${new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Jakarta",
-    hour12: false,
-  }).format(new Date(timestamp))} WIB`;
-}
-
-function formatRelativeWib(timestamp: string) {
-  const differenceMinutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000));
-  if (differenceMinutes < 60) return `${differenceMinutes} menit lalu`;
-  const differenceHours = Math.round(differenceMinutes / 60);
-  if (differenceHours < 24) return `${differenceHours} jam lalu`;
-  return `${Math.round(differenceHours / 24)} hari lalu`;
 }
 
 function ConnectionStatus({ status }: { status: CameraStatus }) {
@@ -716,7 +422,7 @@ function CameraCard({ camera, onSelect }: { camera: Camera; onSelect: () => void
   );
 }
 
-function Cameras({ persona, service }: { persona: Persona; service: CameraSourceCapability & HazardousZoneCapability }) {
+export function Cameras({ persona, service }: { persona: Persona; service: CameraSourceCapability & HazardousZoneCapability }) {
   const [cameras, setCameras] = useState<Camera[]>();
   const [zones, setZones] = useState<HazardousZone[]>();
   const [error, setError] = useState<string>();
@@ -779,7 +485,7 @@ function Cameras({ persona, service }: { persona: Persona; service: CameraSource
   );
 }
 
-function LiveMonitoring({ persona, service }: { persona: Persona; service: CameraSourceCapability & HazardousZoneCapability & MonitoringCapability & NotificationCapability & SafetySettingsCapability }) {
+export function LiveMonitoring({ persona, service }: { persona: Persona; service: CameraSourceCapability & HazardousZoneCapability & MonitoringCapability & NotificationCapability & SafetySettingsCapability }) {
   const [cameras, setCameras] = useState<Camera[]>();
   const [zones, setZones] = useState<HazardousZone[]>();
   const [simulation, setSimulation] = useState<MonitoringSimulation>();
@@ -960,7 +666,7 @@ function ViolationDetails({
   );
 }
 
-function Violations({ service }: { service: ViolationHistoryCapability & CameraSourceCapability & HazardousZoneCapability & EmployeeDirectoryCapability }) {
+export function Violations({ service }: { service: ViolationHistoryCapability & CameraSourceCapability & HazardousZoneCapability & EmployeeDirectoryCapability }) {
   const [data, setData] = useState<ViolationHistoryData>();
   const [error, setError] = useState<string>();
   const [searchTerm, setSearchTerm] = useState("");
@@ -1170,7 +876,7 @@ function EmployeeCard({ employee, escalationThreshold, onSelect }: { employee: E
 
 type EmployeeSort = "name-asc" | "name-desc" | "score-desc" | "score-asc";
 
-function Employees({ persona, service }: { persona: Persona; service: EmployeeDirectoryCapability }) {
+export function Employees({ persona, service }: { persona: Persona; service: EmployeeDirectoryCapability }) {
   const [directory, setDirectory] = useState<EmployeeDirectoryData>();
   const [error, setError] = useState<string>();
   const [searchTerm, setSearchTerm] = useState("");
@@ -1250,7 +956,7 @@ function Employees({ persona, service }: { persona: Persona; service: EmployeeDi
   );
 }
 
-function SafetyScoreReset({ service }: { service: EmployeeDirectoryCapability & SafetyScoreCapability & SafetySettingsCapability }) {
+export function SafetyScoreReset({ service }: { service: EmployeeDirectoryCapability & SafetyScoreCapability & SafetySettingsCapability }) {
   const [directory, setDirectory] = useState<EmployeeDirectoryData>();
   const [settings, setSettings] = useState<SafetySettings>();
   const [employeeId, setEmployeeId] = useState("");
@@ -1416,7 +1122,7 @@ function validateSafetySettings(settings: SafetySettings): string | undefined {
   return undefined;
 }
 
-function SafetyParameters({ service }: { service: SafetySettingsCapability }) {
+export function SafetyParameters({ service }: { service: SafetySettingsCapability }) {
   const [settings, setSettings] = useState<SafetySettings>();
   const [draft, setDraft] = useState<SafetySettings>();
   const [loadError, setLoadError] = useState<string>();
@@ -1587,7 +1293,7 @@ function createPpeMappingId(mappings: CanonicalPpeClassMapping[]) {
   return id;
 }
 
-function CanonicalPpeClasses({ service }: { service: CanonicalPpeClassCapability }) {
+export function CanonicalPpeClasses({ service }: { service: CanonicalPpeClassCapability }) {
   const [configuration, setConfiguration] = useState<CanonicalPpeClassConfiguration>();
   const [draft, setDraft] = useState<PpeMappingDraft>();
   const [error, setError] = useState<string>();
@@ -1779,7 +1485,7 @@ function copyHazardousZone(zone: HazardousZone): HazardousZoneDraft {
   };
 }
 
-function HazardousZoneEditor({ service }: { service: CameraSourceCapability & HazardousZoneCapability & CanonicalPpeClassCapability }) {
+export function HazardousZoneEditor({ service }: { service: CameraSourceCapability & HazardousZoneCapability & CanonicalPpeClassCapability }) {
   const [cameras, setCameras] = useState<Camera[]>();
   const [zones, setZones] = useState<HazardousZoneWithViolationHistory[]>();
   const [configuration, setConfiguration] = useState<CanonicalPpeClassConfiguration>();
@@ -1968,7 +1674,7 @@ function notificationScopeLabel(recipient: NotificationRecipient, zones: Hazardo
   return `Department: ${scope.departmentId}`;
 }
 
-function NotificationConfiguration({ persona, service }: { persona: Persona; service: EmployeeDirectoryCapability & HazardousZoneCapability & NotificationCapability }) {
+export function NotificationConfiguration({ persona, service }: { persona: Persona; service: EmployeeDirectoryCapability & HazardousZoneCapability & NotificationCapability }) {
   const [recipients, setRecipients] = useState<NotificationRecipient[]>();
   const [logs, setLogs] = useState<NotificationSimulationLog[]>();
   const [zones, setZones] = useState<HazardousZone[]>([]);
@@ -2059,56 +1765,5 @@ function NotificationConfiguration({ persona, service }: { persona: Persona; ser
       <section className="mt-8"><div><h2 className="text-xl font-semibold text-slate-950">Log notifikasi simulasi</h2><p className="mt-1 text-sm text-slate-600">Hasil agregat pengujian dan eskalasi demo yang terkait Violation Event.</p></div>{logs.length === 0 ? <p className="mt-5 border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">No log notifikasi simulasi.</p> : <div className="mt-5 space-y-3">{[...logs].reverse().map((log) => <article className="flex flex-wrap items-start justify-between gap-4 border border-slate-200 bg-white p-4" key={log.id}><div className="flex gap-3">{log.deliveryStatus === "sent" ? <CheckCircle2 aria-label="Ikon Sent" className="mt-0.5 size-5 shrink-0 text-emerald-600" role="img" /> : <ShieldX aria-label="Ikon Failed" className="mt-0.5 size-5 shrink-0 text-red-600" role="img" />}<div><p className="font-medium text-slate-950">{log.recipientName}</p><p className="mt-1 text-sm text-slate-600">{log.recipientRole} · Violation Event {log.violationId}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(log.occurredAt)}</p></div></div><span className={`border px-2 py-1 text-xs font-medium ${log.deliveryStatus === "sent" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>{log.deliveryStatus === "sent" ? "Sent" : "Failed"} · SIMULASI</span></article>)}</div>}</section>
       {selectedRecipient && <AccessibleDialog label={`Details ${selectedRecipient.name}`} onDismiss={() => setSelectedRecipient(undefined)}><div className="w-full max-w-lg border border-slate-200 bg-white p-6 shadow-xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">SIMULASI</p><h2 className="mt-2 text-xl font-semibold text-slate-950">Details {selectedRecipient.name}</h2><dl className="mt-6 space-y-4 text-sm"><div><dt className="text-slate-500">Peran</dt><dd className="mt-1 font-medium text-slate-950">{selectedRecipient.role}</dd></div><div><dt className="text-slate-500">Cakupan</dt><dd className="mt-1 text-slate-950">{notificationScopeLabel(selectedRecipient, zones)}</dd></div><div><dt className="text-slate-500">Chat ID Telegram</dt><dd className="mt-1 font-mono text-slate-950">{selectedRecipient.maskedChatId}</dd></div></dl><p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">Chat ID mentah tidak disimpan atau ditampilkan pada demo.</p><div className="mt-6 flex justify-end"><Button data-dialog-initial-focus onClick={() => setSelectedRecipient(undefined)} type="button" variant="outline">Tutup detail</Button></div></div></AccessibleDialog>}
     </section>
-  );
-}
-
-function RestrictedAccess({ persona }: { persona: Persona }) {
-  return (
-    <section className="mx-auto max-w-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
-      <LockKeyhole aria-hidden="true" className="size-6 text-amber-700" />
-      <p className="mt-5 font-mono text-xs uppercase tracking-[0.16em] text-amber-800">Access control</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Restricted access</h1>
-      <p className="mt-3 leading-6 text-slate-700">This page is not available to the {persona.name} persona. Choose a workspace that matches your role.</p>
-      <Button className="mt-6" onClick={() => window.history.back()} variant="outline">Go back</Button>
-    </section>
-  );
-}
-
-function ProtectedPage({ page, persona, service }: { page: Page; persona: Persona; service: SawApplicationCapabilities }) {
-  if (!page.roles.includes(persona.role)) return <RestrictedAccess persona={persona} />;
-  return page.render(persona, service);
-}
-
-export function RoutedApplication({ initialPersona, service }: { initialPersona?: Role; service: SawApplicationCapabilities }) {
-  const [role, setRole] = useState<Role | undefined>(initialPersona);
-  const navigate = useNavigate();
-  const persona = role ? getPersona(role) : undefined;
-
-  const login = (nextRole: Role) => {
-    setRole(nextRole);
-    navigate(getPersona(nextRole).landingPath, { replace: true });
-  };
-
-  const logout = () => {
-    setRole(undefined);
-    navigate("/login", { replace: true });
-  };
-
-  if (!persona) {
-    return <Routes><Route path="*" element={<Login onLogin={login} />} /></Routes>;
-  }
-
-  return (
-    <ApplicationShell onLogout={logout} persona={persona}>
-      <Routes>
-        <Route path="/login" element={<Navigate replace to={persona.landingPath} />} />
-        <Route path="/" element={<Navigate replace to={persona.landingPath} />} />
-        {Object.entries(legacyRouteRedirects).map(([legacyPath, canonicalPath]) => (
-          <Route element={<Navigate replace to={canonicalPath} />} key={legacyPath} path={legacyPath} />
-        ))}
-        {pages.map((page) => <Route element={<ProtectedPage page={page} persona={persona} service={service} />} key={page.path} path={page.path} />)}
-        <Route path="*" element={<Navigate replace to={persona.landingPath} />} />
-      </Routes>
-    </ApplicationShell>
   );
 }

@@ -1343,7 +1343,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("button", { name: "Reset data demo" })).toHaveFocus();
   });
 
-  it("menonaktifkan animasi shell ketika pengguna memilih reduced motion", async () => {
+  it("disables shell motion when the user prefers reduced motion", async () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = (query) => ({
       matches: query === "(prefers-reduced-motion: reduce)",
