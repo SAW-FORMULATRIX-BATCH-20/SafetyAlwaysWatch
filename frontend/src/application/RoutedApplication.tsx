@@ -1,5 +1,4 @@
-import { animate } from "animejs";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownUp,
   Camera as CameraIcon,
@@ -27,8 +26,6 @@ import {
   type CameraMetadata,
   type CameraSourceCapability,
   type CameraStatus,
-  type ComplianceReportData,
-  type ComplianceReportingCapability,
   type CanonicalPpeClassConfiguration,
   type CanonicalPpeClassMapping,
   type CanonicalPpeClassCapability,
@@ -38,17 +35,12 @@ import {
   type EmployeeScope,
   type EpisodeStatus,
   type HazardousZoneCapability,
-  type MonitoringCapability,
-  type MonitoringScenario,
-  type MonitoringSimulation,
   type NormalizedZoneBounds,
   type NotificationCapability,
   type NotificationRecipient,
   type NotificationRecipientRole,
   type NotificationRecipientScope,
   type NotificationSimulationLog,
-  type OverviewCapability,
-  type OverviewData,
   type SafetyScoreAudit,
   type SafetyScoreCapability,
   type SafetyScoreResetReason,
@@ -63,10 +55,6 @@ import {
   safetyScoreResetReasonLabels,
   safetyScoreResetReasons,
 } from "../services/saw-service";
-
-const ReportCharts = lazy(() => import("../components/report-charts").then((module) => ({ default: module.ReportCharts })));
-
-/* Feature implementations remain here until their feature-owner migrations. */
 
 function PageState({ title }: { title: string }) {
   return (
@@ -95,93 +83,6 @@ function useMediaQuery(query: string) {
   return matches;
 }
 
-function Metric({ value, suffix = "" }: { suffix?: string; value: number }) {
-  const [displayedValue, setDisplayedValue] = useState(value);
-  const previousValue = useRef(value);
-
-  useEffect(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || previousValue.current === value) {
-      setDisplayedValue(value);
-      previousValue.current = value;
-      return undefined;
-    }
-
-    const metric = { value: previousValue.current };
-    const animation = animate(metric, {
-      value,
-      duration: 220,
-      ease: "outQuad",
-      onUpdate: () => setDisplayedValue(Math.round(metric.value)),
-    });
-    previousValue.current = value;
-    return () => {
-      animation.pause();
-    };
-  }, [value]);
-
-  return <strong className="mt-3 block text-3xl font-semibold tracking-tight text-slate-950">{displayedValue}{suffix}</strong>;
-}
-
-export function Overview({ service }: { service: OverviewCapability }) {
-  const [overview, setOverview] = useState<OverviewData | null>();
-  const [error, setError] = useState<string>();
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    service.getOverview().then((nextOverview) => {
-      if (active) setOverview(nextOverview);
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "SAW demo data could not be loaded.");
-    });
-    return () => {
-      active = false;
-    };
-  }, [refreshKey, service]);
-
-  const retryLoad = () => {
-    setError(undefined);
-    setOverview(undefined);
-    setRefreshKey((key) => key + 1);
-  };
-
-  const resetDemoData = async () => {
-    const nextOverview = await service.resetDemoData();
-    setOverview(nextOverview);
-    setConfirmingReset(false);
-  };
-
-  if (error) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">SAW demo data could not be loaded</p><p className="mt-1 text-sm text-red-800">{error}</p><Button className="mt-4" onClick={retryLoad} variant="outline">Try again</Button></div></section>;
-  }
-
-  if (overview === undefined) {
-    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><p className="mt-6 text-slate-600">Loading safety overview…</p></section>;
-  }
-
-  if (overview === null) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium">No data demo</p><p className="mt-1 text-sm text-slate-600">Addkan data SAW untuk melihat ringkasan keselamatan.</p></div></section>;
-  }
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational overview</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Overview</h1><p className="mt-2 text-sm text-slate-600">Current SAW safety condition.</p></div>
-        <Button onClick={() => setConfirmingReset(true)} variant="outline">Reset data demo</Button>
-      </div>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Active Camera Sources</p><Metric suffix={` / ${overview.totalCameras}`} value={overview.activeCameras} /></article>
-        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Active Violations</p><Metric value={overview.activeViolations} /></article>
-        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Today's PPE Compliance</p><Metric suffix="%" value={overview.ppeCompliance} /></article>
-        <article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Employee di bawah Escalation Threshold</p><Metric value={overview.employeesBelowEscalationThreshold} /></article>
-      </div>
-      {confirmingReset && <AccessibleDialog label="Reset data demo?" onDismiss={() => setConfirmingReset(false)}><div className="w-full max-w-md bg-white p-6 shadow-xl"><h2 className="text-xl font-semibold">Reset data demo?</h2><p className="mt-2 text-sm leading-6 text-slate-600">All demo changes will be restored to the initial seed.</p><div className="mt-6 flex justify-end gap-3"><Button data-dialog-initial-focus onClick={() => setConfirmingReset(false)} variant="outline">Cancel</Button><Button onClick={() => void resetDemoData()}>Reset data</Button></div></div></AccessibleDialog>}
-    </section>
-  );
-}
-
 const cameraStatusDetailss: Record<CameraStatus, {
   label: string;
   Icon: typeof CheckCircle2;
@@ -191,126 +92,6 @@ const cameraStatusDetailss: Record<CameraStatus, {
   degraded: { label: "Terganggu", Icon: TriangleAlert, className: "text-amber-700" },
   offline: { label: "Offline", Icon: WifiOff, className: "text-slate-600" },
 };
-
-const reportSafetyStatusLabels: Record<ScoreStatus, string> = {
-  safe: "Safe",
-  warning: "Warning",
-  critical: "Critical",
-};
-
-const reportSafetyStatusColors: Record<ScoreStatus, string> = {
-  safe: "#047857",
-  warning: "#b45309",
-  critical: "#b91c1c",
-};
-
-function reportDate(timestamp: string) {
-  return timestamp.slice(0, 10);
-}
-
-function formatReportDate(timestamp: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(timestamp));
-}
-
-export function ComplianceReport({ service }: { service: ComplianceReportingCapability }) {
-  const [report, setReport] = useState<ComplianceReportData>();
-  const [error, setError] = useState<string>();
-  const [zoneId, setZoneId] = useState("all");
-  const [departmentId, setDepartmentId] = useState("all");
-  const [employeeId, setEmployeeId] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    service.getComplianceReport().then((nextReport) => {
-      if (active) setReport(nextReport);
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "The Compliance Report could not be loaded.");
-    });
-    return () => {
-      active = false;
-    };
-  }, [service]);
-
-  const clearFilters = () => {
-    setZoneId("all");
-    setDepartmentId("all");
-    setEmployeeId("all");
-    setFromDate("");
-    setToDate("");
-  };
-
-  if (error) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Compliance Report</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">The Compliance Report could not be loaded</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
-  }
-  if (report === undefined) {
-    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Compliance Report</h1><p className="mt-6 text-slate-600">Loading Compliance Report…</p></section>;
-  }
-  if (report.observations.length === 0) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Compliance Report</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No PPE Compliance observations yet</p><p className="mt-1 text-sm text-slate-600">Observation data is needed before safety trends and distributions can be shown.</p></div></section>;
-  }
-
-  const zones = [...report.zones].sort((left, right) => left.name.localeCompare(right.name));
-  const departments = [...new Set(report.observations.map((observation) => observation.departmentId))].sort((left, right) => left.localeCompare(right));
-  const employees = report.employees.filter((employee) => report.observations.some((observation) => observation.employeeId === employee.id));
-  const filtered = report.observations.filter((observation) => {
-    const observedDate = reportDate(observation.observedAt);
-    return (zoneId === "all" || observation.zoneId === zoneId)
-      && (departmentId === "all" || observation.departmentId === departmentId)
-      && (employeeId === "all" || observation.employeeId === employeeId)
-      && (!fromDate || observedDate >= fromDate)
-      && (!toDate || observedDate <= toDate);
-  });
-  const hasFilters = zoneId !== "all" || departmentId !== "all" || employeeId !== "all" || fromDate !== "" || toDate !== "";
-
-  const trend = [...new Set(filtered.map((observation) => reportDate(observation.observedAt)))].sort().map((date) => {
-    const observations = filtered.filter((observation) => reportDate(observation.observedAt) === date);
-    const compliant = observations.filter((observation) => observation.isCompliant).length;
-    return { date: formatReportDate(`${date}T00:00:00+07:00`), compliant, total: observations.length, rate: Math.round((compliant / observations.length) * 100) };
-  });
-  const ppeBreakdown = [...new Set(filtered.map((observation) => observation.canonicalPpeClass))].sort((left, right) => left.localeCompare(right)).map((canonicalPpeClass) => {
-    const observations = filtered.filter((observation) => observation.canonicalPpeClass === canonicalPpeClass);
-    return { canonicalPpeClass, compliant: observations.filter((observation) => observation.isCompliant).length, violation: observations.filter((observation) => !observation.isCompliant).length };
-  });
-  const latestSafetyScoreByEmployee = new Map<string, number>();
-  [...filtered].sort((left, right) => left.observedAt.localeCompare(right.observedAt)).forEach((observation) => {
-    if (observation.employeeId) latestSafetyScoreByEmployee.set(observation.employeeId, observation.safetyScore);
-  });
-  const safetyDistribution = (Object.keys(reportSafetyStatusLabels) as ScoreStatus[]).map((status) => ({
-    status: reportSafetyStatusLabels[status],
-    count: [...latestSafetyScoreByEmployee.values()].filter((score) => getScoreStatus(score, report.escalationThreshold) === status).length,
-    color: reportSafetyStatusColors[status],
-  }));
-  const compliantObservations = filtered.filter((observation) => observation.isCompliant).length;
-  const complianceRate = filtered.length === 0 ? 0 : Math.round((compliantObservations / filtered.length) * 100);
-  const sortedDates = [...filtered].sort((left, right) => left.observedAt.localeCompare(right.observedAt));
-  const period = sortedDates.length === 0 ? "No period" : `${formatReportDate(sortedDates[0].observedAt)} – ${formatReportDate(sortedDates[sortedDates.length - 1].observedAt)}`;
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational analysis</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Compliance Report</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Review PPE Compliance trends, Canonical PPE Classes, and Safety Score conditions from the same observations.</p></div><span className="border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULATION</span></div>
-
-      <div className="mt-8 grid gap-3 border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-3">
-        <label className="block text-sm font-medium text-slate-800">Hazardous Zones<select aria-label="Report Hazardous Zone filter" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setZoneId(event.target.value)} value={zoneId}><option value="all">All Hazardous Zones</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Department<select aria-label="Report department filter" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setDepartmentId(event.target.value)} value={departmentId}><option value="all">All departments</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">Employee<select aria-label="Report Employee filter" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setEmployeeId(event.target.value)} value={employeeId}><option value="all">All Employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeName(employee)}</option>)}</select></label>
-        <label className="block text-sm font-medium text-slate-800">From date<input aria-label="Report start date" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} /></label>
-        <label className="block text-sm font-medium text-slate-800">To date<input aria-label="Report end date" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} /></label>
-        <div className="flex items-end">{hasFilters && filtered.length > 0 && <Button onClick={clearFilters} variant="outline">Clear report filters</Button>}</div>
-      </div>
-
-      {filtered.length === 0 ? <div className="mt-5 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No matching report results.</p><p className="mt-1 text-sm text-slate-600">Change or clear filters to see PPE Compliance observations.</p><Button className="mt-4" onClick={clearFilters} variant="outline">Clear report filters</Button></div> : <>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">PPE Compliance</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{complianceRate}%</p><p className="mt-2 text-sm text-slate-600">{compliantObservations} patuh dari {filtered.length} observasi</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Report observations</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length}</p><p className="mt-2 text-sm text-slate-600">{filtered.length} PPE Compliance observations</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Violation PPE</p><p className="mt-2 font-mono text-3xl font-semibold text-slate-950">{filtered.length - compliantObservations}</p><p className="mt-2 text-sm text-slate-600">Non-compliant PPE observations</p></article><article className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-600">Period</p><p className="mt-2 font-mono text-lg font-semibold text-slate-950">{period}</p><p className="mt-2 text-sm text-slate-600">WIB · active filters</p></article></div>
-        <Suspense fallback={<p aria-busy="true" className="mt-8 text-sm text-slate-600">Loading visualisasi laporan…</p>}><ReportCharts ppeBreakdown={ppeBreakdown} filteredObservationCount={filtered.length} period={period} safetyDistribution={safetyDistribution} trend={trend} /></Suspense>
-      </>}
-    </section>
-  );
-}
 
 function ConnectionStatus({ status }: { status: CameraStatus }) {
   const { Icon, label, className } = cameraStatusDetailss[status];
@@ -481,136 +262,6 @@ export function Cameras({ persona, service }: { persona: Persona; service: Camer
       {notice && <p aria-live="polite" className="mt-3 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
       {cameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Camera Sources are registered</p><p className="mt-1 text-sm text-slate-600">Add Camera Sources to start monitoring coverage.</p></div> : filteredCameras.length === 0 ? <div className="mt-4 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Camera Sources match.</p><p className="mt-1 text-sm text-slate-600">Change the search term or status filter.</p></div> : <div aria-label="Camera Source list" className="mt-4 grid gap-4 xl:grid-cols-2" role="list">{filteredCameras.map((camera) => <CameraCard camera={camera} key={camera.id} onSelect={() => { setSelectedCameraId(camera.id); setNotice(undefined); }} />)}</div>}
       {selectedCamera && <div className="mt-6"><CameraDetails camera={selectedCamera} canEdit={persona.role === "admin"} key={selectedCamera.id} onSaved={(metadata) => void saveMetadata(selectedCamera, metadata)} zones={zones} /></div>}
-    </section>
-  );
-}
-
-export function LiveMonitoring({ persona, service }: { persona: Persona; service: CameraSourceCapability & HazardousZoneCapability & MonitoringCapability & NotificationCapability & SafetySettingsCapability }) {
-  const [cameras, setCameras] = useState<Camera[]>();
-  const [zones, setZones] = useState<HazardousZone[]>();
-  const [simulation, setSimulation] = useState<MonitoringSimulation>();
-  const [settings, setSettings] = useState<SafetySettings>();
-  const [selectedCameraId, setSelectedCameraId] = useState<string>();
-  const [notificationFeed, setNotificationFeed] = useState<string>();
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([service.getCameras(cameraScopeFor(persona)), service.getHazardousZone(), service.getMonitoringSimulation(), service.getSafetySettings(), service.getNotificationSimulationLogs()]).then(([nextCameras, nextZones, nextSimulation, nextSettings, notificationLogs]) => {
-      if (!active) return;
-      setCameras(nextCameras);
-      setZones(nextZones);
-      setSimulation(nextSimulation);
-      setSettings(nextSettings);
-      setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
-        ? current
-        : nextCameras.some((camera) => camera.id === nextSimulation.cameraId)
-          ? nextSimulation.cameraId
-          : nextCameras[0]?.id);
-      if (nextSimulation.eventId && nextSimulation.scoreChange?.crossedEscalationThreshold) {
-        const recipientCount = notificationLogs.filter((log) => log.violationId === nextSimulation.eventId).length;
-        setNotificationFeed(`Violation Event ${nextSimulation.eventId}: ${recipientCount} penerima simulasi dicatat.`);
-      } else {
-        setNotificationFeed(undefined);
-      }
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "Live Monitoring could not be loaded.");
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [persona, service]);
-
-  const selectedCamera = cameras?.find((camera) => camera.id === selectedCameraId);
-  const activeZoneIds = selectedCamera?.zoneIds.filter((zoneId) => zones?.some((zone) => zone.id === zoneId && zone.active)) ?? [];
-
-  const selectScenario = async (scenario: MonitoringScenario) => {
-    const nextSimulation = await service.selectMonitoringScenario(scenario);
-    setSimulation(nextSimulation);
-    if (cameras?.some((camera) => camera.id === nextSimulation.cameraId)) setSelectedCameraId(nextSimulation.cameraId);
-  };
-
-  const processFrame = async (isCompliant: boolean, confidence = 0.96) => {
-    if (!settings || !simulation) return;
-    const elapsedSeconds = simulation.episodeStatus === "candidate"
-      ? settings.confirmThresholdSeconds
-      : settings.clearThresholdSeconds;
-    const nextSimulation = await service.processMonitoringFrame({ confidence, isCompliant, elapsedSeconds });
-    setSimulation(nextSimulation);
-    if (nextSimulation.eventId && nextSimulation.scoreChange?.crossedEscalationThreshold) {
-      const recipientCount = (await service.getNotificationSimulationLogs()).filter((log) => log.violationId === nextSimulation.eventId).length;
-      setNotificationFeed(`Violation Event ${nextSimulation.eventId}: ${recipientCount} penerima simulasi dicatat.`);
-    }
-  };
-
-  if (error) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-red-200 bg-red-50 p-6"><p className="font-medium text-red-900">Live Monitoring tidak dapat dimuat</p><p className="mt-1 text-sm text-red-800">{error}</p></div></section>;
-  }
-
-  if (cameras === undefined || zones === undefined || simulation === undefined || settings === undefined) {
-    return <section aria-busy="true" aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-6 text-slate-600">Loading Camera Source…</p></section>;
-  }
-
-  if (!selectedCamera) {
-    return <section aria-live="polite"><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><div className="mt-6 border border-dashed border-slate-300 bg-white p-6"><p className="font-medium text-slate-900">No Camera Sources in your scope</p><p className="mt-1 text-sm text-slate-600">Select an assigned area with a Camera Source to start monitoring.</p></div></section>;
-  }
-
-  const displayedSimulation = simulation.cameraId === selectedCamera.id ? simulation : undefined;
-  const isOffline = selectedCamera.status === "offline" || displayedSimulation?.state === "offline";
-  const episode = displayedSimulation?.state === "episode" ? episodePresentation(displayedSimulation.episodeStatus) : undefined;
-  const activeEpisode = displayedSimulation?.state === "episode" && ["candidate", "confirmed", "clearing"].includes(displayedSimulation.episodeStatus);
-
-  return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational monitoring</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live Monitoring</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Simulated monitoring of Hazardous Zones and Detected Persons without a real camera or RTSP connection.</p></div>
-        <span className="inline-flex items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</span>
-      </div>
-
-      <label className="mt-8 block max-w-md text-sm font-medium text-slate-800">Select Camera Source
-        <select aria-label="Select Camera Source" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setSelectedCameraId(event.target.value)} value={selectedCamera.id}>
-          {cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name} · {camera.location}</option>)}
-        </select>
-      </label>
-
-      <section aria-label="Simulator Violation Episode" className="mt-5 border border-amber-200 bg-amber-50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-950">Simulator Violation Episode</h2><p className="mt-1 text-sm text-slate-700">These controls use deterministic demo data only; they do not send alarms or store snapshots.</p></div><span className="font-mono text-xs font-medium tracking-[0.12em] text-amber-900">SIMULASI</span></div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={() => void selectScenario("normal")} size="sm" type="button" variant="outline">Skenario operasi normal</Button>
-          <Button onClick={() => void selectScenario("missing-ppe")} size="sm" type="button" variant="outline">Skenario PPE hilang</Button>
-          <Button onClick={() => void selectScenario("unidentified")} size="sm" type="button" variant="outline">Unidentified person scenario</Button>
-          <Button onClick={() => void selectScenario("camera-offline")} size="sm" type="button" variant="outline">Camera offline scenario</Button>
-          <Button onClick={() => void selectScenario("score-escalation")} size="sm" type="button" variant="outline">Skenario skor melewati ambang</Button>
-        </div>
-        {simulation.state === "episode" && <div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => void processFrame(false)} size="sm" type="button">Proses kondisi melanggar</Button><Button onClick={() => void processFrame(true)} size="sm" type="button" variant="outline">Proses kondisi patuh</Button><Button onClick={() => void processFrame(false, 0.2)} size="sm" type="button" variant="outline">Frame confidence rendah</Button></div>}
-      </section>
-      {notificationFeed && <section aria-label="Simulation notification feed" className="mt-5 border-l-2 border-amber-500 bg-amber-50 p-4" role="status"><p className="font-mono text-xs font-medium tracking-[0.12em] text-amber-950">SIMULASI</p><p className="mt-2 text-sm font-medium text-slate-950">{notificationFeed}</p><p className="mt-1 text-sm text-slate-700">No real Telegram messages or audible alarms are sent.</p></section>}
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <section aria-label={`Stage Live Monitoring ${selectedCamera.name}`} className="overflow-hidden border border-slate-800 bg-slate-950">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-sm text-slate-200"><span className="font-medium">{selectedCamera.name}</span><span className="font-mono text-xs text-slate-400">{selectedCamera.id}</span></div>
-          <div className="relative aspect-video overflow-hidden bg-slate-900">
-            <img alt={isOffline ? "Ilustrasi area industri fiktif - frame latest diredupkan" : "Ilustrasi area industri fiktif"} className={`h-full w-full object-cover ${isOffline ? "opacity-35 grayscale" : ""}`} src={industrialMonitoringScene} />
-            <span className="absolute right-4 top-4 border border-amber-300 bg-slate-950/90 px-2 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-amber-200">SIMULASI</span>
-            {isOffline ? (
-              <div className="absolute inset-0 grid place-items-center bg-slate-950/30 p-6 text-center"><div className="border border-slate-400 bg-slate-950/90 px-5 py-4 text-slate-100"><p className="font-mono text-sm font-medium tracking-[0.14em]">CAMERA OFFLINE</p><p className="mt-2 text-sm text-slate-300">Latest update: {formatWib(selectedCamera.lastUpdatedAt)}</p></div></div>
-            ) : (
-              <>
-                {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" ? null : activeEpisode && episode ? <div aria-label={`Orang Terdeteksi · ${episode.label}`} className={`absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 ${episode.borderClass}`}><span className={`absolute -top-12 left-0 whitespace-nowrap px-2 py-1 text-xs font-medium ${episode.labelClass}`}>{episode.label} · {displayedSimulation.identityLabel} · {Math.round(displayedSimulation.confidence * 100)}%</span></div> : <div className="absolute left-[23%] top-[25%] h-[43%] w-[18%] border-2 border-emerald-400" aria-label="Orang Terdeteksi"><span className="absolute -top-7 left-0 whitespace-nowrap bg-emerald-500 px-2 py-1 text-xs font-medium text-slate-950">PPE Compliance · Orang Terdeteksi · 96%</span></div>}
-                <div className="absolute bottom-4 left-4 border border-slate-500 bg-slate-950/90 px-3 py-2 text-xs text-slate-100"><p>Latest update: {formatWib(selectedCamera.lastUpdatedAt)}</p></div>
-              </>
-            )}
-          </div>
-        </section>
-        <aside className="border border-slate-200 bg-white p-5">
-          <ConnectionStatus status={selectedCamera.status} />
-          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Location</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Active Hazardous Zones</dt><dd className="mt-2 flex flex-wrap gap-2">{activeZoneIds.length ? activeZoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>) : <span className="text-slate-600">No Active Hazardous Zones.</span>}</dd></div><div><dt className="text-slate-500">Area Supervisor scope</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
-          {isOffline && <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Detection overlays stop when the camera is offline so stale frames are not treated as current.</p>}
-          {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus !== "cleared" && episode && <section aria-label="Episode status" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">{episode.label}</p><p className="mt-1 text-sm text-slate-600">Identity: {displayedSimulation.identityLabel}</p>{displayedSimulation.episodeStatus === "candidate" && <p className="mt-1 text-sm text-slate-600">Confirmation countdown: {Math.max(0, settings.confirmThresholdSeconds - displayedSimulation.confirmationElapsedSeconds)} seconds</p>}{displayedSimulation.episodeStatus === "clearing" && <p className="mt-1 text-sm text-slate-600">Clearing countdown: {Math.max(0, settings.clearThresholdSeconds - displayedSimulation.clearingElapsedSeconds)} seconds</p>}{displayedSimulation.missingCanonicalPpeClasses.length > 0 && <p className="mt-2 text-sm text-slate-600">Missing PPE: {displayedSimulation.missingCanonicalPpeClasses.join(", ")}</p>}{displayedSimulation.confidence < settings.minimumConfidence && <p className="mt-2 text-sm text-slate-600">Frame di bawah confidence minimum tidak mengubah Episode status.</p>}{displayedSimulation.eventId && <p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Violation Event {displayedSimulation.eventId}</p>}{displayedSimulation.scoreChange && <><p className="mt-2 font-mono text-xs text-slate-700">Safety Score: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>{displayedSimulation.scoreChange.crossedEscalationThreshold && <p className="mt-2 border-l-2 border-red-500 pl-3 text-sm font-medium text-red-800">Escalation Threshold crossed: {settings.escalationThreshold}</p>}</>}</section>}
-          {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" && <section aria-label="Episode status" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">Cleared</p><p className="mt-1 text-sm text-slate-600">The active overlay has stopped; the Violation Event remains recorded for audit history.</p><p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Violation Event {displayedSimulation.eventId}</p>{displayedSimulation.scoreChange && <p className="mt-2 font-mono text-xs text-slate-700">Safety Score: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>}</section>}
-        </aside>
-      </div>
     </section>
   );
 }

@@ -3,16 +3,16 @@ import { createElement, type ReactNode } from "react";
 import {
   Cameras,
   CanonicalPpeClasses,
-  ComplianceReport,
   Employees,
   HazardousZoneEditor,
-  LiveMonitoring,
   NotificationConfiguration,
-  Overview,
   SafetyParameters,
   SafetyScoreReset,
   Violations,
 } from "./RoutedApplication";
+import { Overview } from "../features/overview/Overview";
+import { ComplianceReport } from "../features/compliance-report/ComplianceReport";
+import { LiveMonitoring } from "../features/live-monitoring/LiveMonitoring";
 import type { Persona, PersonaRole } from "./personas";
 import type { SawApplicationCapabilities } from "../services/saw-service";
 
