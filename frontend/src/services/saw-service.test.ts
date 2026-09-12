@@ -8,7 +8,7 @@ describe("MockSawService Reset Skor", () => {
 
     const result = await service.resetSafetyScore({
       employeeId: "EMP-01",
-      reason: "InvestigasiDitutup",
+      reason: "InvestigationClosed",
       actor: "Admin/Safety Officer",
     });
 
@@ -17,7 +17,7 @@ describe("MockSawService Reset Skor", () => {
     expect(result.ledgerEntry.scoreBefore).toBe(92);
     expect(result.ledgerEntry.scoreAfter).toBe(100);
     expect(result.resetLog.trigger).toBe("Manual");
-    expect(result.resetLog.reason).toBe("InvestigasiDitutup");
+    expect(result.resetLog.reason).toBe("InvestigationClosed");
 
     const reloadedService = createMockSawService({ storage: window.localStorage });
     const directory = await reloadedService.getEmployeeDirectory();

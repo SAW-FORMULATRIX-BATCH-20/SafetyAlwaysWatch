@@ -93,7 +93,7 @@ describe("SAW application", () => {
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
 
-  it("memungkinkan Admin/Safety Officer menyimpan penerima Supervisor Area dengan Chat ID yang dimasking", async () => {
+  it("memungkinkan Admin/Safety Officer menyimpan penerima Area Supervisor dengan Chat ID yang dimasking", async () => {
     const user = userEvent.setup();
 
     render(
@@ -107,7 +107,7 @@ describe("SAW application", () => {
     await user.click(await screen.findByRole("button", { name: "Add penerima" }));
     await user.type(screen.getByRole("textbox", { name: "Name penerima" }), "Supervisor Maintenance Shift B");
     await user.type(screen.getByRole("textbox", { name: "Chat ID Telegram" }), "1234567890");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Peran penerima" }), "Supervisor Area");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Peran penerima" }), "Area Supervisor");
     await user.selectOptions(screen.getByRole("combobox", { name: "Cakupan penerima" }), "department");
     await user.selectOptions(screen.getByRole("combobox", { name: "Target department" }), "Maintenance");
     await user.click(screen.getByRole("button", { name: "Save penerima" }));
@@ -149,11 +149,11 @@ describe("SAW application", () => {
       <App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={service} />,
     );
 
-    const recipient = await screen.findByRole("article", { name: "HRD Operasional" });
+    const recipient = await screen.findByRole("article", { name: "Operations Human Resources" });
     await user.click(within(recipient).getByRole("button", { name: "Uji berhasil" }));
-    expect(await screen.findByText(/Uji SIMULASI berhasil untuk HRD Operasional dicatat/)).toBeInTheDocument();
-    await user.click(within(await screen.findByRole("article", { name: "HRD Operasional" })).getByRole("button", { name: "Uji gagal" }));
-    expect(await screen.findByText(/Uji SIMULASI gagal untuk HRD Operasional dicatat/)).toBeInTheDocument();
+    expect(await screen.findByText(/Uji SIMULASI berhasil untuk Operations Human Resources dicatat/)).toBeInTheDocument();
+    await user.click(within(await screen.findByRole("article", { name: "Operations Human Resources" })).getByRole("button", { name: "Uji gagal" }));
+    expect(await screen.findByText(/Uji SIMULASI gagal untuk Operations Human Resources dicatat/)).toBeInTheDocument();
 
     firstRender.unmount();
     render(<App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
@@ -332,7 +332,7 @@ describe("SAW application", () => {
   });
 
   it.each([
-    ["Supervisor Area", "Live Monitoring"],
+    ["Area Supervisor", "Live Monitoring"],
     ["Human Resources", "Compliance Report"],
   ])("mengarahkan %s ke %s setelah login demo", async (persona, landingPage) => {
     const user = userEvent.setup();
@@ -581,7 +581,7 @@ describe("SAW application", () => {
     expect(screen.queryByText(/token|password|rtsp/i)).not.toBeInTheDocument();
   });
 
-  it("membatasi Camera Source Supervisor Area dan menolak akses HRD", async () => {
+  it("membatasi Camera Source Area Supervisor dan menolak akses HRD", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/kamera"]}
@@ -718,15 +718,15 @@ describe("SAW application", () => {
     expect(screen.getByRole("heading", { name: "Employees" })).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Employee Maintenance 01" })).toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Employee Warehouse 01" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: "Ikon status skor Safe" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("img", { name: "Ikon status skor Warning" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "Score status icon Safe" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "Score status icon Warning" }).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Page berikutnya" }));
     expect(screen.getByText("Menampilkan 6–10 dari 12 Employee")).toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Employee Maintenance 01" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Page berikutnya" }));
     expect(screen.getByText("Menampilkan 11–12 dari 12 Employee")).toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: "Ikon status skor Critical" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "Score status icon Critical" }).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Page sebelumnya" }));
     await user.click(screen.getByRole("button", { name: "Page sebelumnya" }));
@@ -759,20 +759,20 @@ describe("SAW application", () => {
     await user.type(screen.getByRole("textbox", { name: "Search Employee" }), "Production 01");
     await user.click(screen.getByRole("button", { name: "View details Employee Production 01" }));
 
-    const detail = screen.getByRole("region", { name: "Details Employee" });
-    expect(within(detail).getByRole("heading", { name: "Details Employee" })).toBeInTheDocument();
+    const detail = screen.getByRole("region", { name: "Employee Details" });
+    expect(within(detail).getByRole("heading", { name: "Employee Details" })).toBeInTheDocument();
     expect(within(detail).getByText("Department")).toBeInTheDocument();
-    expect(within(detail).getByText("Supervisor Area")).toBeInTheDocument();
+    expect(within(detail).getByText("Area Supervisor")).toBeInTheDocument();
     expect(within(detail).getByText("Safety Score")).toBeInTheDocument();
     expect(within(detail).getByText("Escalation Threshold")).toBeInTheDocument();
-    expect(within(detail).getByText("Terdaftar")).toBeInTheDocument();
-    expect(within(detail).getByText("Ringkasan audit")).toBeInTheDocument();
-    expect(within(detail).getByRole("button", { name: "Mulai enrollment Employee Production 01" })).toBeInTheDocument();
-    expect(within(detail).getByText(/memerlukan integrasi backend/i)).toBeInTheDocument();
+    expect(within(detail).getByText("Enrolled")).toBeInTheDocument();
+    expect(within(detail).getByText("Audit summary")).toBeInTheDocument();
+    expect(within(detail).getByRole("button", { name: "Start Face Enrollment Employee Production 01" })).toBeInTheDocument();
+    expect(within(detail).getByText(/requires backend integration/i)).toBeInTheDocument();
     expect(within(detail).queryByText(/webcam|capture|berhasil terdaftar/i)).not.toBeInTheDocument();
   });
 
-  it("membatasi direktori Supervisor Area dan memberi HRD akses baca tanpa Live Monitoring", async () => {
+  it("membatasi direktori Area Supervisor dan memberi HRD akses baca tanpa Live Monitoring", async () => {
     render(
       <App
         initialEntries={["/karyawan"]}
@@ -800,9 +800,9 @@ describe("SAW application", () => {
     expect(screen.getByRole("article", { name: "Employee Maintenance 01" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Live Monitoring" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "View details Employee Maintenance 01" }));
-    const detail = screen.getByRole("region", { name: "Details Employee" });
+    const detail = screen.getByRole("region", { name: "Employee Details" });
     expect(within(detail).getByText("Safety Score")).toBeInTheDocument();
-    expect(within(detail).getByText("Ringkasan audit")).toBeInTheDocument();
+    expect(within(detail).getByText("Audit summary")).toBeInTheDocument();
   });
 
   it("menyediakan empty state dan no-result state yang dapat dibersihkan", async () => {
@@ -1070,7 +1070,7 @@ describe("SAW application", () => {
 
     expect(await screen.findByRole("heading", { name: "Score Reset" })).toBeInTheDocument();
     await user.selectOptions(screen.getByRole("combobox", { name: "Employee yang direset" }), "EMP-01");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Lainnya");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Other");
     await user.type(screen.getByRole("textbox", { name: "Note reason" }), "Koreksi setelah investigasi selesai.");
     await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
 
@@ -1106,15 +1106,15 @@ describe("SAW application", () => {
 
     await screen.findByRole("heading", { name: "Score Reset" });
     await user.selectOptions(screen.getByRole("combobox", { name: "Employee yang direset" }), "EMP-01");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Lainnya");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Other");
     await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Note wajib diisi untuk reason Lainnya.");
+    expect(screen.getByRole("alert")).toHaveTextContent("A note is required for the Other reason.");
 
     await user.type(screen.getByRole("textbox", { name: "Note reason" }), "Koreksi setelah pemeriksaan dokumen.");
     await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
     await user.click(screen.getByRole("button", { name: "Back" }));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "InvestigasiDitutup");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "InvestigationClosed");
     await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
     await user.click(screen.getByRole("button", { name: "Lanjut ke konfirmasi" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -1247,7 +1247,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("checkbox", { name: "Warehouse" })).toBeChecked();
   });
 
-  it("memvalidasi name, PPE, dan penugasan Supervisor Area untuk Hazardous Zone", async () => {
+  it("memvalidasi name, PPE, dan penugasan Area Supervisor untuk Hazardous Zone", async () => {
     const user = userEvent.setup();
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
 
@@ -1264,7 +1264,7 @@ describe("SAW application", () => {
     await user.click(screen.getByRole("checkbox", { name: "Safety Helmet" }));
     await user.click(screen.getByRole("checkbox", { name: "Production" }));
     await user.click(screen.getByRole("button", { name: "Save Hazardous Zone" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Select at least one Supervisor Area.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Select at least one Area Supervisor.");
   });
 
   it("mengonfirmasi lifecycle Hazardous Zone, mempertahankan audit, dan memfilter zona nonaktif", async () => {

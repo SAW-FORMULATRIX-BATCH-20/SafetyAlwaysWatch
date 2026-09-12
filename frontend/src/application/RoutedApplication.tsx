@@ -103,7 +103,7 @@ const personas: Persona[] = [
   },
   {
     role: "supervisor",
-    name: "Supervisor Area",
+    name: "Area Supervisor",
     description: "Monitor the Hazardous Zones assigned to you.",
     landingPath: "/monitoring/live",
     assignedArea: "Production",
@@ -683,7 +683,7 @@ function CameraDetails({
       )}
       <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2">
         <div><dt className="text-slate-500">ID sumber</dt><dd className="mt-1 font-mono text-slate-950">{camera.id}</dd></div>
-        <div><dt className="text-slate-500">Supervisor Area scope</dt><dd className="mt-1 text-slate-950">{camera.supervisorArea}</dd></div>
+        <div><dt className="text-slate-500">Area Supervisor scope</dt><dd className="mt-1 text-slate-950">{camera.supervisorArea}</dd></div>
         <div><dt className="text-slate-500">Related Hazardous Zones</dt><dd className="mt-1 text-slate-950">{camera.zoneIds.join(", ")}</dd></div>
         <div><dt className="text-slate-500">Latest update</dt><dd className="mt-1 font-mono text-slate-950">{formatWib(camera.lastUpdatedAt)}</dd></div>
       </dl>
@@ -899,7 +899,7 @@ function LiveMonitoring({ persona, service }: { persona: Persona; service: Camer
         </section>
         <aside className="border border-slate-200 bg-white p-5">
           <ConnectionStatus status={selectedCamera.status} />
-          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Location</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Active Hazardous Zones</dt><dd className="mt-2 flex flex-wrap gap-2">{activeZoneIds.length ? activeZoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>) : <span className="text-slate-600">No Active Hazardous Zones.</span>}</dd></div><div><dt className="text-slate-500">Supervisor Area scope</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
+          <dl className="mt-5 space-y-4 text-sm"><div><dt className="text-slate-500">Location</dt><dd className="mt-1 font-medium text-slate-950">{selectedCamera.location}</dd></div><div><dt className="text-slate-500">Active Hazardous Zones</dt><dd className="mt-2 flex flex-wrap gap-2">{activeZoneIds.length ? activeZoneIds.map((zoneId) => <span className="border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-800" key={zoneId}>{zoneId}</span>) : <span className="text-slate-600">No Active Hazardous Zones.</span>}</dd></div><div><dt className="text-slate-500">Area Supervisor scope</dt><dd className="mt-1 text-slate-950">{selectedCamera.supervisorArea}</dd></div></dl>
           {isOffline && <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Detection overlays stop when the camera is offline so stale frames are not treated as current.</p>}
           {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus !== "cleared" && episode && <section aria-label="Episode status" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">{episode.label}</p><p className="mt-1 text-sm text-slate-600">Identity: {displayedSimulation.identityLabel}</p>{displayedSimulation.episodeStatus === "candidate" && <p className="mt-1 text-sm text-slate-600">Confirmation countdown: {Math.max(0, settings.confirmThresholdSeconds - displayedSimulation.confirmationElapsedSeconds)} seconds</p>}{displayedSimulation.episodeStatus === "clearing" && <p className="mt-1 text-sm text-slate-600">Clearing countdown: {Math.max(0, settings.clearThresholdSeconds - displayedSimulation.clearingElapsedSeconds)} seconds</p>}{displayedSimulation.missingCanonicalPpeClasses.length > 0 && <p className="mt-2 text-sm text-slate-600">Missing PPE: {displayedSimulation.missingCanonicalPpeClasses.join(", ")}</p>}{displayedSimulation.confidence < settings.minimumConfidence && <p className="mt-2 text-sm text-slate-600">Frame di bawah confidence minimum tidak mengubah Episode status.</p>}{displayedSimulation.eventId && <p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Violation Event {displayedSimulation.eventId}</p>}{displayedSimulation.scoreChange && <><p className="mt-2 font-mono text-xs text-slate-700">Safety Score: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>{displayedSimulation.scoreChange.crossedEscalationThreshold && <p className="mt-2 border-l-2 border-red-500 pl-3 text-sm font-medium text-red-800">Escalation Threshold crossed: {settings.escalationThreshold}</p>}</>}</section>}
           {displayedSimulation?.state === "episode" && displayedSimulation.episodeStatus === "cleared" && <section aria-label="Episode status" className="mt-5 border-t border-slate-200 pt-5"><p className="text-sm font-medium text-slate-950">Cleared</p><p className="mt-1 text-sm text-slate-600">The active overlay has stopped; the Violation Event remains recorded for audit history.</p><p className="mt-3 border-l-2 border-red-500 pl-3 text-sm font-medium text-slate-900">Violation Event {displayedSimulation.eventId}</p>{displayedSimulation.scoreChange && <p className="mt-2 font-mono text-xs text-slate-700">Safety Score: {displayedSimulation.scoreChange.before} → {displayedSimulation.scoreChange.after}</p>}</section>}
@@ -950,7 +950,7 @@ function ViolationDetails({
         <div><dt className="text-slate-500">Detection Confidence</dt><dd className="mt-1 font-mono text-slate-950">{violation.confidence === undefined ? "Tidak tersedia" : `${Math.round(violation.confidence * 100)}%`}</dd></div>
         <div><dt className="text-slate-500">Perubahan Safety Score</dt><dd className="mt-1 font-mono text-slate-950">{violation.scoreChange ? `${violation.scoreChange.before} → ${violation.scoreChange.after}` : "Tidak diterapkan untuk Unknown"}</dd></div>
         <div><dt className="text-slate-500">Terdeteksi</dt><dd className="mt-1 font-mono text-slate-950">{violation.detectedAt ? `${formatWib(violation.detectedAt)} · ${formatRelativeWib(violation.detectedAt)}` : "Tidak tersedia"}</dd></div>
-        <div><dt className="text-slate-500">Audit latest</dt><dd className="mt-1 font-mono text-slate-950">{violation.updatedAt ? `${formatWib(violation.updatedAt)} · ${formatRelativeWib(violation.updatedAt)}` : "Tidak tersedia"}</dd></div>
+        <div><dt className="text-slate-500">Latest audit</dt><dd className="mt-1 font-mono text-slate-950">{violation.updatedAt ? `${formatWib(violation.updatedAt)} · ${formatRelativeWib(violation.updatedAt)}` : "Tidak tersedia"}</dd></div>
       </dl>
       <div className="mt-7 grid gap-6 lg:grid-cols-2">
         <section><h3 className="font-semibold text-slate-950">Timeline Violation Episode</h3>{violation.timeline?.length ? <ol className="mt-4 space-y-4 border-l border-slate-200 pl-4">{violation.timeline.map((entry, index) => <li key={`${entry.occurredAt}-${index}`}><p className="text-sm font-medium text-slate-950">{episodePresentation(entry.status).label}</p><p className="mt-1 text-sm text-slate-600">{entry.description}</p><p className="mt-1 font-mono text-xs text-slate-500">{formatWib(entry.occurredAt)}</p></li>)}</ol> : <p className="mt-4 text-sm text-slate-600">Timeline Violation Episode belum tersedia.</p>}</section>
@@ -1086,15 +1086,15 @@ function EmployeeScoreStatus({ score, escalationThreshold }: { score: number; es
   const { Icon, label, className } = scoreStatusDetailss[status];
 
   return (
-    <span aria-label={`Status skor: ${label}`} className={`inline-flex items-center gap-1.5 text-sm font-medium ${className}`}>
-      <Icon aria-label={`Ikon status skor ${label}`} className="size-4" role="img" />
+    <span aria-label={`Score status: ${label}`} className={`inline-flex items-center gap-1.5 text-sm font-medium ${className}`}>
+      <Icon aria-label={`Score status icon ${label}`} className="size-4" role="img" />
       {label}
     </span>
   );
 }
 
 const enrollmentLabels: Record<NonNullable<Employee["enrollmentStatus"]>, string> = {
-  enrolled: "Terdaftar",
+  enrolled: "Enrolled",
   pending: "Menunggu integrasi",
   "not-enrolled": "Belum terdaftar",
 };
@@ -1114,31 +1114,31 @@ function EmployeeDetails({
     <section aria-labelledby="employee-detail-title" className="border border-slate-200 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Profil operasional</p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-950" id="employee-detail-title">Details Employee</h2>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Operational profile</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950" id="employee-detail-title">Employee Details</h2>
           <p className="mt-1 text-sm text-slate-600">{employeeName(employee)} · {employee.id}</p>
         </div>
         <EmployeeScoreStatus score={employee.safetyScore} escalationThreshold={escalationThreshold} />
       </div>
       <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <div><dt className="text-slate-500">Department</dt><dd className="mt-1 font-medium text-slate-950">{employee.departmentId}</dd></div>
-        <div><dt className="text-slate-500">Supervisor Area</dt><dd className="mt-1 font-medium text-slate-950">{employee.supervisorArea ?? employee.departmentId}</dd></div>
+        <div><dt className="text-slate-500">Area Supervisor</dt><dd className="mt-1 font-medium text-slate-950">{employee.supervisorArea ?? employee.departmentId}</dd></div>
         <div><dt className="text-slate-500">Safety Score</dt><dd className="mt-1 font-mono font-medium text-slate-950">{employee.safetyScore}</dd></div>
         <div><dt className="text-slate-500">Escalation Threshold</dt><dd className="mt-1 font-mono font-medium text-slate-950">{escalationThreshold}</dd></div>
-        <div><dt className="text-slate-500">Status enrollment</dt><dd className="mt-1 font-medium text-slate-950">{enrollmentLabels[enrollmentStatus]}</dd></div>
-        <div><dt className="text-slate-500">Audit latest</dt><dd className="mt-1 font-mono text-slate-950">{employee.lastAuditAt ? formatWib(employee.lastAuditAt) : "No audit"}</dd></div>
+        <div><dt className="text-slate-500">Enrollment status</dt><dd className="mt-1 font-medium text-slate-950">{enrollmentLabels[enrollmentStatus]}</dd></div>
+        <div><dt className="text-slate-500">Latest audit</dt><dd className="mt-1 font-mono text-slate-950">{employee.lastAuditAt ? formatWib(employee.lastAuditAt) : "No audit"}</dd></div>
       </dl>
       <div className="mt-6 border-t border-slate-100 pt-5">
-        <h3 className="font-medium text-slate-950">Ringkasan audit</h3>
+        <h3 className="font-medium text-slate-950">Audit summary</h3>
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-slate-500">Violation Episode</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.violationCount}</dd></div>
           <div><dt className="text-slate-500">Score Reset</dt><dd className="mt-1 font-mono text-slate-950">{auditSummary.resetCount}</dd></div>
         </dl>
       </div>
       <div className="mt-6 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">
-        <p>Enrollment memerlukan integrasi backend dan tidak dilakukan di browser demo.</p>
+        <p>Face Enrollment requires backend integration and is not performed in the browser demo.</p>
         <Button className="mt-3" onClick={() => setNotice("Integrasi enrollment backend diperlukan untuk melanjutkan.")} variant="outline">
-          Mulai enrollment {employeeName(employee)}
+          Start Face Enrollment {employeeName(employee)}
         </Button>
         {notice && <p aria-live="polite" className="mt-3 text-amber-800">{notice}</p>}
       </div>
@@ -1291,7 +1291,7 @@ function SafetyScoreReset({ service }: { service: EmployeeDirectoryCapability & 
     setError(undefined);
     if (!employee) return setError("Select Employee yang akan direset.");
     if (!reason) return setError("Select reason Score Reset.");
-    if (reason === "Lainnya" && !note.trim()) return setError("Note wajib diisi untuk reason Lainnya.");
+    if (reason === "Other" && !note.trim()) return setError("A note is required for the Other reason.");
     setStep("review");
   };
 
@@ -1350,7 +1350,7 @@ function SafetyScoreReset({ service }: { service: EmployeeDirectoryCapability & 
             {safetyScoreResetReasons.map((item) => <option key={item} value={item}>{safetyScoreResetReasonLabels[item]}</option>)}
           </select>
         </label>
-        {reason === "Lainnya" && <label className="mt-5 block text-sm font-medium text-slate-800">Note reason<input aria-label="Note reason" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setNote(event.target.value)} value={note} /></label>}
+        {reason === "Other" && <label className="mt-5 block text-sm font-medium text-slate-800">Note reason<input aria-label="Note reason" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => setNote(event.target.value)} value={note} /></label>}
         <p className="mt-5 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-600">Skor setelah Score Reset akan mengikuti nilai awal saat ini: <strong>{settings.initialScore}</strong>.</p>
         {error && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</p>}
         {result && <p aria-live="polite" className="mt-5 border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">Score Reset berhasil disimpan.</p>}
@@ -1945,10 +1945,10 @@ function HazardousZoneEditor({ service }: { service: CameraSourceCapability & Ha
       </div>
 
       {draft && <form className="mt-6 border border-slate-200 bg-white p-5 sm:p-6" noValidate onSubmit={(event) => void save(event)}>
-        <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{draft.id ? "Edit Hazardous Zone" : "Add Hazardous Zone"}</h2><p className="mt-1 text-sm text-slate-600">Assign PPE and a Supervisor Area before saving the zone.</p></div><Button onClick={() => setDraft(undefined)} type="button" variant="outline">Cancel</Button></div>
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{draft.id ? "Edit Hazardous Zone" : "Add Hazardous Zone"}</h2><p className="mt-1 text-sm text-slate-600">Assign PPE and a Area Supervisor before saving the zone.</p></div><Button onClick={() => setDraft(undefined)} type="button" variant="outline">Cancel</Button></div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium text-slate-800">Hazardous Zone name<input aria-label="Hazardous Zone name" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("name", event.target.value)} value={draft.name} /></label><label className="block text-sm font-medium text-slate-800">Camera Source<select aria-label="Hazardous Zone Camera Source" className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" onChange={(event) => updateDraft("cameraId", event.target.value)} value={draft.cameraId}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.name}</option>)}</select></label></div>
         <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Required PPE</legend><div className="mt-2 flex flex-wrap gap-3">{canonicalClasses.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.requiredCanonicalPpeClasses.includes(item)} onChange={() => toggleSelection("requiredCanonicalPpeClasses", item)} type="checkbox" />{item}</label>)}</div></fieldset>
-        <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Supervisor Area</legend><div className="mt-2 flex flex-wrap gap-3">{supervisorAreas.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.supervisorAreas.includes(item)} onChange={() => toggleSelection("supervisorAreas", item)} type="checkbox" />{item}</label>)}</div></fieldset>
+        <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Area Supervisor</legend><div className="mt-2 flex flex-wrap gap-3">{supervisorAreas.map((item) => <label className="inline-flex items-center gap-2 text-sm text-slate-800" key={item}><input checked={draft.supervisorAreas.includes(item)} onChange={() => toggleSelection("supervisorAreas", item)} type="checkbox" />{item}</label>)}</div></fieldset>
         {draft.id ? <p className="mt-5 text-sm text-slate-700">Current status: <span className="font-medium">{draftZone?.active ? "Active" : "Inactive"}</span>. Use the lifecycle action below to deactivate this Hazardous Zone.</p> : <label className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-slate-800"><input checked={draft.active} onChange={(event) => updateDraft("active", event.target.checked)} type="checkbox" />Active Hazardous Zone</label>}
         <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-800">Normalized coordinates <span className="font-normal text-slate-500">(0–1)</span></legend><div className="mt-2 grid gap-3 grid-cols-2 sm:grid-cols-4">{(["x", "y", "width", "height"] as const).map((field) => <label className="text-xs font-medium text-slate-600" key={field}>{field === "x" ? "X" : field === "y" ? "Y" : field === "width" ? "Width" : "Height"}<input aria-label={`Coordinate ${field}`} className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" max="1" min="0" onChange={(event) => setBounds({ ...draft.bounds, [field]: Number(event.target.value) })} step="0.01" type="number" value={draft.bounds[field]} /></label>)}</div></fieldset>
         {draftZone && <section aria-label="Hazardous Zone lifecycle" className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-medium text-slate-950">Hazardous Zone lifecycle</h3><p className="mt-1 text-sm leading-6 text-slate-600">Deactivation is the primary action: the Hazardous Zone remains stored so its audit and configuration context can be traced.</p>{draftZone.active ? <Button className="mt-4" onClick={() => setLifecycleAction({ kind: "deactivate", zone: draftZone })} type="button" variant="outline">Deactivate Hazardous Zone</Button> : <p className="mt-4 text-sm font-medium text-slate-700">This Hazardous Zone is already inactive.</p>}{draftZone.hasViolationHistory ? <p className="mt-4 border-l-2 border-amber-400 pl-3 text-sm leading-6 text-slate-700">This Hazardous Zone has Violation History and cannot be permanently deleted, in accordance with ADR-0002.</p> : <div className="mt-4"><p className="text-sm leading-6 text-slate-600">This zone has no Violation History and can be permanently deleted.</p><Button className="mt-3" onClick={() => setLifecycleAction({ kind: "delete", zone: draftZone })} type="button" variant="outline">Permanently delete Hazardous Zone</Button></div>}</section>}
@@ -1978,7 +1978,7 @@ function NotificationConfiguration({ persona, service }: { persona: Persona; ser
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [chatId, setChatId] = useState("");
-  const [role, setRole] = useState<NotificationRecipientRole>("HRD");
+  const [role, setRole] = useState<NotificationRecipientRole>("Human Resources (HR)");
   const [scopeType, setScopeType] = useState<NotificationScopeType>("global");
   const [scopeTarget, setScopeTarget] = useState("");
   const [selectedRecipient, setSelectedRecipient] = useState<NotificationRecipient>();
@@ -2006,7 +2006,7 @@ function NotificationConfiguration({ persona, service }: { persona: Persona; ser
     setAdding(false);
     setName("");
     setChatId("");
-    setRole("HRD");
+    setRole("Human Resources (HR)");
     setScopeType("global");
     setScopeTarget("");
   };
@@ -2051,8 +2051,8 @@ function NotificationConfiguration({ persona, service }: { persona: Persona; ser
       {notice && <p aria-live="polite" className="mt-5 border-l-2 border-emerald-500 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
       {error && <p aria-live="polite" className="mt-5 border-l-2 border-red-500 bg-red-50 p-3 text-sm text-red-900">{error}</p>}
 
-      {isAdmin && <section className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-slate-950">Penerima simulasi</h2><p className="mt-1 text-sm text-slate-600">HRD memakai cakupan global; Supervisor Area harus terkait Hazardous Zone atau department.</p></div><Button onClick={() => setAdding(true)} type="button">Add penerima</Button></div>
-        {adding && <section className="mt-5 border border-amber-200 bg-amber-50 p-5"><h3 className="font-semibold text-slate-950">Add penerima simulasi</h3><div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-sm font-medium text-slate-800">Name penerima<input aria-label="Name penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setName(event.target.value)} value={name} /></label><label className="text-sm font-medium text-slate-800">Chat ID Telegram<input aria-label="Chat ID Telegram" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm" inputMode="numeric" onChange={(event) => setChatId(event.target.value)} value={chatId} /></label><label className="text-sm font-medium text-slate-800">Peran penerima<select aria-label="Peran penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => { const nextRole = event.target.value as NotificationRecipientRole; setRole(nextRole); setScopeType(nextRole === "HRD" ? "global" : "zone"); setScopeTarget(""); }} value={role}><option value="HRD">HRD</option><option value="Supervisor Area">Supervisor Area</option></select></label><label className="text-sm font-medium text-slate-800">Cakupan penerima<select aria-label="Cakupan penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" disabled={role === "HRD"} onChange={(event) => { setScopeType(event.target.value as NotificationScopeType); setScopeTarget(""); }} value={scopeType}><option value="global">Global</option><option value="zone">Hazardous Zones</option><option value="department">Department</option></select></label>{scopeType === "zone" && <label className="text-sm font-medium text-slate-800">Target Hazardous Zones<select aria-label="Target Hazardous Zone" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Select Hazardous Zones</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>}{scopeType === "department" && <label className="text-sm font-medium text-slate-800">Target department<select aria-label="Target department" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>}</div><div className="mt-5 flex justify-end gap-3"><Button onClick={resetForm} type="button" variant="outline">Cancel</Button><Button disabled={!name.trim() || !chatId.trim() || (scopeType !== "global" && !scopeTarget)} onClick={() => void saveRecipient()} type="button">Save penerima</Button></div></section>}
+      {isAdmin && <section className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-slate-950">Penerima simulasi</h2><p className="mt-1 text-sm text-slate-600">HRD memakai cakupan global; Area Supervisor harus terkait Hazardous Zone atau department.</p></div><Button onClick={() => setAdding(true)} type="button">Add penerima</Button></div>
+        {adding && <section className="mt-5 border border-amber-200 bg-amber-50 p-5"><h3 className="font-semibold text-slate-950">Add penerima simulasi</h3><div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-sm font-medium text-slate-800">Name penerima<input aria-label="Name penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setName(event.target.value)} value={name} /></label><label className="text-sm font-medium text-slate-800">Chat ID Telegram<input aria-label="Chat ID Telegram" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm" inputMode="numeric" onChange={(event) => setChatId(event.target.value)} value={chatId} /></label><label className="text-sm font-medium text-slate-800">Peran penerima<select aria-label="Peran penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => { const nextRole = event.target.value as NotificationRecipientRole; setRole(nextRole); setScopeType(nextRole === "Human Resources (HR)" ? "global" : "zone"); setScopeTarget(""); }} value={role}><option value="Human Resources (HR)">HRD</option><option value="Area Supervisor">Area Supervisor</option></select></label><label className="text-sm font-medium text-slate-800">Cakupan penerima<select aria-label="Cakupan penerima" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" disabled={role === "Human Resources (HR)"} onChange={(event) => { setScopeType(event.target.value as NotificationScopeType); setScopeTarget(""); }} value={scopeType}><option value="global">Global</option><option value="zone">Hazardous Zones</option><option value="department">Department</option></select></label>{scopeType === "zone" && <label className="text-sm font-medium text-slate-800">Target Hazardous Zones<select aria-label="Target Hazardous Zone" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Select Hazardous Zones</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>}{scopeType === "department" && <label className="text-sm font-medium text-slate-800">Target department<select aria-label="Target department" className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" onChange={(event) => setScopeTarget(event.target.value)} value={scopeTarget}><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>}</div><div className="mt-5 flex justify-end gap-3"><Button onClick={resetForm} type="button" variant="outline">Cancel</Button><Button disabled={!name.trim() || !chatId.trim() || (scopeType !== "global" && !scopeTarget)} onClick={() => void saveRecipient()} type="button">Save penerima</Button></div></section>}
         <div className="mt-5 grid gap-4 lg:grid-cols-2">{recipients.map((recipient) => <article aria-label={recipient.name} className="border border-slate-200 bg-white p-5" key={recipient.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-950">{recipient.name}</h3><p className="mt-1 text-sm text-slate-600">{recipient.role} · {notificationScopeLabel(recipient, zones)}</p><p className="mt-2 font-mono text-sm text-slate-700">Chat ID: {recipient.maskedChatId}</p></div><span className="border border-amber-300 bg-amber-50 px-2 py-1 font-mono text-[10px] font-medium text-amber-950">SIMULASI</span></div><div className="mt-5 flex flex-wrap gap-2"><Button aria-label={`View details ${recipient.name}`} onClick={() => setSelectedRecipient(recipient)} size="sm" type="button" variant="outline">View details</Button><Button onClick={() => void simulate(recipient, "sent")} size="sm" type="button" variant="outline">Uji berhasil</Button><Button onClick={() => void simulate(recipient, "failed")} size="sm" type="button" variant="outline">Uji gagal</Button><Button onClick={() => void removeRecipient(recipient)} size="sm" type="button" variant="outline">Delete penerima</Button></div></article>)}</div>
       </section>}
 

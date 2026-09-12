@@ -100,11 +100,11 @@ export type ViolationTimelineEntry = {
 
 export type ViolationNotificationRecipient = {
   name: string;
-  role: "HRD" | "Supervisor Area";
+  role: "Human Resources (HR)" | "Area Supervisor";
   deliveryStatus: "sent" | "failed" | "pending";
 };
 
-export type NotificationRecipientRole = "HRD" | "Supervisor Area";
+export type NotificationRecipientRole = "Human Resources (HR)" | "Area Supervisor";
 
 export type NotificationRecipientScope =
   | { type: "global" }
@@ -201,21 +201,21 @@ export type EmployeeDirectoryData = {
 };
 
 export const safetyScoreResetReasons = [
-  "TeguranBriefingDiberikan",
-  "TrainingCleared",
-  "InvestigasiDitutup",
-  "PerbaikanFisikZona",
-  "Lainnya",
+  "BriefingCompleted",
+  "TrainingCompleted",
+  "InvestigationClosed",
+  "HazardousZoneRemediated",
+  "Other",
 ] as const;
 
 export type SafetyScoreResetReason = (typeof safetyScoreResetReasons)[number];
 
 export const safetyScoreResetReasonLabels: Record<SafetyScoreResetReason, string> = {
-  TeguranBriefingDiberikan: "Teguran dan briefing telah diberikan",
-  TrainingCleared: "Pelatihan telah selesai",
-  InvestigasiDitutup: "Investigasi telah ditutup",
-  PerbaikanFisikZona: "Perbaikan fisik Hazardous Zone telah selesai",
-  Lainnya: "Lainnya",
+  BriefingCompleted: "Briefing completed",
+  TrainingCompleted: "Training completed",
+  InvestigationClosed: "Investigation closed",
+  HazardousZoneRemediated: "Hazardous Zone remediation completed",
+  Other: "Other",
 };
 
 export type SafetyScorePeriod = {
@@ -423,9 +423,9 @@ const defaultHazardousZone: HazardousZone[] = [
 ];
 
 const defaultNotificationRecipients: NotificationRecipient[] = [
-  { id: "REC-01", name: "HRD Operasional", role: "HRD", maskedChatId: "•••• 4821", scope: { type: "global" } },
-  { id: "REC-02", name: "Supervisor Production", role: "Supervisor Area", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
-  { id: "REC-03", name: "Supervisor Maintenance", role: "Supervisor Area", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Maintenance" } },
+  { id: "REC-01", name: "Operations Human Resources", role: "Human Resources (HR)", maskedChatId: "•••• 4821", scope: { type: "global" } },
+  { id: "REC-02", name: "Supervisor Production", role: "Area Supervisor", maskedChatId: "•••• 7310", scope: { type: "zone", zoneId: "ZON-01" } },
+  { id: "REC-03", name: "Supervisor Maintenance", role: "Area Supervisor", maskedChatId: "•••• 9452", scope: { type: "department", departmentId: "Maintenance" } },
 ];
 
 const defaultComplianceReportObservations: ComplianceReportObservation[] = [
@@ -479,26 +479,26 @@ const seedData: DemoData = {
   escalationThreshold: 60,
   violations: [
     {
-      id: "VIO-01", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-001", employeeId: "EMP-02", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.96, detectedAt: "2026-09-01T08:10:00+07:00", updatedAt: "2026-09-01T08:20:00+07:00", scoreChange: { before: 92, after: 84 }, notificationRecipients: [{ name: "Supervisor Production", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "candidate", occurredAt: "2026-09-01T08:10:00+07:00", description: "Sinyal PPE hilang memasuki verifikasi." }, { status: "confirmed", occurredAt: "2026-09-01T08:10:05+07:00", description: "Violation Event dicatat dan Safety Score dikurangi." }, { status: "clearing", occurredAt: "2026-09-01T08:19:00+07:00", description: "Violation Episode memasuki Clearing." }, { status: "cleared", occurredAt: "2026-09-01T08:20:00+07:00", description: "Violation Episode Cleared dan tetap tersedia dalam riwayat." }],
+      id: "VIO-01", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-001", employeeId: "EMP-02", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.96, detectedAt: "2026-09-01T08:10:00+07:00", updatedAt: "2026-09-01T08:20:00+07:00", scoreChange: { before: 92, after: 84 }, notificationRecipients: [{ name: "Production Supervisor", role: "Area Supervisor", deliveryStatus: "sent" }], timeline: [{ status: "candidate", occurredAt: "2026-09-01T08:10:00+07:00", description: "Missing PPE signal entered verification." }, { status: "confirmed", occurredAt: "2026-09-01T08:10:05+07:00", description: "Violation Event recorded and Safety Score reduced." }, { status: "clearing", occurredAt: "2026-09-01T08:19:00+07:00", description: "Violation Episode entered Clearing." }, { status: "cleared", occurredAt: "2026-09-01T08:20:00+07:00", description: "Violation Episode Cleared and retained in history." }],
     },
     {
-      id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalPpeClasses: ["Face Mask"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Orang Terdeteksi tidak dapat dicocokkan dengan Employee." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Violation Event untuk Unknown dicatat." }],
+      id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalPpeClasses: ["Face Mask"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "Operations Human Resources", role: "Human Resources (HR)", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Detected Person could not be matched to an Employee." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Violation Event recorded for Unknown." }],
     },
     {
-      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalPpeClasses: ["Safety Helmet"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Supervisor Area", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalPpeClasses: ["Safety Helmet"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "HRD Operasional", role: "HRD", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "Operations Human Resources", role: "Human Resources (HR)", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Supervisor Area", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Violation Episode Cleared." }],
     },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
   notificationRecipients: defaultNotificationRecipients,
   notificationLogs: [
-    { id: "NTF-01", recipientId: "REC-02", recipientName: "Supervisor Production", recipientRole: "Supervisor Area", deliveryStatus: "sent", violationId: "VIO-01", occurredAt: "2026-09-01T08:10:05+07:00" },
-    { id: "NTF-02", recipientId: "REC-03", recipientName: "Supervisor Maintenance", recipientRole: "Supervisor Area", deliveryStatus: "failed", violationId: "VIO-05", occurredAt: "2026-09-05T13:45:05+07:00" },
+    { id: "NTF-01", recipientId: "REC-02", recipientName: "Supervisor Production", recipientRole: "Area Supervisor", deliveryStatus: "sent", violationId: "VIO-01", occurredAt: "2026-09-01T08:10:05+07:00" },
+    { id: "NTF-02", recipientId: "REC-03", recipientName: "Supervisor Maintenance", recipientRole: "Area Supervisor", deliveryStatus: "failed", violationId: "VIO-05", occurredAt: "2026-09-05T13:45:05+07:00" },
   ],
 };
 
@@ -650,7 +650,7 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
   violation.scoreChange = { before, after };
   if (simulation.scoreChange.crossedEscalationThreshold) {
     const recipients = data.notificationRecipients?.filter((recipient) => {
-      if (recipient.role === "HRD") return recipient.scope.type === "global";
+      if (recipient.role === "Human Resources (HR)") return recipient.scope.type === "global";
       return (recipient.scope.type === "zone" && recipient.scope.zoneId === violation.zoneId)
         || (recipient.scope.type === "department" && recipient.scope.departmentId === employee.departmentId);
     }) ?? [];
@@ -742,7 +742,7 @@ export function createMockSawService({
     async updateCameraMetadata(id, metadata) {
       const data = readData();
       const camera = data.cameras.find((item) => item.id === id);
-      if (!camera) throw new Error("Camera Source tidak ditemukan.");
+      if (!camera) throw new Error("Camera Source was not found.");
 
       camera.name = metadata.name.trim();
       camera.location = metadata.location.trim();
@@ -760,7 +760,7 @@ export function createMockSawService({
       if (scenario === "error") throw new Error("Hazardous Zone could not be saved.");
       if (!zone.name.trim()) throw new Error("Hazardous Zone name is required.");
       if (!zone.requiredCanonicalPpeClasses.length) throw new Error("Select at least one Canonical PPE Class.");
-      if (!zone.supervisorAreas.length) throw new Error("Select at least one Supervisor Area.");
+      if (!zone.supervisorAreas.length) throw new Error("Select at least one Area Supervisor.");
 
       const { x, y, width, height } = zone.bounds;
       if (![x, y, width, height].every((value) => Number.isFinite(value)) || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > 1 || y + height > 1) {
@@ -768,7 +768,7 @@ export function createMockSawService({
       }
 
       const data = readData();
-      if (!data.cameras.some((camera) => camera.id === zone.cameraId)) throw new Error("Camera Source tidak ditemukan.");
+      if (!data.cameras.some((camera) => camera.id === zone.cameraId)) throw new Error("Camera Source was not found.");
 
       const zones = data.hazardousZones ?? [];
       const id = zone.id ?? `ZON-${String(zones.length + 1).padStart(2, "0")}`;
@@ -792,7 +792,7 @@ export function createMockSawService({
       if (scenario === "error") throw new Error("Hazardous Zone tidak dapat diperbarui.");
       const data = readData();
       const zone = data.hazardousZones?.find((item) => item.id === id);
-      if (!zone) throw new Error("Hazardous Zone tidak ditemukan.");
+      if (!zone) throw new Error("Hazardous Zone was not found.");
 
       zone.active = false;
       persist(data);
@@ -802,7 +802,7 @@ export function createMockSawService({
       if (scenario === "error") throw new Error("Hazardous Zone tidak dapat dihapus.");
       const data = readData();
       const zones = data.hazardousZones ?? [];
-      if (!zones.some((zone) => zone.id === id)) throw new Error("Hazardous Zone tidak ditemukan.");
+      if (!zones.some((zone) => zone.id === id)) throw new Error("Hazardous Zone was not found.");
       if (data.violations.some((violation) => violation.zoneId === id)) {
         throw new Error("Hazardous Zone dengan riwayat Violation tidak dapat dihapus permanen.");
       }
@@ -841,12 +841,12 @@ export function createMockSawService({
     },
     async resetSafetyScore(request) {
       const note = request.note?.trim();
-      if (!safetyScoreResetReasons.includes(request.reason)) throw new Error("Reason Reset Skor tidak valid.");
-      if (request.reason === "Lainnya" && !note) throw new Error("Note wajib diisi untuk reason Lainnya.");
+      if (!safetyScoreResetReasons.includes(request.reason)) throw new Error("Invalid Score Reset reason.");
+      if (request.reason === "Other" && !note) throw new Error("A note is required for the Other reason.");
 
       const data = readData();
       const employee = data.employees.find((item) => item.id === request.employeeId);
-      if (!employee) throw new Error("Employee tidak ditemukan.");
+      if (!employee) throw new Error("Employee was not found.");
 
       const timestamp = new Date().toISOString();
       const scoreBefore = employee.safetyScore;
@@ -950,16 +950,16 @@ export function createMockSawService({
       if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat disimpan.");
       const name = input.name.trim();
       const scope = input.scope;
-      if (!name) throw new Error("Name penerima wajib diisi.");
-      if (input.role === "HRD" && scope.type !== "global") throw new Error("Penerima HRD harus memakai cakupan global.");
-      if (input.role === "Supervisor Area" && scope.type === "global") throw new Error("Supervisor Area harus dikaitkan dengan Hazardous Zone atau department.");
+      if (!name) throw new Error("Recipient name is required.");
+      if (input.role === "Human Resources (HR)" && scope.type !== "global") throw new Error("A Human Resources (HR) recipient must use global scope.");
+      if (input.role === "Area Supervisor" && scope.type === "global") throw new Error("An Area Supervisor must be assigned to a Hazardous Zone or department.");
 
       const data = readData();
       if (scope.type === "zone" && !data.hazardousZones?.some((zone) => zone.id === scope.zoneId)) {
-        throw new Error("Hazardous Zone tidak ditemukan.");
+        throw new Error("Hazardous Zone was not found.");
       }
       if (scope.type === "department" && !data.departments.includes(scope.departmentId)) {
-        throw new Error("Department tidak ditemukan.");
+        throw new Error("Department was not found.");
       }
       const recipient: NotificationRecipient = {
         id: nextNotificationRecipientId(data.notificationRecipients ?? []),
