@@ -6,6 +6,49 @@ import { App } from "../../App";
 import { createMockSawService } from "../../services/saw-service";
 
 describe("Employees", () => {
+  it("lets an Admin/Safety Officer register an Employee and view the dedicated detail route", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <App
+        initialEntries={["/employees"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: window.localStorage })}
+      />,
+    );
+
+    await user.click(await screen.findByRole("link", { name: "Add employee" }));
+    await user.type(screen.getByRole("textbox", { name: "Employee code" }), " emp-013 ");
+    await user.type(screen.getByRole("textbox", { name: "Full name" }), " Avery Tan ");
+    await user.type(screen.getByRole("combobox", { name: "Department" }), " Quality Assurance ");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Direct supervisor" }), "EMP-01");
+    await user.click(screen.getByRole("button", { name: "Create Employee" }));
+
+    const detail = await screen.findByRole("region", { name: "Employee details" });
+    expect(screen.getByRole("status")).toHaveTextContent("Employee EMP-013 was created");
+    expect(detail).toHaveTextContent("EMP-013");
+    expect(detail).toHaveTextContent("Avery Tan");
+    expect(detail).toHaveTextContent("Quality Assurance");
+    expect(detail).toHaveTextContent("Active");
+    expect(detail).toHaveTextContent("100");
+    expect(detail).toHaveTextContent("Not enrolled");
+    expect(detail).toHaveTextContent("0");
+    expect(screen.getByRole("link", { name: "Enroll face" })).toBeInTheDocument();
+  });
+
+  it("keeps correctable values and announces a case-insensitive Employee code conflict", async () => {
+    const user = userEvent.setup();
+    render(<App initialEntries={["/employees/new"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+
+    await user.type(await screen.findByRole("textbox", { name: "Employee code" }), "emp-01");
+    await user.type(screen.getByRole("textbox", { name: "Full name" }), "Avery Tan");
+    await user.type(screen.getByRole("combobox", { name: "Department" }), "Production");
+    await user.click(screen.getByRole("button", { name: "Create Employee" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("already exists");
+    expect(screen.getByRole("textbox", { name: "Full name" })).toHaveValue("Avery Tan");
+  });
+
   it("shows the Employee directory with search, filters, sorting, and pagination", async () => {
     const user = userEvent.setup();
 
@@ -91,7 +134,7 @@ describe("Employees", () => {
     ).toHaveTextContent("55");
   });
 
-  it("shows read-only Employee details and an honest Face Enrollment state", async () => {
+  it("shows an Employee detail route and the next Face Enrollment action for an Admin/Safety Officer", async () => {
     const user = userEvent.setup();
 
     render(
@@ -110,32 +153,18 @@ describe("Employees", () => {
       "Production 01",
     );
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("link", {
         name: "View details Employee Production 01",
       }),
     );
 
-    const detail = screen.getByRole("region", { name: "Employee details" });
-    expect(
-      within(detail).getByRole("heading", { name: "Employee details" }),
-    ).toBeInTheDocument();
+    const detail = await screen.findByRole("region", { name: "Employee details" });
     expect(within(detail).getByText("Department")).toBeInTheDocument();
-    expect(within(detail).getByText("Area Supervisor")).toBeInTheDocument();
+    expect(within(detail).getByText("Direct supervisor")).toBeInTheDocument();
     expect(within(detail).getByText("Safety Score")).toBeInTheDocument();
-    expect(
-      within(detail).getByText("Escalation Threshold"),
-    ).toBeInTheDocument();
+    expect(within(detail).getByText("Active Face Samples")).toBeInTheDocument();
     expect(within(detail).getByText("Enrolled")).toBeInTheDocument();
-    expect(within(detail).getByText("Audit summary")).toBeInTheDocument();
-    expect(
-      within(detail).getByText(/Face Enrollment is unavailable/i),
-    ).toBeInTheDocument();
-    expect(
-      within(detail).queryByText(/webcam|capture|enrollment complete/i),
-    ).not.toBeInTheDocument();
-    expect(
-      within(detail).queryByRole("button", { name: /enroll|add employee/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Enroll face" })).toBeInTheDocument();
   });
 
   it("limits an Area Supervisor to assigned Employees and keeps HR access read-only", async () => {
@@ -178,12 +207,26 @@ describe("Employees", () => {
       screen.queryByRole("link", { name: "Live Monitoring" }),
     ).not.toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("link", {
         name: "View details Employee Maintenance 01",
       }),
     );
-    const detail = screen.getByRole("region", { name: "Employee details" });
+    const detail = await screen.findByRole("region", { name: "Employee details" });
     expect(within(detail).getByText("Safety Score")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Add employee" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Enroll face" })).not.toBeInTheDocument();
+  });
+
+  it.each(["hrd", "supervisor"] as const)("restricts direct Employee registration for the %s persona", (persona) => {
+    render(<App initialEntries={["/employees/new"]} initialPersona={persona} service={createMockSawService({ storage: null })} />);
+
+    expect(screen.getByRole("heading", { name: "Restricted access" })).toBeInTheDocument();
+  });
+
+  it("does not expose an out-of-scope Employee through an Area Supervisor's direct URL", async () => {
+    render(<App initialEntries={["/employees/EMP-05"]} initialPersona="supervisor" service={createMockSawService({ storage: null })} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be found");
   });
 
   it("provides clearable empty and no-result states", async () => {

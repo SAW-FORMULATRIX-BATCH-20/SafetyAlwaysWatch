@@ -178,13 +178,18 @@ export type MonitoringSimulation = {
   scoreChange?: { before: number; after: number; crossedEscalationThreshold: boolean };
 };
 export type EmployeeEnrollmentStatus = "enrolled" | "pending" | "not-enrolled";
+export type EmployeeStatus = "active" | "inactive";
 
 export type Employee = {
   id: string;
+  employeeCode?: string;
   departmentId: string;
   safetyScore: number;
+  status?: EmployeeStatus;
+  faceSampleCount?: number;
   safetyScorePeriodStartedAt?: string;
   name?: string;
+  supervisorId?: string;
   supervisorArea?: string;
   enrollmentStatus?: EmployeeEnrollmentStatus;
   lastAuditAt?: string;
@@ -199,6 +204,25 @@ export type EmployeeDirectoryData = {
   employees: Employee[];
   escalationThreshold: number;
 };
+
+export type EmployeeRegistrationInput = {
+  employeeCode: string;
+  fullName: string;
+  department: string;
+  supervisorId?: string;
+};
+
+export type EmployeeCapabilityFailureCode =
+  | "employee_code_conflict"
+  | "employee_not_found"
+  | "employee_validation_failed";
+
+export class EmployeeCapabilityError extends Error {
+  constructor(public readonly code: EmployeeCapabilityFailureCode) {
+    super(code);
+    this.name = "EmployeeCapabilityError";
+  }
+}
 
 export const safetyScoreResetReasons = [
   "BriefingCompleted",
@@ -347,6 +371,8 @@ export interface ViolationHistoryCapability {
 
 export interface EmployeeDirectoryCapability {
   getEmployeeDirectory(scope?: EmployeeScope): Promise<EmployeeDirectoryData>;
+  getEmployee(employeeId: string, scope?: EmployeeScope): Promise<Employee>;
+  createEmployee(input: EmployeeRegistrationInput): Promise<Employee>;
 }
 
 export interface SafetyScoreCapability {
@@ -524,10 +550,7 @@ function normalizeCanonicalPpeClassConfiguration(
 
 function normalizeData(input: DemoData): DemoData {
   const data = clone(input);
-  data.employees = data.employees.map((employee) => ({
-    ...employee,
-    safetyScorePeriodStartedAt: employee.safetyScorePeriodStartedAt ?? "2026-09-01T00:00:00+07:00",
-  }));
+  data.employees = data.employees.map(normalizeEmployee);
   data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
     escalationThreshold: data.escalationThreshold,
   });
@@ -561,6 +584,34 @@ function normalizeData(input: DemoData): DemoData {
     : createMonitoringSimulation("normal");
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
+}
+
+function normalizeEmployee(employee: Employee): Employee {
+  const faceSampleCount = Math.max(
+    0,
+    employee.faceSampleCount ?? (employee.enrollmentStatus === "enrolled" ? 1 : 0),
+  );
+  return {
+    ...employee,
+    employeeCode: employee.employeeCode ?? employee.id,
+    status: employee.status ?? "active",
+    faceSampleCount,
+    enrollmentStatus: faceSampleCount > 0 ? "enrolled" : "not-enrolled",
+    safetyScorePeriodStartedAt: employee.safetyScorePeriodStartedAt ?? "2026-09-01T00:00:00+07:00",
+  };
+}
+
+function employeeMatchesScope(employee: Employee, scope: EmployeeScope) {
+  return typeof scope !== "object"
+    || (employee.supervisorArea ?? employee.departmentId) === scope.area;
+}
+
+function nextEmployeeId(employees: Employee[]) {
+  return `employee-${employees.length + 1}`;
+}
+
+function normalizedEmployeeCode(employeeCode: string) {
+  return employeeCode.trim().toUpperCase();
 }
 
 function createMonitoringSimulation(scenario: MonitoringScenario, episodeNumber = 1): MonitoringSimulation {
@@ -843,10 +894,54 @@ export function createMockSawService({
       if (scenario === "empty") return { employees: [], escalationThreshold: readData().escalationThreshold };
 
       const data = readData();
-      const employees = typeof scope === "object"
-        ? data.employees.filter((employee) => (employee.supervisorArea ?? employee.departmentId) === scope.area)
-        : data.employees;
+      const employees = data.employees.filter((employee) => employeeMatchesScope(employee, scope));
       return { employees: clone(employees), escalationThreshold: data.escalationThreshold };
+    },
+    async getEmployee(employeeId, scope = "all") {
+      const employee = readData().employees.find((item) => item.id === employeeId);
+      if (!employee || !employeeMatchesScope(employee, scope)) {
+        throw new EmployeeCapabilityError("employee_not_found");
+      }
+      return clone(employee);
+    },
+    async createEmployee(input) {
+      if (scenario === "error") throw new Error("Employee registration could not be completed.");
+
+      const employeeCode = normalizedEmployeeCode(input.employeeCode);
+      const name = input.fullName.trim();
+      const departmentId = input.department.trim();
+      if (!/^[A-Z0-9-]{1,50}$/.test(employeeCode) || !name || name.length > 200 || !departmentId || departmentId.length > 100) {
+        throw new EmployeeCapabilityError("employee_validation_failed");
+      }
+
+      const data = readData();
+      if (data.employees.some((employee) => normalizedEmployeeCode(employee.employeeCode ?? employee.id) === employeeCode)) {
+        throw new EmployeeCapabilityError("employee_code_conflict");
+      }
+      const supervisor = input.supervisorId
+        ? data.employees.find((employee) => employee.id === input.supervisorId)
+        : undefined;
+      if (input.supervisorId && (!supervisor || supervisor.status !== "active")) {
+        throw new EmployeeCapabilityError("employee_not_found");
+      }
+
+      const employee: Employee = {
+        id: nextEmployeeId(data.employees),
+        employeeCode,
+        name,
+        departmentId,
+        ...(input.supervisorId ? { supervisorId: input.supervisorId } : {}),
+        status: "active",
+        safetyScore: data.safetySettings?.initialScore ?? defaultSafetySettings.initialScore,
+        faceSampleCount: 0,
+        enrollmentStatus: "not-enrolled",
+        safetyScorePeriodStartedAt: new Date().toISOString(),
+        auditSummary: { violationCount: 0, resetCount: 0 },
+      };
+      data.employees.push(employee);
+      if (!data.departments.includes(departmentId)) data.departments.push(departmentId);
+      persist(data);
+      return clone(employee);
     },
     async getSafetyScoreAudit(employeeId) {
       const data = readData();

@@ -1,4 +1,4 @@
-import type { CameraScope } from "../services/saw-service";
+import type { CameraScope, EmployeeScope } from "../services/saw-service";
 
 export type PersonaRole = "admin" | "supervisor" | "hrd";
 
@@ -37,6 +37,12 @@ export function getPersona(role: PersonaRole): Persona {
 }
 
 export function cameraScopeFor(persona: Persona): CameraScope {
+  return persona.role === "supervisor"
+    ? { type: "supervisor-area", area: persona.assignedArea ?? "" }
+    : "all";
+}
+
+export function employeeScopeFor(persona: Persona): EmployeeScope {
   return persona.role === "supervisor"
     ? { type: "supervisor-area", area: persona.assignedArea ?? "" }
     : "all";

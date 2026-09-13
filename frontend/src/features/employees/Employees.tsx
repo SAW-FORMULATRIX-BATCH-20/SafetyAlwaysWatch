@@ -8,16 +8,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-import type { Persona } from "../../application/personas";
+import { employeeScopeFor, type Persona } from "../../application/personas";
 import { Button } from "../../components/ui/button";
-import type {
-  Employee,
-  EmployeeDirectoryCapability,
-  EmployeeDirectoryData,
-  EmployeeScope,
-} from "../../services/saw-service";
-import { formatWib } from "../../shared/formatters";
+import type { Employee, EmployeeDirectoryCapability, EmployeeDirectoryData } from "../../services/saw-service";
 
 type ScoreStatus = "safe" | "warning" | "critical";
 type EmployeeSort = "name-asc" | "name-desc" | "score-desc" | "score-asc";
@@ -31,77 +26,6 @@ const enrollmentLabels = {
   pending: "Enrollment pending",
   "not-enrolled": "Not enrolled",
 } as const;
-
-function EmployeeDetails({
-  employee,
-  threshold,
-}: {
-  employee: Employee;
-  threshold: number;
-}) {
-  const auditSummary = employee.auditSummary ?? {
-    violationCount: 0,
-    resetCount: 0,
-  };
-
-  return (
-    <section
-      aria-label="Employee details"
-      className="mt-6 border border-slate-200 bg-white p-5 sm:p-6"
-      role="region"
-    >
-      <h2 className="text-2xl font-semibold">Employee details</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        {employeeName(employee)} · {employee.id}
-      </p>
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-        <div>
-          <dt>Department</dt>
-          <dd>{employee.departmentId}</dd>
-        </div>
-        <div>
-          <dt>Area Supervisor</dt>
-          <dd>{employee.supervisorArea ?? "Unassigned"}</dd>
-        </div>
-        <div>
-          <dt>Safety Score</dt>
-          <dd>
-            {employee.safetyScore} ·{" "}
-            {scoreStatus(employee.safetyScore, threshold)}
-          </dd>
-        </div>
-        <div>
-          <dt>Escalation Threshold</dt>
-          <dd>{threshold}</dd>
-        </div>
-        <div>
-          <dt>Enrollment status</dt>
-          <dd>
-            {enrollmentLabels[employee.enrollmentStatus ?? "not-enrolled"]}
-          </dd>
-        </div>
-        <div>
-          <dt>Last audit</dt>
-          <dd>
-            {employee.lastAuditAt
-              ? formatWib(employee.lastAuditAt)
-              : "No audit record"}
-          </dd>
-        </div>
-        <div>
-          <dt>Audit summary</dt>
-          <dd>
-            {auditSummary.violationCount} Violations · {auditSummary.resetCount}{" "}
-            Score Resets
-          </dd>
-        </div>
-      </dl>
-      <p className="mt-6 border-l-2 border-amber-400 pl-3 text-sm">
-        Face Enrollment is unavailable in this browser-local demo.
-      </p>
-    </section>
-  );
-}
 
 export function Employees({
   persona,
@@ -117,14 +41,10 @@ export function Employees({
   const [status, setStatus] = useState<ScoreStatus | "all">("all");
   const [sort, setSort] = useState<EmployeeSort>("name-asc");
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string>();
 
   useEffect(() => {
     let active = true;
-    const scope: EmployeeScope =
-      persona.role === "supervisor"
-        ? { type: "supervisor-area", area: persona.assignedArea ?? "" }
-        : "all";
+    const scope = employeeScopeFor(persona);
 
     service
       .getEmployeeDirectory(scope)
@@ -143,11 +63,10 @@ export function Employees({
     return () => {
       active = false;
     };
-  }, [persona.assignedArea, persona.role, service]);
+  }, [persona, service]);
 
   const resetPage = () => {
     setPage(1);
-    setSelectedId(undefined);
   };
 
   if (error)
@@ -176,7 +95,7 @@ export function Employees({
         (!normalizedQuery ||
           [
             employeeName(employee),
-            employee.id,
+            employee.employeeCode ?? employee.id,
             employee.departmentId,
             employee.supervisorArea,
           ]
@@ -203,9 +122,6 @@ export function Employees({
     (currentPage - 1) * 5,
     currentPage * 5,
   );
-  const selected = directory.employees.find(
-    (employee) => employee.id === selectedId,
-  );
   const clear = () => {
     setQuery("");
     setDepartment("all");
@@ -227,10 +143,10 @@ export function Employees({
             without biometric capture.
           </p>
         </div>
-        <span>
-          <UserRound className="inline size-4" /> {directory.employees.length}{" "}
-          Employees
-        </span>
+        <div className="flex items-center gap-3">
+          <span><UserRound className="inline size-4" /> {directory.employees.length} Employees</span>
+          {persona.role === "admin" && <Link className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800" to="/employees/new">Add employee</Link>}
+        </div>
       </div>
       <div className="mt-8 grid gap-3 border p-4 sm:grid-cols-2 xl:grid-cols-4">
         <label>
@@ -334,7 +250,7 @@ export function Employees({
                 role="listitem"
               >
                 <h2>{employeeName(employee)}</h2>
-                <p>{employee.id}</p>
+                <p>{employee.employeeCode ?? employee.id}</p>
                 <Icon
                   aria-label={`Safety Score status ${state}`}
                   className="inline size-4"
@@ -348,14 +264,13 @@ export function Employees({
                     ]
                   }
                 </p>
-                <Button
+                <Link
                   aria-label={`View details ${employeeName(employee)}`}
-                  onClick={() => setSelectedId(employee.id)}
-                  size="sm"
-                  variant="outline"
+                  className="mt-3 inline-flex h-8 items-center border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800"
+                  to={`/employees/${employee.id}`}
                 >
                   View details {employeeName(employee)}
-                </Button>
+                </Link>
               </article>
             );
           })}
@@ -388,12 +303,6 @@ export function Employees({
             <ChevronRight />
           </Button>
         </nav>
-      )}
-      {selected && (
-        <EmployeeDetails
-          employee={selected}
-          threshold={directory.escalationThreshold}
-        />
       )}
     </section>
   );
