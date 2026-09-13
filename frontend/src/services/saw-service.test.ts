@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createMockSawService } from "./saw-service";
 
-describe("MockSawService Reset Skor", () => {
+describe("MockSawService Score Reset", () => {
   it("migrates persisted Indonesian role and Score Reset reason values", async () => {
     const service = createMockSawService({ storage: window.localStorage });
     await service.resetSafetyScore({ employeeId: "EMP-01", reason: "InvestigationClosed", actor: "Admin/Safety Officer" });
@@ -44,6 +44,29 @@ describe("MockSawService Reset Skor", () => {
     expect(audit.periods).toHaveLength(1);
     expect(audit.ledger).toHaveLength(1);
     expect(audit.resetLogs).toHaveLength(1);
+  });
+});
+
+describe("MockSawService Compliance Report", () => {
+  it("reports adapter failures in English", async () => {
+    const service = createMockSawService({ scenario: "error", storage: null });
+
+    await expect(service.getComplianceReport()).rejects.toThrow(
+      "PPE Compliance Report could not be loaded.",
+    );
+  });
+});
+
+describe("MockSawService monitoring and Violation History", () => {
+  it("reports adapter failures in English", async () => {
+    const service = createMockSawService({ scenario: "error", storage: null });
+
+    await expect(service.getViolationHistory()).rejects.toThrow(
+      "Violation History could not be loaded.",
+    );
+    await expect(service.getMonitoringSimulation()).rejects.toThrow(
+      "Violation Episode simulator could not be loaded.",
+    );
   });
 });
 

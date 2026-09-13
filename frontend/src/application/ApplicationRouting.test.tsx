@@ -36,4 +36,29 @@ describe("application routing", () => {
     expect(window.location.pathname).toBe(canonicalPath);
     expect(replaceState).toHaveBeenCalled();
   });
+
+  it.each([
+    ["/overview", "admin", "Overview"],
+    ["/compliance-report", "hrd", "Compliance Report"],
+    ["/monitoring/live", "supervisor", "Live Monitoring"],
+    ["/violations", "admin", "Violation History"],
+    ["/employees", "admin", "Employees"],
+    ["/camera-sources", "admin", "Camera Sources"],
+    ["/hazardous-zones", "admin", "Hazardous Zones"],
+    ["/canonical-ppe-classes", "admin", "Canonical PPE Classes"],
+    ["/safety-parameters", "admin", "Safety Parameters"],
+    ["/score-reset", "admin", "Score Reset"],
+    ["/notifications", "admin", "Notifications"],
+  ] as const)("renders canonical route %s for its authorized persona", async (path, initialPersona, heading) => {
+    render(
+      <App
+        initialEntries={[path]}
+        initialPersona={initialPersona}
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: heading });
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+  });
 });

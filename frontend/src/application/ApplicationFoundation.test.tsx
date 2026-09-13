@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "../App";
 import { createMockSawService } from "../services/saw-service";
+import { mockMediaQuery } from "../test/mockMediaQuery";
 
 describe("application foundation", () => {
   afterEach(() => {
@@ -61,6 +62,19 @@ describe("application foundation", () => {
       expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
     } finally {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+    }
+  });
+
+  it("keeps the application immediately usable when reduced motion is preferred", async () => {
+    const restoreMediaQuery = mockMediaQuery("(prefers-reduced-motion: reduce)");
+
+    try {
+      render(<App initialEntries={["/overview"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+      await screen.findByRole("heading", { name: "Overview" });
+      expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+      expect(screen.getByRole("main")).not.toHaveAttribute("style");
+    } finally {
+      restoreMediaQuery();
     }
   });
 

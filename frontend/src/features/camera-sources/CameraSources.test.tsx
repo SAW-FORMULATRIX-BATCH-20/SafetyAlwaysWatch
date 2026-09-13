@@ -44,4 +44,36 @@ describe("Camera Sources", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Camera Sources could not be loaded");
   });
+
+  it("applies status filtering and role-scoped access", async () => {
+    const user = userEvent.setup();
+    const supervisorRender = render(
+      <App initialEntries={["/camera-sources"]} initialPersona="supervisor" service={createMockSawService({ storage: null })} />,
+    );
+
+    expect(await screen.findByRole("article", { name: "Production Gate" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Warehouse Raw Materials" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save metadata/i })).not.toBeInTheDocument();
+
+    supervisorRender.unmount();
+    render(<App initialEntries={["/camera-sources"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Filter status" }), "offline");
+    expect(screen.getByRole("article", { name: "Warehouse Raw Materials" })).toHaveTextContent("Offline");
+    expect(screen.queryByRole("article", { name: "Production Gate" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["empty", "No Camera Sources are registered"],
+    ["loading", "Loading Camera Sources…"],
+  ] as const)("presents the %s Camera Source state", async (scenario, expectedText) => {
+    render(<App initialEntries={["/camera-sources"]} initialPersona="admin" service={createMockSawService({ scenario, storage: null })} />);
+
+    expect(await screen.findByText(expectedText)).toBeInTheDocument();
+  });
+
+  it("denies Human Resources access to Camera Sources", () => {
+    render(<App initialEntries={["/camera-sources"]} initialPersona="hrd" service={createMockSawService({ storage: null })} />);
+
+    expect(screen.getByRole("heading", { name: "Restricted access" })).toBeInTheDocument();
+  });
 });

@@ -47,11 +47,16 @@ When backend contracts exist, implement the relevant capability interfaces in a 
 
 ## Production smoke journey
 
-1. Sign in as each persona and verify the expected landing page and access boundaries.
-2. As an Area Supervisor, process the missing-PPE scenario and confirm that Pending Confirmation becomes a Violation with one Violation Event.
-3. As an Admin/Safety Officer, create a Hazardous Zone with at least one Canonical PPE Class and an Area Supervisor.
-4. Complete a Score Reset and confirm that its audit artifacts are visible.
-5. As Human Resources, filter the Compliance Report by Hazardous Zone, department, Employee, and date, then clear the filters.
-6. As an Admin/Safety Officer, reset demo data to restore the seed state.
+Run `npm run smoke`, open the preview URL, and complete this journey against the production build:
+
+1. Sign in as Admin/Safety Officer, Area Supervisor, and Human Resources (HR), confirming their Overview, Live Monitoring, and Compliance Report landing pages respectively.
+2. As Human Resources (HR), open `/monitoring/live` directly and confirm that the role guard shows Restricted access; then sign out and confirm that the persona picker returns.
+3. As an Admin/Safety Officer, open `/pelanggaran` and confirm that it replaces the legacy URL with `/violations` without changing the active persona.
+4. As an Area Supervisor, process the Missing PPE scenario and confirm that Pending Confirmation becomes one Violation with one Violation Event; process the compliant frames until it is Cleared.
+5. As an Admin/Safety Officer, create a Hazardous Zone with at least one Canonical PPE Class and an Area Supervisor, then confirm the saved configuration survives a refresh.
+6. Complete a Score Reset and confirm that its Score Period, ledger entry, and reset log are visible.
+7. As Human Resources (HR), filter the Compliance Report by Hazardous Zone, department, Employee, and date, then clear the filters.
+8. Enable the operating system's reduced-motion preference and confirm that the application remains immediately usable without decorative movement.
+9. As an Admin/Safety Officer, reset demo data, refresh the page, and confirm that the deterministic seed data returns. Inspect a Violation Event detail and confirm that it presents audit metadata only—never a violation snapshot, placeholder, image, or link.
 
 The journey intentionally excludes credentials, camera addresses, tokens, violation snapshots, and real-person data.
