@@ -806,7 +806,7 @@ export function createMockSawService({
       return withViolationHistory(data, saved);
     },
     async deactivateHazardousZone(id) {
-      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat diperbarui.");
+      if (scenario === "error") throw new Error("Hazardous Zone could not be updated.");
       const data = readData();
       const zone = data.hazardousZones?.find((item) => item.id === id);
       if (!zone) throw new Error("Hazardous Zone was not found.");
@@ -816,12 +816,12 @@ export function createMockSawService({
       return withViolationHistory(data, zone);
     },
     async deleteHazardousZone(id) {
-      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat dihapus.");
+      if (scenario === "error") throw new Error("Hazardous Zone could not be deleted.");
       const data = readData();
       const zones = data.hazardousZones ?? [];
       if (!zones.some((zone) => zone.id === id)) throw new Error("Hazardous Zone was not found.");
       if (data.violations.some((violation) => violation.zoneId === id)) {
-        throw new Error("Hazardous Zone dengan riwayat Violation tidak dapat dihapus permanen.");
+        throw new Error("A Hazardous Zone with Violation History cannot be permanently deleted.");
       }
 
       data.hazardousZones = zones.filter((zone) => zone.id !== id);
@@ -942,16 +942,16 @@ export function createMockSawService({
     },
     async getCanonicalPpeClassConfiguration() {
       if (scenario === "loading") return new Promise<CanonicalPpeClassConfiguration>(() => undefined);
-      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Canonical PPE Class configuration could not be loaded.");
       return clone(readData().canonicalPpeClassConfiguration ?? defaultCanonicalPpeClassConfiguration);
     },
     async updateCanonicalPpeClassConfiguration(configuration) {
-      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Canonical PPE Class configuration could not be saved.");
 
       const duplicateIndex = configuration.mappings.find((mapping, index) =>
         configuration.mappings.some((candidate, candidateIndex) => candidateIndex !== index && candidate.yoloIndex === mapping.yoloIndex),
       );
-      if (duplicateIndex) throw new Error(`Indeks YOLO ${duplicateIndex.yoloIndex} sudah digunakan.`);
+      if (duplicateIndex) throw new Error(`YOLO index ${duplicateIndex.yoloIndex} is already in use.`);
 
       const data = readData();
       data.canonicalPpeClassConfiguration = normalizeCanonicalPpeClassConfiguration(configuration);

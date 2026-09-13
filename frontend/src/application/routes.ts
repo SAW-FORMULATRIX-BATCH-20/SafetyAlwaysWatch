@@ -1,6 +1,8 @@
 import { createElement, type ReactNode } from "react";
 
-import { Cameras, CanonicalPpeClasses, HazardousZoneEditor } from "./RoutedApplication";
+import { CameraSources } from "../features/camera-sources/CameraSources";
+import { CanonicalPpeClasses } from "../features/canonical-ppe-classes/CanonicalPpeClasses";
+import { HazardousZones } from "../features/hazardous-zones/HazardousZones";
 import { Notifications } from "../features/notifications/Notifications";
 import { SafetyParameters } from "../features/safety-parameters/SafetyParameters";
 import { ScoreReset } from "../features/score-reset/ScoreReset";
@@ -47,8 +49,8 @@ export const routes: readonly RouteDefinition[] = [
   { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"], render: (persona, service) => createElement(LiveMonitoring, { persona, service }) },
   { group: "Safety Operations", path: "/violations", title: "Violations", roles: ["admin", "supervisor", "hrd"], render: (_persona, service) => createElement(Violations, { service }) },
   { group: "Safety Operations", path: "/employees", title: "Employees", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => createElement(Employees, { persona, service }) },
-  { group: "Configuration", path: "/camera-sources", title: "Camera Sources", roles: ["admin", "supervisor"], render: (persona, service) => createElement(Cameras, { persona, service }) },
-  { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => createElement(HazardousZoneEditor, { service }) },
+  { group: "Configuration", path: "/camera-sources", title: "Camera Sources", roles: ["admin", "supervisor"], render: (persona, service) => createElement(CameraSources, { persona, service }) },
+  { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => createElement(HazardousZones, { service }) },
   { group: "Configuration", path: "/canonical-ppe-classes", title: "Canonical PPE Classes", roles: ["admin"], render: (_persona, service) => createElement(CanonicalPpeClasses, { service }) },
   { group: "Administration", path: "/safety-parameters", title: "Safety Parameters", roles: ["admin"], render: (_persona, service) => createElement(SafetyParameters, { service }) },
   { group: "Administration", path: "/score-reset", title: "Score Reset", roles: ["admin"], render: (_persona, service) => createElement(ScoreReset, { service }) },
