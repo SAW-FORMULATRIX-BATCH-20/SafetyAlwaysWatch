@@ -18,4 +18,14 @@ describe("Overview", () => {
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     expect(screen.getByText("83%", { selector: "strong" })).toBeInTheDocument();
   });
+
+  it.each([
+    ["loading", "Loading safety overview…"],
+    ["empty", "No demo data"],
+    ["error", "SAW demo data could not be loaded"],
+  ] as const)("presents the %s Overview state in English", async (scenario, expectedText) => {
+    render(<App initialEntries={["/overview"]} initialPersona="admin" service={createMockSawService({ scenario, storage: null })} />);
+
+    expect(await screen.findByText(expectedText)).toBeInTheDocument();
+  });
 });

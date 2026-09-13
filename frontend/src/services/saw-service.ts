@@ -736,7 +736,7 @@ export function createMockSawService({
     },
     async getComplianceReport() {
       if (scenario === "loading") return new Promise<ComplianceReportData>(() => undefined);
-      if (scenario === "error") throw new Error("Report PPE Compliance tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("PPE Compliance Report could not be loaded.");
 
       const data = readData();
       return {
@@ -833,7 +833,7 @@ export function createMockSawService({
     },
     async getViolationHistory() {
       if (scenario === "loading") return new Promise<ViolationRecord[]>(() => undefined);
-      if (scenario === "error") throw new Error("History Violation tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Violation History could not be loaded.");
       if (scenario === "empty") return [];
       return clone(readData().violations);
     },
@@ -1014,7 +1014,7 @@ export function createMockSawService({
       return clone(log);
     },
     async getMonitoringSimulation() {
-      if (scenario === "error") throw new Error("Simulator Violation Episode tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Violation Episode simulator could not be loaded.");
       return clone(readData().monitoringSimulation ?? createMonitoringSimulation("normal"));
     },
     async selectMonitoringScenario(nextScenario) {
