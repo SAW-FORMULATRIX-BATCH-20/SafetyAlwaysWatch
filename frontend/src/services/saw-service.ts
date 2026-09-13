@@ -212,6 +212,48 @@ export type EmployeeRegistrationInput = {
   supervisorId?: string;
 };
 
+export type DemoValidationOutcome = "success" | "no_face" | "multiple_faces" | "low_quality" | "duplicate";
+
+export type FaceEnrollmentPolicy = {
+  acceptedMediaTypes: readonly ("image/jpeg" | "image/png")[];
+  maximumFileSizeBytes: number;
+  maximumActiveSamples: number;
+};
+
+export type FaceSample = {
+  id: string;
+  employeeId: string;
+  active: boolean;
+  enrolledAt: string;
+  enrolledBy: string;
+  qualityScore?: number;
+};
+
+export type FaceEnrollmentInput = {
+  employeeId: string;
+  image: Blob;
+  demoOutcome: DemoValidationOutcome;
+  actor: string;
+};
+
+export type FaceEnrollmentFailureCode =
+  | "unsupported_media_type"
+  | "file_too_large"
+  | "no_face"
+  | "multiple_faces"
+  | "low_quality"
+  | "duplicate"
+  | "active_sample_limit"
+  | "employee_not_found"
+  | "face_sample_not_found";
+
+export class FaceEnrollmentError extends Error {
+  constructor(public readonly code: FaceEnrollmentFailureCode) {
+    super(code);
+    this.name = "FaceEnrollmentError";
+  }
+}
+
 export type EmployeeCapabilityFailureCode =
   | "employee_code_conflict"
   | "employee_not_found"
@@ -303,6 +345,7 @@ export type DemoData = {
   compliance: { compliantObservations: number; totalObservations: number };
   departments: string[];
   employees: Employee[];
+  faceSamples?: FaceSample[];
   escalationThreshold: number;
   safetySettings?: SafetySettings;
   canonicalPpeClassConfiguration?: CanonicalPpeClassConfiguration;
@@ -375,6 +418,13 @@ export interface EmployeeDirectoryCapability {
   createEmployee(input: EmployeeRegistrationInput): Promise<Employee>;
 }
 
+export interface FaceEnrollmentCapability {
+  getFaceEnrollmentPolicy(): Promise<FaceEnrollmentPolicy>;
+  getFaceSamples(employeeId: string): Promise<FaceSample[]>;
+  enrollFaceSample(input: FaceEnrollmentInput): Promise<FaceSample>;
+  deactivateFaceSample(employeeId: string, faceSampleId: string): Promise<FaceSample>;
+}
+
 export interface SafetyScoreCapability {
   getSafetyScoreAudit(employeeId: string): Promise<SafetyScoreAudit>;
   resetSafetyScore(request: SafetyScoreResetRequest): Promise<SafetyScoreResetResult>;
@@ -412,6 +462,7 @@ export type SawApplicationCapabilities =
   & HazardousZoneCapability
   & ViolationHistoryCapability
   & EmployeeDirectoryCapability
+  & FaceEnrollmentCapability
   & SafetyScoreCapability
   & SafetySettingsCapability
   & CanonicalPpeClassCapability
@@ -425,6 +476,12 @@ type MockServiceOptions = {
 };
 
 const storageKey = "saw-demo-data";
+
+const defaultFaceEnrollmentPolicy: FaceEnrollmentPolicy = {
+  acceptedMediaTypes: ["image/jpeg", "image/png"],
+  maximumFileSizeBytes: 5 * 1024 * 1024,
+  maximumActiveSamples: 5,
+};
 
 const defaultCanonicalPpeClassConfiguration: CanonicalPpeClassConfiguration = {
   mappings: [
@@ -551,6 +608,17 @@ function normalizeCanonicalPpeClassConfiguration(
 function normalizeData(input: DemoData): DemoData {
   const data = clone(input);
   data.employees = data.employees.map(normalizeEmployee);
+  data.faceSamples = data.faceSamples ?? data.employees.flatMap((employee) => Array.from(
+    { length: employee.faceSampleCount ?? 0 },
+    (_, index): FaceSample => ({
+      id: `FSC-SEED-${employee.id}-${index + 1}`,
+      employeeId: employee.id,
+      active: true,
+      enrolledAt: "2026-09-01T00:00:00+07:00",
+      enrolledBy: "Admin/Safety Officer",
+    }),
+  ));
+  synchronizeEmployeeFaceEnrollment(data);
   data.safetySettings = normalizeSafetySettings(data.safetySettings ?? {
     escalationThreshold: data.escalationThreshold,
   });
@@ -584,6 +652,18 @@ function normalizeData(input: DemoData): DemoData {
     : createMonitoringSimulation("normal");
   data.escalationThreshold = data.safetySettings.escalationThreshold;
   return data;
+}
+
+function synchronizeEmployeeFaceEnrollment(data: DemoData) {
+  data.employees.forEach((employee) => {
+    const activeCount = data.faceSamples?.filter((sample) => sample.employeeId === employee.id && sample.active).length ?? 0;
+    employee.faceSampleCount = activeCount;
+    employee.enrollmentStatus = activeCount > 0 ? "enrolled" : "not-enrolled";
+  });
+}
+
+function nextFaceSampleId(samples: FaceSample[]) {
+  return `FSC-${String(samples.length + 1).padStart(4, "0")}`;
 }
 
 function normalizeEmployee(employee: Employee): Employee {
@@ -942,6 +1022,58 @@ export function createMockSawService({
       if (!data.departments.includes(departmentId)) data.departments.push(departmentId);
       persist(data);
       return clone(employee);
+    },
+    async getFaceEnrollmentPolicy() {
+      return clone(defaultFaceEnrollmentPolicy);
+    },
+    async getFaceSamples(employeeId) {
+      const data = readData();
+      if (!data.employees.some((employee) => employee.id === employeeId)) {
+        throw new FaceEnrollmentError("employee_not_found");
+      }
+      return clone(data.faceSamples?.filter((sample) => sample.employeeId === employeeId) ?? []);
+    },
+    async enrollFaceSample(input) {
+      const data = readData();
+      const employee = data.employees.find((item) => item.id === input.employeeId);
+      if (!employee) throw new FaceEnrollmentError("employee_not_found");
+      if (!defaultFaceEnrollmentPolicy.acceptedMediaTypes.includes(input.image.type as "image/jpeg" | "image/png")) {
+        throw new FaceEnrollmentError("unsupported_media_type");
+      }
+      if (input.image.size > defaultFaceEnrollmentPolicy.maximumFileSizeBytes) {
+        throw new FaceEnrollmentError("file_too_large");
+      }
+      const samples = data.faceSamples ?? [];
+      if (samples.filter((sample) => sample.employeeId === input.employeeId && sample.active).length >= defaultFaceEnrollmentPolicy.maximumActiveSamples) {
+        throw new FaceEnrollmentError("active_sample_limit");
+      }
+      if (input.demoOutcome !== "success") throw new FaceEnrollmentError(input.demoOutcome);
+
+      const sample: FaceSample = {
+        id: nextFaceSampleId(samples),
+        employeeId: input.employeeId,
+        active: true,
+        enrolledAt: new Date().toISOString(),
+        enrolledBy: input.actor,
+        qualityScore: 0.92,
+      };
+      samples.push(sample);
+      data.faceSamples = samples;
+      synchronizeEmployeeFaceEnrollment(data);
+      persist(data);
+      return clone(sample);
+    },
+    async deactivateFaceSample(employeeId, faceSampleId) {
+      const data = readData();
+      if (!data.employees.some((employee) => employee.id === employeeId)) {
+        throw new FaceEnrollmentError("employee_not_found");
+      }
+      const sample = data.faceSamples?.find((item) => item.id === faceSampleId && item.employeeId === employeeId);
+      if (!sample) throw new FaceEnrollmentError("face_sample_not_found");
+      sample.active = false;
+      synchronizeEmployeeFaceEnrollment(data);
+      persist(data);
+      return clone(sample);
     },
     async getSafetyScoreAudit(employeeId) {
       const data = readData();

@@ -42,7 +42,3 @@ export function EmployeeDetail({ persona, service }: { persona: Persona; service
     </section>
   );
 }
-
-export function FaceEnrollmentPlaceholder() {
-  return <section className="mx-auto max-w-2xl"><p className="font-mono text-xs uppercase tracking-[0.16em] text-amber-700">Face Enrollment</p><h1 className="mt-2 text-3xl font-semibold">Face Enrollment</h1><p className="mt-3 text-slate-600">Face Enrollment will be available in a future workflow. No Face Sample has been created.</p></section>;
-}
