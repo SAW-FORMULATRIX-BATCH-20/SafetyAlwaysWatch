@@ -348,7 +348,7 @@ describe("SAW application", () => {
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
 
-  it("menampilkan Camera Source seed dengan status dan pembaruan WIB", async () => {
+  it("shows seeded Camera Sources with status and deterministic WIB updates", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/kamera"]}
@@ -365,7 +365,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("article", { name: "Warehouse Raw Materials" })).toHaveTextContent("Offline");
   });
 
-  it("memungkinkan pencarian, filter status, dan detail Camera Source", async () => {
+  it("supports Camera Source search, status filtering, and details", async () => {
     const user = userEvent.setup();
     render(
       <App
@@ -387,11 +387,11 @@ describe("SAW application", () => {
     await user.click(screen.getByRole("button", { name: "View details Warehouse Raw Materials" }));
 
     expect(screen.getByRole("heading", { name: "Camera Source Details" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Name Camera Source" })).toHaveValue("Warehouse Raw Materials");
+    expect(screen.getByRole("textbox", { name: "Camera Source name" })).toHaveValue("Warehouse Raw Materials");
     expect(screen.queryByText(/token|password|rtsp/i)).not.toBeInTheDocument();
   });
 
-  it("membatasi Camera Source Area Supervisor dan menolak akses HRD", async () => {
+  it("limits Camera Sources for an Area Supervisor and denies HRD access", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/kamera"]}
@@ -414,7 +414,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("heading", { name: "Restricted access" })).toBeInTheDocument();
   });
 
-  it("menyimpan perubahan metadata aman Admin/Safety Officer setelah refresh", async () => {
+  it("persists safe Camera Source metadata updates by an Admin/Safety Officer", async () => {
     const user = userEvent.setup();
     const firstRender = render(
       <App
@@ -425,13 +425,13 @@ describe("SAW application", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "View details Production Gate" }));
-    const nameInput = screen.getByRole("textbox", { name: "Name Camera Source" });
+    const nameInput = screen.getByRole("textbox", { name: "Camera Source name" });
     await user.clear(nameInput);
     await user.type(nameInput, "Production Gate Barat");
     await user.click(screen.getByRole("button", { name: "Save metadata demo" }));
 
     expect(await screen.findByRole("article", { name: "Production Gate Barat" })).toBeInTheDocument();
-    expect(screen.getByText("Metadata Camera Source diperbarui.")).toBeInTheDocument();
+    expect(screen.getByText("Camera Source metadata updated.")).toBeInTheDocument();
 
     firstRender.unmount();
     render(
@@ -444,7 +444,7 @@ describe("SAW application", () => {
     expect(await screen.findByRole("article", { name: "Production Gate Barat" })).toBeInTheDocument();
   });
 
-  it("menampilkan label dan ikon untuk setiap status koneksi", async () => {
+  it("shows a label and icon for every connection status", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/kamera"]}
@@ -462,8 +462,8 @@ describe("SAW application", () => {
             },
             {
               id: "CAM-02",
-              name: "Pintu Maintenance",
-              location: "Bengkel Maintenance",
+              name: "Maintenance Entrance",
+              location: "Maintenance Workshop",
               zoneIds: ["ZON-04"],
               status: "degraded",
               lastUpdatedAt: "2026-09-08T08:03:00+07:00",
@@ -486,22 +486,22 @@ describe("SAW application", () => {
 
     const statusCards = [
       ["Production Gate", "Active"],
-      ["Pintu Maintenance", "Terganggu"],
+      ["Maintenance Entrance", "Degraded"],
       ["Warehouse Raw Materials", "Offline"],
     ];
     for (const [cameraName, status] of statusCards) {
       const card = await screen.findByRole("article", { name: cameraName });
       expect(card).toHaveTextContent(status);
       expect(card).toHaveAccessibleName(cameraName);
-      expect(within(card).getByRole("img", { name: `Ikon status ${status}` })).toBeInTheDocument();
+      expect(within(card).getByRole("img", { name: `Status icon ${status}` })).toBeInTheDocument();
     }
   });
 
   it.each([
-    ["loading", "Loading Camera Source…"],
+    ["loading", "Loading Camera Sources…"],
     ["empty", "No Camera Sources are registered"],
-    ["error", "Camera Source tidak dapat dimuat"],
-  ] as const)("menampilkan state %s Camera Source secara jelas", async (scenario, expectedText) => {
+    ["error", "Camera Sources could not be loaded."],
+  ] as const)("clearly presents the Camera Source %s state", async (scenario, expectedText) => {
     render(
       <App
         initialEntries={["/konfigurasi/kamera"]}
@@ -513,7 +513,7 @@ describe("SAW application", () => {
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
 
-   it("memungkinkan Admin/Safety Officer menambah mapping Canonical PPE Classes dan menolak indeks YOLO duplikat", async () => {
+   it("allows an Admin/Safety Officer to add Canonical PPE Class mappings and rejects duplicate YOLO indices", async () => {
     const user = userEvent.setup();
 
     render(
@@ -530,22 +530,22 @@ describe("SAW application", () => {
     expect(screen.getAllByText("Compliant")).toHaveLength(4);
 
     await user.click(screen.getByRole("button", { name: "Add mapping" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Indeks YOLO" }), "0");
-    await user.type(screen.getByRole("textbox", { name: "Label mentah" }), "visor");
-    await user.type(screen.getByRole("textbox", { name: "Canonical PPE Classes" }), "Pelindung Wajah");
+    await user.type(screen.getByRole("spinbutton", { name: "YOLO index" }), "0");
+    await user.type(screen.getByRole("textbox", { name: "Raw label" }), "visor");
+    await user.type(screen.getByRole("textbox", { name: "Canonical PPE Class" }), "Face Shield");
     await user.click(screen.getByRole("button", { name: "Save mapping" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Indeks YOLO 0 sudah digunakan.");
-    expect(screen.getByRole("spinbutton", { name: "Indeks YOLO" })).toHaveAccessibleDescription("Indeks YOLO 0 sudah digunakan.");
-    await user.clear(screen.getByRole("spinbutton", { name: "Indeks YOLO" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Indeks YOLO" }), "9");
+    expect(screen.getByRole("alert")).toHaveTextContent("YOLO index 0 is already in use.");
+    expect(screen.getByRole("spinbutton", { name: "YOLO index" })).toHaveAccessibleDescription("YOLO index 0 is already in use.");
+    await user.clear(screen.getByRole("spinbutton", { name: "YOLO index" }));
+    await user.type(screen.getByRole("spinbutton", { name: "YOLO index" }), "9");
     await user.click(screen.getByRole("button", { name: "Save mapping" }));
 
-    expect(await screen.findByText("Mapping Canonical PPE Classes disimpan.")).toBeInTheDocument();
+    expect(await screen.findByText("Canonical PPE Class mapping saved.")).toBeInTheDocument();
     expect(screen.getByText("visor")).toBeInTheDocument();
   });
 
-  it("menyunting mapping, menampilkan preview interpretasi, dan mempertahankannya setelah refresh", async () => {
+  it("edits Canonical PPE Class mappings, previews interpretation, and persists after refresh", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     const firstRender = render(
@@ -554,31 +554,31 @@ describe("SAW application", () => {
 
     await screen.findByText("mask");
     await user.click(screen.getByRole("button", { name: "Edit mapping mask" }));
-    const yoloIndex = screen.getByRole("spinbutton", { name: "Indeks YOLO" });
-    const rawLabel = screen.getByRole("textbox", { name: "Label mentah" });
-    const canonicalClass = screen.getByRole("textbox", { name: "Canonical PPE Classes" });
+    const yoloIndex = screen.getByRole("spinbutton", { name: "YOLO index" });
+    const rawLabel = screen.getByRole("textbox", { name: "Raw label" });
+    const canonicalClass = screen.getByRole("textbox", { name: "Canonical PPE Class" });
     await user.clear(yoloIndex);
     await user.type(yoloIndex, "7");
     await user.clear(rawLabel);
     await user.type(rawLabel, "face_mask");
     await user.clear(canonicalClass);
-    await user.type(canonicalClass, "Face Mask Medis");
+    await user.type(canonicalClass, "Medical Face Mask");
     await user.selectOptions(screen.getByRole("combobox", { name: "Interpretation category" }), "violation");
 
-    expect(screen.getByRole("complementary", { name: "Preview interpretasi mapping" })).toHaveTextContent("face_mask akan dipahami sebagai Face Mask Medis dengan kategori violation.");
+    expect(screen.getByRole("complementary", { name: "Mapping interpretation preview" })).toHaveTextContent("face_mask is interpreted as Medical Face Mask with the violation.");
 
     await user.click(screen.getByRole("button", { name: "Save mapping" }));
-    expect(await screen.findByText("Mapping Canonical PPE Classes disimpan.")).toBeInTheDocument();
+    expect(await screen.findByText("Canonical PPE Class mapping saved.")).toBeInTheDocument();
     expect(screen.getByText("face_mask")).toBeInTheDocument();
     expect(screen.getByText("face_mask").closest("tr")).toHaveTextContent("Violation");
 
     firstRender.unmount();
     render(<App initialEntries={["/canonical-ppe-classes"]} initialPersona="admin" service={service} />);
     expect(await screen.findByText("face_mask")).toBeInTheDocument();
-    expect(screen.getByText("Face Mask Medis")).toBeInTheDocument();
+    expect(screen.getByText("Medical Face Mask")).toBeInTheDocument();
   });
 
-  it("menyimpan metadata model ONNX sebagai demo tanpa memvalidasi model di browser", async () => {
+  it("stores ONNX model metadata as a demo without browser validation", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     const firstRender = render(
@@ -587,18 +587,18 @@ describe("SAW application", () => {
 
     await screen.findByText("mask");
     const modelFile = new File(["demo"], "ppe-produksi.onnx", { type: "application/octet-stream" });
-    await user.upload(screen.getByLabelText("Select file ONNX demo"), modelFile);
+    await user.upload(screen.getByLabelText("Select ONNX demo file"), modelFile);
 
-    expect(await screen.findByText("Metadata model ONNX demo disimpan.")).toBeInTheDocument();
+    expect(await screen.findByText("ONNX model demo metadata saved.")).toBeInTheDocument();
     expect(screen.getByText("ppe-produksi.onnx")).toBeInTheDocument();
-    expect(screen.getByText(/Validasi maupun inferensi model ONNX memerlukan backend/i)).toBeInTheDocument();
+    expect(screen.getByText(/ONNX model validation and inference require a backend/i)).toBeInTheDocument();
 
     firstRender.unmount();
     render(<App initialEntries={["/canonical-ppe-classes"]} initialPersona="admin" service={service} />);
     expect(await screen.findByText("ppe-produksi.onnx")).toBeInTheDocument();
   });
 
-   it("menampilkan Zone Editor untuk Admin/Safety Officer dengan kamera, PPE, dan zona seed", async () => {
+   it("shows the Hazardous Zone editor for an Admin/Safety Officer with seeded Camera Sources, PPE, and zones", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/zona"]}
@@ -614,7 +614,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("group", { name: "Required PPE" })).toHaveTextContent("Safety Helmet");
   });
 
-  it("menggambar, memindahkan, dan mengubah ukuran Hazardous Zone dengan pointer", async () => {
+  it("draws, moves, and resizes a Hazardous Zone with a pointer", async () => {
     const user = userEvent.setup();
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
 
@@ -645,7 +645,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("spinbutton", { name: "Coordinate height" })).toHaveValue(0.62);
   });
 
-  it("menjadikan kanvas lihat-saja di ponsel sambil mempertahankan input koordinat", async () => {
+  it("makes the Hazardous Zone canvas view-only on mobile while preserving coordinate inputs", async () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = (query) => ({
       matches: query === "(max-width: 767px)",
@@ -678,7 +678,7 @@ describe("SAW application", () => {
     }
   });
 
-  it("menyimpan Hazardous Zone baru secara persisten dan menampilkannya pada Live Monitoring", async () => {
+  it("persists a new Hazardous Zone and shows it in Live Monitoring", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     const firstRender = render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
@@ -694,7 +694,7 @@ describe("SAW application", () => {
     await user.click(screen.getByRole("checkbox", { name: "Warehouse" }));
     await user.click(screen.getByRole("button", { name: "Save Hazardous Zone" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Test Zone disimpan.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Test Zone saved.");
     expect(screen.getByRole("article", { name: "Test Zone" })).toBeInTheDocument();
 
     firstRender.unmount();
@@ -714,7 +714,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("checkbox", { name: "Warehouse" })).toBeChecked();
   });
 
-  it("memvalidasi name, PPE, dan penugasan Area Supervisor untuk Hazardous Zone", async () => {
+  it("validates Hazardous Zone name, PPE, and Area Supervisor assignment", async () => {
     const user = userEvent.setup();
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
 
@@ -734,7 +734,7 @@ describe("SAW application", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Select at least one Area Supervisor.");
   });
 
-  it("mengonfirmasi lifecycle Hazardous Zone, mempertahankan audit, dan memfilter zona nonaktif", async () => {
+  it("confirms the Hazardous Zone lifecycle, retains its audit, and filters inactive zones", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
@@ -753,7 +753,7 @@ describe("SAW application", () => {
 
     await user.click(screen.getByRole("button", { name: "Deactivate Hazardous Zone" }));
     await user.click(screen.getByRole("button", { name: "Confirm deactivation" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Main Gate Zone dinonaktifkan.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Main Gate Zone deactivated.");
     expect((await service.getHazardousZone()).find((zone) => zone.id === "ZON-01")?.active).toBe(false);
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Filter Hazardous Zone status" }), "inactive");
@@ -761,7 +761,7 @@ describe("SAW application", () => {
     expect(screen.queryByRole("article", { name: "Press Machine Zone" })).not.toBeInTheDocument();
   });
 
-  it("menghapus Hazardous Zone tanpa riwayat melalui konfirmasi final", async () => {
+  it("permanently deletes a Hazardous Zone without history after final confirmation", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     render(<App initialEntries={["/konfigurasi/zona"]} initialPersona="admin" service={service} />);
@@ -772,12 +772,12 @@ describe("SAW application", () => {
     expect(screen.getByRole("dialog", { name: "Confirm deletion Press Machine Zone" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm permanent deletion" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Press Machine Zone dihapus permanen.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Hazardous Zone Press Machine Zone permanently deleted.");
     expect(screen.queryByRole("article", { name: "Press Machine Zone" })).not.toBeInTheDocument();
     expect((await service.getCameras()).find((camera) => camera.id === "CAM-01")?.zoneIds).not.toContain("ZON-02");
   });
 
-  it("mencerminkan Hazardous Zone nonaktif pada Live Monitoring dan detail Camera Source", async () => {
+  it("reflects an inactive Hazardous Zone in Live Monitoring and Camera Source details", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: window.localStorage });
     await service.deactivateHazardousZone("ZON-01");
@@ -787,10 +787,10 @@ describe("SAW application", () => {
     monitoringRender.unmount();
     render(<App initialEntries={["/konfigurasi/kamera"]} initialPersona="admin" service={service} />);
     await user.click(await screen.findByRole("button", { name: "View details Production Gate" }));
-    expect(screen.getByRole("list", { name: "Status Hazardous Zone" })).toHaveTextContent("Main Gate Zone · Inactive");
+    expect(screen.getByRole("list", { name: "Hazardous Zone status" })).toHaveTextContent("Main Gate Zone · Inactive");
   });
 
-  it("memungkinkan dialog konfirmasi ditutup dengan Escape dan menahan fokus di dalam dialog", async () => {
+  it("allows Escape to close the confirmation dialog and keeps focus within it", async () => {
     const user = userEvent.setup();
     render(<App initialEntries={["/overview"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
 
@@ -830,7 +830,7 @@ describe("SAW application", () => {
     }
   });
 
-  it("menyatakan Hazardous Zone canvas sebagai lihat-saja di ponsel sambil menjaga input koordinat dapat dioperasikan", async () => {
+  it("describes the Hazardous Zone canvas as view-only on mobile while keeping coordinate inputs operable", async () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = (query) => ({
       matches: query === "(max-width: 767px)",
@@ -850,13 +850,14 @@ describe("SAW application", () => {
 
       expect(screen.getByLabelText("Hazardous Zone canvas")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("On a phone, the frame is view-only. Use the coordinate inputs below.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Move Main Gate Zone" })).toBeDisabled();
       expect(screen.getByRole("spinbutton", { name: "Coordinate x" })).toBeEnabled();
     } finally {
       window.matchMedia = originalMatchMedia;
     }
   });
 
-  it("menyediakan representasi kartu berlabel untuk mapping Canonical PPE Classes di ponsel", async () => {
+  it("provides labelled card representations for Canonical PPE Class mappings on mobile", async () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = (query) => ({
       matches: query === "(max-width: 767px)",
@@ -872,9 +873,9 @@ describe("SAW application", () => {
     try {
       render(<App initialEntries={["/canonical-ppe-classes"]} initialPersona="admin" service={createMockSawService({ storage: null })} />);
 
-      const mappings = await screen.findByRole("list", { name: "Daftar mapping Canonical PPE Classes untuk ponsel" });
-      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("Indeks YOLO");
-      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("Canonical PPE Classes");
+      const mappings = await screen.findByRole("list", { name: "Canonical PPE Class mappings for mobile" });
+      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("YOLO index");
+      expect(within(mappings).getByRole("listitem", { name: /helmet/i })).toHaveTextContent("Canonical PPE Class");
       expect(within(mappings).getByRole("button", { name: "Edit mapping helmet" })).toBeEnabled();
     } finally {
       window.matchMedia = originalMatchMedia;
