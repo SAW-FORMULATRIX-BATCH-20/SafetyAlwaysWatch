@@ -485,13 +485,13 @@ const seedData: DemoData = {
       id: "VIO-02", status: "confirmed", zoneId: "ZON-04", cameraId: "CAM-02", episodeId: "EPS-002", missingCanonicalPpeClasses: ["Face Mask"], confidence: 0.91, detectedAt: "2026-09-02T09:40:00+07:00", updatedAt: "2026-09-02T09:40:05+07:00", notificationRecipients: [{ name: "Operations Human Resources", role: "Human Resources (HR)", deliveryStatus: "pending" }], timeline: [{ status: "candidate", occurredAt: "2026-09-02T09:40:00+07:00", description: "Detected Person could not be matched to an Employee." }, { status: "confirmed", occurredAt: "2026-09-02T09:40:05+07:00", description: "Violation Event recorded for Unknown." }],
     },
     {
-      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalPpeClasses: ["Safety Helmet"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-03", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-003", employeeId: "EMP-05", missingCanonicalPpeClasses: ["Safety Helmet"], confidence: 0.89, detectedAt: "2026-09-03T10:05:00+07:00", updatedAt: "2026-09-03T10:08:00+07:00", scoreChange: { before: 78, after: 68 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-03T10:05:05+07:00", description: "Violation Event confirmed." }, { status: "cleared", occurredAt: "2026-09-03T10:08:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "Operations Human Resources", role: "Human Resources (HR)", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-04", status: "cleared", zoneId: "ZON-03", cameraId: "CAM-02", episodeId: "EPS-004", employeeId: "EMP-03", missingCanonicalPpeClasses: ["Safety Helmet", "Safety Vest"], confidence: 0.94, detectedAt: "2026-09-04T11:20:00+07:00", updatedAt: "2026-09-04T11:30:00+07:00", scoreChange: { before: 76, after: 58 }, notificationRecipients: [{ name: "Operations Human Resources", role: "Human Resources (HR)", deliveryStatus: "sent" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-04T11:20:05+07:00", description: "Violation Event confirmed." }, { status: "cleared", occurredAt: "2026-09-04T11:30:00+07:00", description: "Violation Episode Cleared." }],
     },
     {
-      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Violation Event dikonfirmasi." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Violation Episode Cleared." }],
+      id: "VIO-05", status: "cleared", zoneId: "ZON-01", cameraId: "CAM-01", episodeId: "EPS-005", employeeId: "EMP-07", missingCanonicalPpeClasses: ["Safety Vest"], confidence: 0.87, detectedAt: "2026-09-05T13:45:00+07:00", updatedAt: "2026-09-05T13:53:00+07:00", scoreChange: { before: 63, after: 55 }, notificationRecipients: [{ name: "Supervisor Warehouse", role: "Area Supervisor", deliveryStatus: "failed" }], timeline: [{ status: "confirmed", occurredAt: "2026-09-05T13:45:05+07:00", description: "Violation Event confirmed." }, { status: "cleared", occurredAt: "2026-09-05T13:53:00+07:00", description: "Violation Episode Cleared." }],
     },
   ],
   compliance: { compliantObservations: 83, totalObservations: 100 },
@@ -645,8 +645,8 @@ function confirmMonitoringSimulation(data: DemoData, simulation: MonitoringSimul
     updatedAt: "2026-09-09T10:00:00+07:00",
     notificationRecipients: [],
     timeline: [
-      { status: "candidate", occurredAt: "2026-09-09T09:59:55+07:00", description: "Sinyal PPE hilang memasuki verifikasi." },
-      { status: "confirmed", occurredAt: "2026-09-09T10:00:00+07:00", description: "Violation Event dicatat." },
+      { status: "candidate", occurredAt: "2026-09-09T09:59:55+07:00", description: "Missing PPE signal entered verification." },
+      { status: "confirmed", occurredAt: "2026-09-09T10:00:00+07:00", description: "Violation Event recorded." },
     ],
   };
   data.violations.push(violation);
@@ -806,7 +806,7 @@ export function createMockSawService({
       return withViolationHistory(data, saved);
     },
     async deactivateHazardousZone(id) {
-      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat diperbarui.");
+      if (scenario === "error") throw new Error("Hazardous Zone could not be updated.");
       const data = readData();
       const zone = data.hazardousZones?.find((item) => item.id === id);
       if (!zone) throw new Error("Hazardous Zone was not found.");
@@ -816,12 +816,12 @@ export function createMockSawService({
       return withViolationHistory(data, zone);
     },
     async deleteHazardousZone(id) {
-      if (scenario === "error") throw new Error("Hazardous Zone tidak dapat dihapus.");
+      if (scenario === "error") throw new Error("Hazardous Zone could not be deleted.");
       const data = readData();
       const zones = data.hazardousZones ?? [];
       if (!zones.some((zone) => zone.id === id)) throw new Error("Hazardous Zone was not found.");
       if (data.violations.some((violation) => violation.zoneId === id)) {
-        throw new Error("Hazardous Zone dengan riwayat Violation tidak dapat dihapus permanen.");
+        throw new Error("A Hazardous Zone with Violation History cannot be permanently deleted.");
       }
 
       data.hazardousZones = zones.filter((zone) => zone.id !== id);
@@ -839,7 +839,7 @@ export function createMockSawService({
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
-      if (scenario === "error") throw new Error("Direktori Employee tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Employee Directory could not be loaded.");
       if (scenario === "empty") return { employees: [], escalationThreshold: readData().escalationThreshold };
 
       const data = readData();
@@ -927,11 +927,11 @@ export function createMockSawService({
     },
     async getSafetySettings() {
       if (scenario === "loading") return new Promise<SafetySettings>(() => undefined);
-      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Safety Parameters could not be loaded.");
       return clone(readData().safetySettings ?? defaultSafetySettings);
     },
     async updateSafetySettings(settings) {
-      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Safety Parameters could not be saved.");
 
       const data = readData();
       const nextSettings = normalizeSafetySettings(settings);
@@ -942,16 +942,16 @@ export function createMockSawService({
     },
     async getCanonicalPpeClassConfiguration() {
       if (scenario === "loading") return new Promise<CanonicalPpeClassConfiguration>(() => undefined);
-      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Canonical PPE Class configuration could not be loaded.");
       return clone(readData().canonicalPpeClassConfiguration ?? defaultCanonicalPpeClassConfiguration);
     },
     async updateCanonicalPpeClassConfiguration(configuration) {
-      if (scenario === "error") throw new Error("Configuration Canonical PPE Class tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Canonical PPE Class configuration could not be saved.");
 
       const duplicateIndex = configuration.mappings.find((mapping, index) =>
         configuration.mappings.some((candidate, candidateIndex) => candidateIndex !== index && candidate.yoloIndex === mapping.yoloIndex),
       );
-      if (duplicateIndex) throw new Error(`Indeks YOLO ${duplicateIndex.yoloIndex} sudah digunakan.`);
+      if (duplicateIndex) throw new Error(`YOLO index ${duplicateIndex.yoloIndex} is already in use.`);
 
       const data = readData();
       data.canonicalPpeClassConfiguration = normalizeCanonicalPpeClassConfiguration(configuration);
@@ -960,11 +960,11 @@ export function createMockSawService({
     },
     async getNotificationRecipients() {
       if (scenario === "loading") return new Promise<NotificationRecipient[]>(() => undefined);
-      if (scenario === "error") throw new Error("Configuration notifikasi tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Notification configuration could not be loaded.");
       return clone(readData().notificationRecipients ?? []);
     },
     async saveNotificationRecipient(input) {
-      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Notification recipient could not be saved.");
       const name = input.name.trim();
       const scope = input.scope;
       if (!name) throw new Error("Recipient name is required.");
@@ -990,25 +990,25 @@ export function createMockSawService({
       return clone(recipient);
     },
     async deleteNotificationRecipient(id) {
-      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat dihapus.");
+      if (scenario === "error") throw new Error("Notification recipient could not be deleted.");
       const data = readData();
       const recipient = data.notificationRecipients?.find((item) => item.id === id);
-      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      if (!recipient) throw new Error("Notification recipient was not found.");
       data.notificationRecipients = data.notificationRecipients?.filter((item) => item.id !== id);
       persist(data);
     },
     async getNotificationSimulationLogs() {
       if (scenario === "loading") return new Promise<NotificationSimulationLog[]>(() => undefined);
-      if (scenario === "error") throw new Error("Log notifikasi tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Notification simulation log could not be loaded.");
       return clone(readData().notificationLogs ?? []);
     },
     async simulateNotification(recipientId, deliveryStatus) {
-      if (scenario === "error") throw new Error("Uji notifikasi tidak dapat dijalankan.");
+      if (scenario === "error") throw new Error("Notification simulation could not run.");
       const data = readData();
       const recipient = data.notificationRecipients?.find((item) => item.id === recipientId);
-      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      if (!recipient) throw new Error("Notification recipient was not found.");
       const violationId = data.violations[0]?.id;
-      if (!violationId) throw new Error("No Violation Event untuk simulasi.");
+      if (!violationId) throw new Error("No Violation Event is available for simulation.");
       const log = appendNotificationSimulationLog(data, recipient, deliveryStatus, violationId, "2026-09-09T10:15:00+07:00");
       persist(data);
       return clone(log);
@@ -1053,7 +1053,7 @@ export function createMockSawService({
           if (event) {
             event.status = "clearing";
             event.updatedAt = "2026-09-09T10:00:01+07:00";
-            event.timeline?.push({ status: "clearing", occurredAt: event.updatedAt, description: "Violation Episode memasuki Clearing." });
+            event.timeline?.push({ status: "clearing", occurredAt: event.updatedAt, description: "Violation Episode entered Clearing." });
           }
         }
       } else if (simulation.episodeStatus === "clearing") {
@@ -1063,7 +1063,7 @@ export function createMockSawService({
           if (event) {
             event.status = "confirmed";
             event.updatedAt = "2026-09-09T10:00:02+07:00";
-            event.timeline?.push({ status: "confirmed", occurredAt: event.updatedAt, description: "PPE kembali tidak terpenuhi; Violation Episode kembali menjadi Violation." });
+            event.timeline?.push({ status: "confirmed", occurredAt: event.updatedAt, description: "PPE became non-compliant again; the Violation Episode returned to Violation." });
           }
         }
         else {
