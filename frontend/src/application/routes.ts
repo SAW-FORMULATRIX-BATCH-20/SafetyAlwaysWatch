@@ -7,7 +7,8 @@ import { Notifications } from "../features/notifications/Notifications";
 import { SafetyParameters } from "../features/safety-parameters/SafetyParameters";
 import { ScoreReset } from "../features/score-reset/ScoreReset";
 import { Employees } from "../features/employees/Employees";
-import { EmployeeDetail, FaceEnrollmentPlaceholder } from "../features/employees/EmployeeDetail";
+import { EmployeeDetail } from "../features/employees/EmployeeDetail";
+import { FaceEnrollment } from "../features/employees/FaceEnrollment";
 import { EmployeeRegistration } from "../features/employees/EmployeeRegistration";
 import { Violations } from "../features/violations/Violations";
 import { Overview } from "../features/overview/Overview";
@@ -59,7 +60,7 @@ export const routes: readonly RouteDefinition[] = [
   { group: "Safety Operations", path: "/employees", title: "Employees", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => createElement(Employees, { persona, service }) },
   { group: "Safety Operations", path: "/employees/new", navigation: false, title: "Add Employee", roles: ["admin"], render: (_persona, service) => createElement(EmployeeRegistration, { service }) },
   { group: "Safety Operations", path: "/employees/:employeeId", navigation: false, title: "Employee details", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => createElement(EmployeeDetail, { persona, service }) },
-  { group: "Safety Operations", path: "/employees/:employeeId/face-enrollment", navigation: false, title: "Face Enrollment", roles: ["admin"], render: () => createElement(FaceEnrollmentPlaceholder) },
+  { group: "Safety Operations", path: "/employees/:employeeId/face-enrollment", navigation: false, title: "Face Enrollment", roles: ["admin"], render: (_persona, service) => createElement(FaceEnrollment, { service }) },
   { group: "Configuration", path: "/camera-sources", title: "Camera Sources", roles: ["admin", "supervisor"], render: (persona, service) => createElement(CameraSources, { persona, service }) },
   { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => createElement(HazardousZones, { service }) },
   { group: "Configuration", path: "/canonical-ppe-classes", title: "Canonical PPE Classes", roles: ["admin"], render: (_persona, service) => createElement(CanonicalPpeClasses, { service }) },

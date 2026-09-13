@@ -90,6 +90,53 @@ describe("MockSawService Employee registration", () => {
   });
 });
 
+describe("MockSawService Face Enrollment", () => {
+  it("persists only Face Sample metadata, derives Employee enrollment, and retains an inactive sample", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+    const sample = await service.enrollFaceSample({
+      employeeId: "EMP-07",
+      image: new File(["private-image-bytes"], "employee.jpg", { type: "image/jpeg" }),
+      demoOutcome: "success",
+      actor: "Admin/Safety Officer",
+    });
+
+    expect(await service.getEmployee("EMP-07")).toMatchObject({ enrollmentStatus: "enrolled", faceSampleCount: 1 });
+    expect(await service.getFaceSamples("EMP-07")).toEqual([expect.objectContaining({ id: sample.id, active: true, enrolledBy: "Admin/Safety Officer" })]);
+    const persisted = window.localStorage.getItem("saw-demo-data") ?? "";
+    expect(persisted).not.toContain("private-image-bytes");
+    expect(persisted).not.toContain("data:image");
+    expect(persisted).not.toContain("base64");
+
+    await service.deactivateFaceSample("EMP-07", sample.id);
+    expect(await service.getEmployee("EMP-07")).toMatchObject({ enrollmentStatus: "not-enrolled", faceSampleCount: 0 });
+    expect(await service.getFaceSamples("EMP-07")).toEqual([expect.objectContaining({ id: sample.id, active: false })]);
+  });
+
+  it("enforces the active Face Sample limit with a stable code", async () => {
+    const service = createMockSawService({ storage: null });
+    for (let index = 0; index < 5; index += 1) {
+      await service.enrollFaceSample({ employeeId: "EMP-07", image: new File([String(index)], `${index}.png`, { type: "image/png" }), demoOutcome: "success", actor: "Admin/Safety Officer" });
+    }
+    await expect(service.enrollFaceSample({ employeeId: "EMP-07", image: new File(["more"], "more.png", { type: "image/png" }), demoOutcome: "success", actor: "Admin/Safety Officer" })).rejects.toMatchObject({ code: "active_sample_limit" });
+  });
+
+  it("rejects demo validation outcomes and invalid media through stable codes", async () => {
+    const service = createMockSawService({ storage: null });
+    await expect(service.enrollFaceSample({ employeeId: "EMP-07", image: new File(["image"], "employee.jpg", { type: "image/jpeg" }), demoOutcome: "multiple_faces", actor: "Admin/Safety Officer" })).rejects.toMatchObject({ code: "multiple_faces" });
+    await expect(service.enrollFaceSample({ employeeId: "EMP-07", image: new File(["image"], "employee.gif", { type: "image/gif" }), demoOutcome: "success", actor: "Admin/Safety Officer" })).rejects.toMatchObject({ code: "unsupported_media_type" });
+  });
+
+  it("removes Face Sample metadata and restores enrollment state when demo data is reset", async () => {
+    const service = createMockSawService({ storage: window.localStorage });
+    await service.enrollFaceSample({ employeeId: "EMP-07", image: new File(["image"], "employee.jpg", { type: "image/jpeg" }), demoOutcome: "success", actor: "Admin/Safety Officer" });
+    await service.resetDemoData();
+
+    const reloaded = createMockSawService({ storage: window.localStorage });
+    expect(await reloaded.getFaceSamples("EMP-07")).toEqual([]);
+    expect(await reloaded.getEmployee("EMP-07")).toMatchObject({ enrollmentStatus: "not-enrolled", faceSampleCount: 0 });
+  });
+});
+
 describe("MockSawService Hazardous Zone lifecycle", () => {
   it("persists deactivation without removing audit references", async () => {
     const service = createMockSawService({ storage: window.localStorage });
