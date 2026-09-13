@@ -839,7 +839,7 @@ export function createMockSawService({
     },
     async getEmployeeDirectory(scope = "all") {
       if (scenario === "loading") return new Promise<EmployeeDirectoryData>(() => undefined);
-      if (scenario === "error") throw new Error("Direktori Employee tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Employee Directory could not be loaded.");
       if (scenario === "empty") return { employees: [], escalationThreshold: readData().escalationThreshold };
 
       const data = readData();
@@ -927,11 +927,11 @@ export function createMockSawService({
     },
     async getSafetySettings() {
       if (scenario === "loading") return new Promise<SafetySettings>(() => undefined);
-      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Safety Parameters could not be loaded.");
       return clone(readData().safetySettings ?? defaultSafetySettings);
     },
     async updateSafetySettings(settings) {
-      if (scenario === "error") throw new Error("Parameters keselamatan tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Safety Parameters could not be saved.");
 
       const data = readData();
       const nextSettings = normalizeSafetySettings(settings);
@@ -960,11 +960,11 @@ export function createMockSawService({
     },
     async getNotificationRecipients() {
       if (scenario === "loading") return new Promise<NotificationRecipient[]>(() => undefined);
-      if (scenario === "error") throw new Error("Configuration notifikasi tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Notification configuration could not be loaded.");
       return clone(readData().notificationRecipients ?? []);
     },
     async saveNotificationRecipient(input) {
-      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat disimpan.");
+      if (scenario === "error") throw new Error("Notification recipient could not be saved.");
       const name = input.name.trim();
       const scope = input.scope;
       if (!name) throw new Error("Recipient name is required.");
@@ -990,25 +990,25 @@ export function createMockSawService({
       return clone(recipient);
     },
     async deleteNotificationRecipient(id) {
-      if (scenario === "error") throw new Error("Penerima notifikasi tidak dapat dihapus.");
+      if (scenario === "error") throw new Error("Notification recipient could not be deleted.");
       const data = readData();
       const recipient = data.notificationRecipients?.find((item) => item.id === id);
-      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      if (!recipient) throw new Error("Notification recipient was not found.");
       data.notificationRecipients = data.notificationRecipients?.filter((item) => item.id !== id);
       persist(data);
     },
     async getNotificationSimulationLogs() {
       if (scenario === "loading") return new Promise<NotificationSimulationLog[]>(() => undefined);
-      if (scenario === "error") throw new Error("Log notifikasi tidak dapat dimuat.");
+      if (scenario === "error") throw new Error("Notification simulation log could not be loaded.");
       return clone(readData().notificationLogs ?? []);
     },
     async simulateNotification(recipientId, deliveryStatus) {
-      if (scenario === "error") throw new Error("Uji notifikasi tidak dapat dijalankan.");
+      if (scenario === "error") throw new Error("Notification simulation could not run.");
       const data = readData();
       const recipient = data.notificationRecipients?.find((item) => item.id === recipientId);
-      if (!recipient) throw new Error("Penerima notifikasi tidak ditemukan.");
+      if (!recipient) throw new Error("Notification recipient was not found.");
       const violationId = data.violations[0]?.id;
-      if (!violationId) throw new Error("No Violation Event untuk simulasi.");
+      if (!violationId) throw new Error("No Violation Event is available for simulation.");
       const log = appendNotificationSimulationLog(data, recipient, deliveryStatus, violationId, "2026-09-09T10:15:00+07:00");
       persist(data);
       return clone(log);

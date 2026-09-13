@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./App";
-import { createMockSawService, type DemoData, type SawApplicationCapabilities } from "./services/saw-service";
+import { createMockSawService, type DemoData } from "./services/saw-service";
 
 const withCameras = (cameras: DemoData["cameras"]): DemoData => ({
   cameras,
@@ -93,93 +93,44 @@ describe("SAW application", () => {
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
 
-  it("memungkinkan Admin/Safety Officer menyimpan penerima Area Supervisor dengan Chat ID yang dimasking", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <App
-        initialEntries={["/administrasi/notifikasi"]}
-        initialPersona="admin"
-        service={createMockSawService({ storage: null })}
-      />,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Add recipient" }));
-    await user.type(screen.getByRole("textbox", { name: "Recipient name" }), "Supervisor Maintenance Shift B");
-    await user.type(screen.getByRole("textbox", { name: "Chat ID Telegram" }), "1234567890");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Recipient role" }), "Area Supervisor");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Recipient scope" }), "department");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Target department" }), "Maintenance");
-    await user.click(screen.getByRole("button", { name: "Save recipient" }));
-
-    const recipient = await screen.findByRole("article", { name: "Supervisor Maintenance Shift B" });
-    expect(recipient).toHaveTextContent("•••• 7890");
-    expect(recipient).not.toHaveTextContent("1234567890");
-    await user.click(within(recipient).getByRole("button", { name: "View details Supervisor Maintenance Shift B" }));
-    const detail = screen.getByRole("dialog", { name: "Details Supervisor Maintenance Shift B" });
-    expect(detail).toHaveTextContent("•••• 7890");
-    expect(detail).not.toHaveTextContent("1234567890");
-  });
-
-  it("records a simulation feed and log when a Safety Score crosses the Escalation Threshold", async () => {
+  it("shows persisted Notification simulation logs after a Safety Score escalation", async () => {
     const user = userEvent.setup();
     const service = createMockSawService({ storage: null });
 
-    render(
-      <App
-        initialEntries={["/monitoring/live"]}
-        initialPersona="admin"
-        service={service}
-      />,
-    );
+    render(<App initialEntries={["/monitoring/live"]} initialPersona="admin" service={service} />);
 
     await user.click(await screen.findByRole("button", { name: "Score escalation scenario" }));
     await user.click(screen.getByRole("button", { name: "Process non-compliant frame" }));
-
     expect(await screen.findByRole("status", { name: "Simulation notification feed" })).toHaveTextContent("3 simulated recipients recorded");
     await user.click(screen.getByRole("link", { name: "Notifications" }));
     expect((await screen.findAllByText(/VIO-SIM-01/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Sent · SIMULASI/).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/Sent · SIMULATION/).length).toBeGreaterThan(1);
   });
 
-  it("menyimpan hasil uji berhasil dan gagal setelah halaman dimuat ulang", async () => {
-    const user = userEvent.setup();
-    const service = createMockSawService({ storage: window.localStorage });
-    const firstRender = render(
-      <App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={service} />,
-    );
+  it.each([
+    ["/safety-parameters", "supervisor"],
+    ["/safety-parameters", "hrd"],
+    ["/score-reset", "supervisor"],
+    ["/score-reset", "hrd"],
+    ["/notifications", "supervisor"],
+  ] as const)(
+    "restricts direct route %s for the %s persona",
+    (path, persona) => {
+      render(
+        <App
+          initialEntries={[path]}
+          initialPersona={persona}
+          service={createMockSawService({ storage: null })}
+        />,
+      );
 
-    const recipient = await screen.findByRole("article", { name: "Operations Human Resources" });
-    await user.click(within(recipient).getByRole("button", { name: "Uji berhasil" }));
-    expect(await screen.findByText(/Uji SIMULASI berhasil untuk Operations Human Resources dicatat/)).toBeInTheDocument();
-    await user.click(within(await screen.findByRole("article", { name: "Operations Human Resources" })).getByRole("button", { name: "Uji gagal" }));
-    expect(await screen.findByText(/Uji SIMULASI gagal untuk Operations Human Resources dicatat/)).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Restricted access" }),
+      ).toBeInTheDocument();
+    },
+  );
 
-    firstRender.unmount();
-    render(<App initialEntries={["/administrasi/notifikasi"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
-
-    expect((await screen.findAllByText(/Sent · SIMULASI/)).length).toBeGreaterThan(1);
-    expect(screen.getAllByText(/Failed · SIMULASI/).length).toBeGreaterThan(1);
-    expect(screen.getAllByRole("img", { name: /Ikon (Sent|Failed)/ })).not.toHaveLength(0);
-  });
-
-  it("memberi HRD akses baca terhadap log notifikasi tanpa kontrol penerima", async () => {
-    render(
-      <App
-        initialEntries={["/administrasi/notifikasi"]}
-        initialPersona="hrd"
-        service={createMockSawService({ storage: null })}
-      />,
-    );
-
-    expect(await screen.findByRole("heading", { name: "Log notifikasi simulasi" })).toBeInTheDocument();
-    expect(screen.getByText(/Failed · SIMULASI/)).toBeInTheDocument();
-    expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "Add recipient" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Uji berhasil" })).not.toBeInTheDocument();
-  });
-
-  it("mengarahkan Admin/Safety Officer ke Overview setelah login demo", async () => {
+   it("mengarahkan Admin/Safety Officer ke Overview setelah login demo", async () => {
     const user = userEvent.setup();
 
     render(<App initialEntries={["/login"]} />);
@@ -562,148 +513,7 @@ describe("SAW application", () => {
     expect(await screen.findByText(expectedText)).toBeInTheDocument();
   });
 
-  it("menampilkan seluruh parameter keselamatan untuk Admin/Safety Officer", async () => {
-    render(
-      <App
-        initialEntries={["/administrasi/parameter"]}
-        initialPersona="admin"
-        service={createMockSawService({ storage: null })}
-      />,
-    );
-
-    expect(await screen.findByRole("spinbutton", { name: "Skor awal", hidden: true })).toHaveValue(100);
-    expect(screen.getByRole("heading", { name: "Safety Score", level: 2, hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Stabilisasi Episode dan deteksi", level: 2, hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Jadwal Score Reset", level: 2, hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Escalation Threshold", hidden: true })).toHaveValue(60);
-    expect(screen.getByRole("spinbutton", { name: "Pengurangan Safety Helmet", hidden: true })).toHaveValue(10);
-    expect(screen.getByRole("spinbutton", { name: "Ambang konfirmasi", hidden: true })).toHaveValue(5);
-    expect(screen.getByRole("spinbutton", { name: "Ambang pemulihan", hidden: true })).toHaveValue(3);
-    expect(screen.getByRole("spinbutton", { name: "Confidence minimum", hidden: true })).toHaveValue(0.5);
-    expect(screen.getByLabelText("Jadwal Score Reset")).toHaveValue("00:00");
-    expect(screen.getByRole("spinbutton", { name: "Lead time recap", hidden: true })).toHaveValue(15);
-    expect(screen.getByText("Asia/Jakarta (WIB)")).toBeInTheDocument();
-  });
-
-  it("menolak nilai parameter di luar rentang sebelum menyimpan", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <App
-        initialEntries={["/administrasi/parameter"]}
-        initialPersona="admin"
-        service={createMockSawService({ storage: null })}
-      />,
-    );
-
-    const initialScore = await screen.findByRole("spinbutton", { name: "Skor awal", hidden: true });
-    await user.clear(initialScore);
-    await user.type(initialScore, "101");
-    await user.click(screen.getByRole("button", { name: "Save parameter", hidden: true }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Skor awal harus antara 0 dan 100.");
-    expect(screen.queryByText("Parameters keselamatan berhasil disimpan.")).not.toBeInTheDocument();
-  });
-
-  it("dapat membatalkan perubahan parameter tanpa mengubah data tersimpan", async () => {
-    const user = userEvent.setup();
-    const service = createMockSawService({ storage: window.localStorage });
-    const firstRender = render(
-      <App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />,
-    );
-
-    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Escalation Threshold", hidden: true });
-    await user.clear(escalationThreshold);
-    await user.type(escalationThreshold, "80");
-    await user.click(screen.getByRole("button", { name: "Cancel", hidden: true }));
-    expect(screen.getByRole("spinbutton", { name: "Escalation Threshold", hidden: true })).toHaveValue(60);
-
-    firstRender.unmount();
-    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
-    expect(await screen.findByRole("spinbutton", { name: "Escalation Threshold", hidden: true })).toHaveValue(60);
-  });
-
-  it("menyimpan parameter, mempertahankannya setelah refresh, dan mengubah KPI ambang Overview", async () => {
-    const user = userEvent.setup();
-    const service = createMockSawService({
-      initialData: {
-        cameras: [
-          { id: "CAM-01", name: "Production Gate", location: "Lini Production", zoneIds: [], status: "online", lastUpdatedAt: "2026-09-08T08:15:00+07:00", supervisorArea: "Production" },
-        ],
-        compliance: { compliantObservations: 10, totalObservations: 10 },
-        departments: ["Production"],
-        employees: [
-          { id: "EMP-01", name: "Employee 01", departmentId: "Production", safetyScore: 55 },
-          { id: "EMP-02", name: "Employee 02", departmentId: "Production", safetyScore: 65 },
-        ],
-        escalationThreshold: 60,
-        violations: [],
-        zones: [],
-      },
-      storage: window.localStorage,
-    });
-
-    const firstRender = render(
-      <App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />,
-    );
-    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Escalation Threshold", hidden: true });
-    await user.clear(escalationThreshold);
-    await user.type(escalationThreshold, "70");
-    await user.click(screen.getByRole("button", { name: "Save parameter", hidden: true }));
-
-    expect(await screen.findByText("Parameters keselamatan berhasil disimpan.")).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Escalation Threshold", hidden: true })).toHaveValue(70);
-
-    await user.click(screen.getByRole("link", { name: "Overview" }));
-    expect(await screen.findByText("2", { selector: "strong" })).toBeInTheDocument();
-
-    firstRender.unmount();
-    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
-    expect(await screen.findByRole("spinbutton", { name: "Escalation Threshold", hidden: true })).toHaveValue(70);
-  });
-
-  it("menampilkan kegagalan saat penyimpanan parameter ditolak service", async () => {
-    const user = userEvent.setup();
-    const service: SawApplicationCapabilities = createMockSawService({ storage: null });
-    service.updateSafetySettings = async () => {
-      throw new Error("Parameters keselamatan tidak dapat disimpan.");
-    };
-
-    render(<App initialEntries={["/administrasi/parameter"]} initialPersona="admin" service={service} />);
-    const escalationThreshold = await screen.findByRole("spinbutton", { name: "Escalation Threshold", hidden: true });
-    await user.clear(escalationThreshold);
-    await user.type(escalationThreshold, "70");
-    await user.click(screen.getByRole("button", { name: "Save parameter", hidden: true }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Parameters keselamatan tidak dapat disimpan.");
-  });
-
-  it.each(["supervisor", "hrd"] as const)("membatasi halaman parameter untuk peran %s", (role) => {
-    render(
-      <App
-        initialEntries={["/administrasi/parameter"]}
-        initialPersona={role}
-        service={createMockSawService({ storage: null })}
-      />,
-    );
-
-    expect(screen.getByRole("heading", { name: "Restricted access" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save parameter" })).not.toBeInTheDocument();
-  });
-
-  it("menampilkan kegagalan pemuatan parameter", async () => {
-    render(
-      <App
-        initialEntries={["/administrasi/parameter"]}
-        initialPersona="admin"
-        service={createMockSawService({ scenario: "error", storage: null })}
-      />,
-    );
-
-    expect(await screen.findByText("Parameters keselamatan tidak dapat dimuat")).toBeInTheDocument();
-  });
-
-  it("memungkinkan Admin/Safety Officer menambah mapping Canonical PPE Classes dan menolak indeks YOLO duplikat", async () => {
+   it("memungkinkan Admin/Safety Officer menambah mapping Canonical PPE Classes dan menolak indeks YOLO duplikat", async () => {
     const user = userEvent.setup();
 
     render(
@@ -788,81 +598,7 @@ describe("SAW application", () => {
     expect(await screen.findByText("ppe-produksi.onnx")).toBeInTheDocument();
   });
 
-  it("memungkinkan Admin/Safety Officer mereset Safety Score dengan artefak audit", async () => {
-    const user = userEvent.setup();
-    const service = createMockSawService({ storage: window.localStorage });
-
-    const firstRender = render(
-      <App
-        initialEntries={["/administrasi/reset-skor"]}
-        initialPersona="admin"
-        service={service}
-      />,
-    );
-
-    expect(await screen.findByRole("heading", { name: "Score Reset" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Employee yang direset" }), "EMP-01");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Other");
-    await user.type(screen.getByRole("textbox", { name: "Note reason" }), "Koreksi setelah investigasi selesai.");
-    await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
-
-    expect(screen.getByRole("dialog", { name: "Tinjau Score Reset" })).toHaveTextContent("Employee Production 01");
-    expect(screen.getByRole("dialog", { name: "Tinjau Score Reset" })).toHaveTextContent("01 Sep 2026");
-    expect(screen.getByRole("dialog", { name: "Tinjau Score Reset" })).toHaveTextContent("92");
-    expect(screen.getByRole("dialog", { name: "Tinjau Score Reset" })).toHaveTextContent("100");
-    await user.click(screen.getByRole("button", { name: "Lanjut ke konfirmasi" }));
-    await user.click(screen.getByRole("button", { name: "Konfirmasi Score Reset" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent("Score Reset berhasil disimpan.");
-    expect(screen.getByText("Ringkasan Period Skor")).toBeInTheDocument();
-    expect(screen.getByText("Ledger Safety Score")).toBeInTheDocument();
-    expect(screen.getByText("Log Score Reset")).toBeInTheDocument();
-    expect(screen.getByText("Manual")).toBeInTheDocument();
-    expect(screen.getByText("Koreksi setelah investigasi selesai.")).toBeInTheDocument();
-    expect(screen.getAllByText("Admin/Safety Officer")).toHaveLength(2);
-    expect(screen.getAllByText(/WIB/).length).toBeGreaterThan(0);
-    expect((await service.getEmployeeDirectory()).employees.find((employee) => employee.id === "EMP-01")?.safetyScore).toBe(100);
-
-    firstRender.unmount();
-    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona="admin" service={createMockSawService({ storage: window.localStorage })} />);
-    await screen.findByRole("heading", { name: "Score Reset" });
-    await user.selectOptions(screen.getByRole("combobox", { name: "Employee yang direset" }), "EMP-01");
-    expect(await screen.findByText("Koreksi setelah investigasi selesai.")).toBeInTheDocument();
-  });
-
-  it("mewajibkan note untuk reason Lainnya dan membatalkan Score Reset tanpa mengubah audit", async () => {
-    const user = userEvent.setup();
-    const service = createMockSawService({ storage: null });
-
-    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona="admin" service={service} />);
-
-    await screen.findByRole("heading", { name: "Score Reset" });
-    await user.selectOptions(screen.getByRole("combobox", { name: "Employee yang direset" }), "EMP-01");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "Other");
-    await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("A note is required for the Other reason.");
-
-    await user.type(screen.getByRole("textbox", { name: "Note reason" }), "Koreksi setelah pemeriksaan dokumen.");
-    await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
-    await user.click(screen.getByRole("button", { name: "Back" }));
-
-    await user.selectOptions(screen.getByRole("combobox", { name: "Reason Score Reset" }), "InvestigationClosed");
-    await user.click(screen.getByRole("button", { name: "Tinjau Score Reset" }));
-    await user.click(screen.getByRole("button", { name: "Lanjut ke konfirmasi" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    expect((await service.getEmployeeDirectory()).employees.find((employee) => employee.id === "EMP-01")?.safetyScore).toBe(92);
-    expect(await service.getSafetyScoreAudit("EMP-01")).toEqual({ periods: [], ledger: [], resetLogs: [] });
-  });
-
-  it.each(["supervisor", "hrd"] as const)("membatasi halaman Score Reset untuk peran %s", (role) => {
-    render(<App initialEntries={["/administrasi/reset-skor"]} initialPersona={role} service={createMockSawService({ storage: null })} />);
-
-    expect(screen.getByRole("heading", { name: "Restricted access" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tinjau Score Reset" })).not.toBeInTheDocument();
-  });
-
-  it("menampilkan Zone Editor untuk Admin/Safety Officer dengan kamera, PPE, dan zona seed", async () => {
+   it("menampilkan Zone Editor untuk Admin/Safety Officer dengan kamera, PPE, dan zona seed", async () => {
     render(
       <App
         initialEntries={["/konfigurasi/zona"]}

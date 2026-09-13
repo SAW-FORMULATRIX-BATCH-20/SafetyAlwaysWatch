@@ -20,7 +20,7 @@ describe("MockSawService Reset Skor", () => {
     expect((await reloadedService.getSafetyScoreAudit("EMP-01")).periods[0]?.resetReason).toBe("InvestigationClosed");
   });
 
-  it("memulihkan Safety Score dan menyimpan artefak audit secara persisten", async () => {
+  it("restores Safety Score and persists audit artefacts", async () => {
     const service = createMockSawService({ storage: window.localStorage });
 
     const result = await service.resetSafetyScore({

@@ -1,13 +1,9 @@
 import { createElement, type ReactNode } from "react";
 
-import {
-  Cameras,
-  CanonicalPpeClasses,
-  HazardousZoneEditor,
-  NotificationConfiguration,
-  SafetyParameters,
-  SafetyScoreReset,
-} from "./RoutedApplication";
+import { Cameras, CanonicalPpeClasses, HazardousZoneEditor } from "./RoutedApplication";
+import { Notifications } from "../features/notifications/Notifications";
+import { SafetyParameters } from "../features/safety-parameters/SafetyParameters";
+import { ScoreReset } from "../features/score-reset/ScoreReset";
 import { Employees } from "../features/employees/Employees";
 import { Violations } from "../features/violations/Violations";
 import { Overview } from "../features/overview/Overview";
@@ -55,8 +51,8 @@ export const routes: readonly RouteDefinition[] = [
   { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => createElement(HazardousZoneEditor, { service }) },
   { group: "Configuration", path: "/canonical-ppe-classes", title: "Canonical PPE Classes", roles: ["admin"], render: (_persona, service) => createElement(CanonicalPpeClasses, { service }) },
   { group: "Administration", path: "/safety-parameters", title: "Safety Parameters", roles: ["admin"], render: (_persona, service) => createElement(SafetyParameters, { service }) },
-  { group: "Administration", path: "/score-reset", title: "Score Reset", roles: ["admin"], render: (_persona, service) => createElement(SafetyScoreReset, { service }) },
-  { group: "Administration", path: "/notifications", title: "Notifications", roles: ["admin", "hrd"], render: (persona, service) => createElement(NotificationConfiguration, { persona, service }) },
+  { group: "Administration", path: "/score-reset", title: "Score Reset", roles: ["admin"], render: (_persona, service) => createElement(ScoreReset, { service }) },
+  { group: "Administration", path: "/notifications", title: "Notifications", roles: ["admin", "hrd"], render: (persona, service) => createElement(Notifications, { persona, service }) },
 ];
 
 export const legacyRouteRedirects: Readonly<Record<string, CanonicalRoute>> = {
