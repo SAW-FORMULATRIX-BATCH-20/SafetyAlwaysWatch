@@ -39,7 +39,7 @@ export function ApplicationShell({
         </div>
         <nav aria-label="Main navigation" className="mt-6 space-y-6">
           {navigationGroupLabels.map((group) => {
-            const allowedItems = routes.filter((route) => route.group === group && route.roles.includes(persona.role));
+            const allowedItems = routes.filter((route) => route.navigation !== false && route.group === group && route.roles.includes(persona.role));
             if (allowedItems.length === 0) return null;
             return (
               <section key={group}>

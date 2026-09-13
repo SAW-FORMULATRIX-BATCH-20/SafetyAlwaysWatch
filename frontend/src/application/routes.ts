@@ -7,6 +7,8 @@ import { Notifications } from "../features/notifications/Notifications";
 import { SafetyParameters } from "../features/safety-parameters/SafetyParameters";
 import { ScoreReset } from "../features/score-reset/ScoreReset";
 import { Employees } from "../features/employees/Employees";
+import { EmployeeDetail, FaceEnrollmentPlaceholder } from "../features/employees/EmployeeDetail";
+import { EmployeeRegistration } from "../features/employees/EmployeeRegistration";
 import { Violations } from "../features/violations/Violations";
 import { Overview } from "../features/overview/Overview";
 import { ComplianceReport } from "../features/compliance-report/ComplianceReport";
@@ -16,7 +18,8 @@ import type { SawApplicationCapabilities } from "../services/saw-service";
 
 export type RouteDefinition = {
   group: string;
-  path: CanonicalRoute;
+  path: CanonicalRoute | EmployeeRoute;
+  navigation?: boolean;
   render: (persona: Persona, service: SawApplicationCapabilities) => ReactNode;
   roles: readonly PersonaRole[];
   title: string;
@@ -35,6 +38,11 @@ export type CanonicalRoute =
   | "/score-reset"
   | "/notifications";
 
+export type EmployeeRoute =
+  | "/employees/new"
+  | "/employees/:employeeId"
+  | "/employees/:employeeId/face-enrollment";
+
 export const navigationGroupLabels = [
   "Overview",
   "Monitoring",
@@ -49,6 +57,9 @@ export const routes: readonly RouteDefinition[] = [
   { group: "Monitoring", path: "/monitoring/live", title: "Live Monitoring", roles: ["admin", "supervisor"], render: (persona, service) => createElement(LiveMonitoring, { persona, service }) },
   { group: "Safety Operations", path: "/violations", title: "Violations", roles: ["admin", "supervisor", "hrd"], render: (_persona, service) => createElement(Violations, { service }) },
   { group: "Safety Operations", path: "/employees", title: "Employees", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => createElement(Employees, { persona, service }) },
+  { group: "Safety Operations", path: "/employees/new", navigation: false, title: "Add Employee", roles: ["admin"], render: (_persona, service) => createElement(EmployeeRegistration, { service }) },
+  { group: "Safety Operations", path: "/employees/:employeeId", navigation: false, title: "Employee details", roles: ["admin", "supervisor", "hrd"], render: (persona, service) => createElement(EmployeeDetail, { persona, service }) },
+  { group: "Safety Operations", path: "/employees/:employeeId/face-enrollment", navigation: false, title: "Face Enrollment", roles: ["admin"], render: () => createElement(FaceEnrollmentPlaceholder) },
   { group: "Configuration", path: "/camera-sources", title: "Camera Sources", roles: ["admin", "supervisor"], render: (persona, service) => createElement(CameraSources, { persona, service }) },
   { group: "Configuration", path: "/hazardous-zones", title: "Hazardous Zones", roles: ["admin"], render: (_persona, service) => createElement(HazardousZones, { service }) },
   { group: "Configuration", path: "/canonical-ppe-classes", title: "Canonical PPE Classes", roles: ["admin"], render: (_persona, service) => createElement(CanonicalPpeClasses, { service }) },
