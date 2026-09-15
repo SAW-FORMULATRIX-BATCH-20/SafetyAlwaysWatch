@@ -9,4 +9,6 @@ public interface IEmployeeService
     Task<ServiceResult<PaginatedList<EmployeeDto>>> GetEmployeesAsync(GetEmployeesQuery query, CancellationToken cancellationToken = default);
     Task<ServiceResult<EmployeeDto>> GetEmployeeByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServiceResult<Guid>> CreateEmployeeAsync(CreateEmployeeDto dto, CancellationToken cancellationToken = default);
+    Task<ServiceResult<bool>> UpdateEmployeeAsync(Guid id, UpdateEmployeeDto dto, CancellationToken cancellationToken = default);
+    Task<ServiceResult<bool>> DeleteEmployeeAsync(Guid id, CancellationToken cancellationToken = default);
 }

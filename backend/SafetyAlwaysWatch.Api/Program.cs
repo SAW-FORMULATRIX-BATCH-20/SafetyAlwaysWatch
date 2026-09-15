@@ -66,6 +66,7 @@ builder.Services.AddScoped<IValidator<GetEmployeesQuery>, GetEmployeesQueryValid
 builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValidator>();
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateEmployeeDto>, UpdateEmployeeDtoValidator>();
 
 
 // Configure JWT Authentication

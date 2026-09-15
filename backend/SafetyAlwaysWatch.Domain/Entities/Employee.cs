@@ -61,6 +61,14 @@ public class Employee : BaseEntity
         SafetyCreditScore = newScore;
     }
 
+    public void UpdateProfile(string fullName, Guid departmentId, Guid? supervisorId, EmployeeStatus status)
+    {
+        FullName = fullName;
+        DepartmentId = departmentId;
+        SupervisorId = supervisorId;
+        Status = status;
+    }
+
     public void SetEnrollmentStatus(bool isEnrolled)
     {
         HasFaceEnrolled = isEnrolled;

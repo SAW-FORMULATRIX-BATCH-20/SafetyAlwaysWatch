@@ -17,15 +17,18 @@ public class EmployeesController : ControllerBase
     private readonly IEmployeeService _employeeService;
     private readonly IValidator<GetEmployeesQuery> _getEmployeesValidator;
     private readonly IValidator<CreateEmployeeDto> _createEmployeeValidator;
+    private readonly IValidator<UpdateEmployeeDto> _updateEmployeeValidator;
 
     public EmployeesController(
         IEmployeeService employeeService, 
         IValidator<GetEmployeesQuery> getEmployeesValidator,
-        IValidator<CreateEmployeeDto> createEmployeeValidator)
+        IValidator<CreateEmployeeDto> createEmployeeValidator,
+        IValidator<UpdateEmployeeDto> updateEmployeeValidator)
     {
         _employeeService = employeeService;
         _getEmployeesValidator = getEmployeesValidator;
         _createEmployeeValidator = createEmployeeValidator;
+        _updateEmployeeValidator = updateEmployeeValidator;
     }
 
     /// <summary>
@@ -85,5 +88,45 @@ public class EmployeesController : ControllerBase
         }
 
         return CreatedAtAction(nameof(GetEmployeeById), new { id = result.Data }, result);
+    }
+
+    /// <summary>
+    /// Memperbarui profil karyawan.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateEmployee(Guid id, [FromBody] UpdateEmployeeDto dto, CancellationToken cancellationToken)
+    {
+        var validationResult = await _updateEmployeeValidator.ValidateAsync(dto, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = validationResult.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            return BadRequest(ServiceResult<bool>.ValidationFailure(errors));
+        }
+
+        var result = await _employeeService.UpdateEmployeeAsync(id, dto, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return NotFound(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Menghapus karyawan (soft-delete).
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteEmployee(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _employeeService.DeleteEmployeeAsync(id, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return NotFound(result);
+        }
+
+        return Ok(result);
     }
 }
