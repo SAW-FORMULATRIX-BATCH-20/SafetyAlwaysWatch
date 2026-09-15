@@ -19,6 +19,8 @@ using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.DTOs.Auth;
 using SafetyAlwaysWatch.Infrastructure.Security;
 using System.Reflection;
+using SafetyAlwaysWatch.Application.DTOs.HazardousZones;
+using SafetyAlwaysWatch.Application.Validators.HazardousZones;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,6 +69,10 @@ builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValid
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateEmployeeDto>, UpdateEmployeeDtoValidator>();
+builder.Services.AddScoped<IHazardousZoneService, HazardousZoneService>();
+builder.Services.AddScoped<IValidator<CreateHazardousZoneDto>, CreateHazardousZoneDtoValidator>();
+builder.Services.AddScoped<IValidator<UpdateHazardousZoneDto>, UpdateHazardousZoneDtoValidator>();
+builder.Services.AddScoped<IValidator<GetHazardousZonesQuery>, GetHazardousZonesQueryValidator>();
 
 
 // Configure JWT Authentication

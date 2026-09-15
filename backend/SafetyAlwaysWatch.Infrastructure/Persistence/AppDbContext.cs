@@ -16,7 +16,7 @@ public class AppDbContext : DbContext
 
     public DbSet<SystemSetting> SystemSettings { get; set; }
     public DbSet<Employee> Employees { get; set; }
-    public DbSet<DangerZone> DangerZones { get; set; }
+    public DbSet<HazardousZone> HazardousZones { get; set; }
     public DbSet<SafetyScoreLedger> SafetyScoreLedgers { get; set; }
     public DbSet<Department> Departments { get; set; }
 
