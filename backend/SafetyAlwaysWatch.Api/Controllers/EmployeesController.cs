@@ -8,6 +8,7 @@ using System.Security.Claims;
 using FluentValidation;
 using SafetyAlwaysWatch.Application.Common;
 using SafetyAlwaysWatch.Application.Common.Models;
+using SafetyAlwaysWatch.Application.DTOs.Requests;
 
 namespace SafetyAlwaysWatch.Api.Controllers;
 
@@ -20,12 +21,14 @@ public class EmployeesController : ControllerBase
     private readonly IValidator<GetEmployeesQuery> _getEmployeesValidator;
     private readonly IValidator<CreateEmployeeDto> _createEmployeeValidator;
     private readonly IValidator<UpdateEmployeeDto> _updateEmployeeValidator;
+    private readonly IScoreResetService _scoreResetService;
 
     public EmployeesController(
         IEmployeeService employeeService,
         IValidator<GetEmployeesQuery> getEmployeesValidator,
         IValidator<CreateEmployeeDto> createEmployeeValidator,
-        IValidator<UpdateEmployeeDto> updateEmployeeValidator)
+        IValidator<UpdateEmployeeDto> updateEmployeeValidator,
+        IScoreResetService scoreResetService)
     {
         _employeeService = employeeService;
         _getEmployeesValidator = getEmployeesValidator;
@@ -150,6 +153,18 @@ public class EmployeesController : ControllerBase
         using var stream = image.OpenReadStream();
         var result = await _employeeService.EnrollFaceAsync(id, stream, image.ContentType, adminId, cancellationToken);
 
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/safety-score/reset")]
+    public async Task<IActionResult> ResetSafetyScore(Guid id, [FromBody] ResetScoreRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _scoreResetService.ResetScoreManuallyAsync(id, request, cancellationToken);
         if (!result.IsSuccess)
         {
             return BadRequest(result);
