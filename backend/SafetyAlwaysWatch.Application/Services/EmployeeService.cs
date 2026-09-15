@@ -5,6 +5,7 @@ using SafetyAlwaysWatch.Application.Common.Models;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Interfaces;
 using SafetyAlwaysWatch.Domain.Entities;
+using SafetyAlwaysWatch.Domain.Enums;
 using SafetyAlwaysWatch.Domain.Interfaces;
 
 namespace SafetyAlwaysWatch.Application.Services;
@@ -15,6 +16,7 @@ public class EmployeeService : IEmployeeService
     private readonly IRepository<DangerZone> _dangerZoneRepository;
     private readonly IRepository<SystemSetting> _systemSettingRepository;
     private readonly IRepository<SafetyScoreLedger> _safetyScoreLedgerRepository;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IMapper _mapper;
 
     public EmployeeService(
@@ -22,12 +24,14 @@ public class EmployeeService : IEmployeeService
         IRepository<DangerZone> dangerZoneRepository,
         IRepository<SystemSetting> systemSettingRepository,
         IRepository<SafetyScoreLedger> safetyScoreLedgerRepository,
+        IPasswordHasher passwordHasher,
         IMapper mapper)
     {
         _employeeRepository = employeeRepository;
         _dangerZoneRepository = dangerZoneRepository;
         _systemSettingRepository = systemSettingRepository;
         _safetyScoreLedgerRepository = safetyScoreLedgerRepository;
+        _passwordHasher = passwordHasher;
         _mapper = mapper;
     }
 
@@ -136,5 +140,46 @@ public class EmployeeService : IEmployeeService
         };
 
         return ServiceResult<EmployeeDto>.Success(dto);
+    }
+
+    public async Task<ServiceResult<Guid>> CreateEmployeeAsync(CreateEmployeeDto dto, CancellationToken cancellationToken = default)
+    {
+        var existingEmployee = await _employeeRepository.Query()
+            .FirstOrDefaultAsync(x => x.EmployeeCode == dto.EmployeeCode, cancellationToken);
+
+        if (existingEmployee != null)
+        {
+            return ServiceResult<Guid>.Failure("Kode karyawan sudah digunakan.");
+        }
+
+        var settings = await _systemSettingRepository.Query().ToListAsync(cancellationToken);
+        var initialScoreSetting = settings.FirstOrDefault(x => x.Key == "SafetyScore:InitialScore");
+        double initialScore = initialScoreSetting != null ? double.Parse(initialScoreSetting.Value) : 100;
+
+        var employee = new Employee(dto.EmployeeCode, dto.FullName, dto.DepartmentId, initialScore);
+
+        if (dto.Role.HasValue)
+        {
+            var hash = !string.IsNullOrWhiteSpace(dto.Password) ? _passwordHasher.HashPassword(dto.Password) : string.Empty;
+            employee.SetCredentials(hash, dto.Role.Value, requiresPasswordChange: true, email: dto.Email);
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            employee.SetEmail(dto.Email);
+        }
+
+        await _employeeRepository.AddAsync(employee, cancellationToken);
+
+        var ledger = new SafetyScoreLedger(
+            employee.Id,
+            initialScore,
+            0,
+            initialScore,
+            LedgerChangeType.Initialization,
+            "Initial score assignment"
+        );
+        await _safetyScoreLedgerRepository.AddAsync(ledger, cancellationToken);
+
+        return ServiceResult<Guid>.Success(employee.Id);
     }
 }

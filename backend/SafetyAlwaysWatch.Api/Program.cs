@@ -14,6 +14,7 @@ using Serilog;
 using FluentValidation;
 using SafetyAlwaysWatch.Application.Services;
 using SafetyAlwaysWatch.Application.Validators;
+using SafetyAlwaysWatch.Application.Validators.Employees;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.DTOs.Auth;
 using SafetyAlwaysWatch.Infrastructure.Security;
@@ -62,6 +63,7 @@ builder.Services.AddAutoMapper(cfg =>
 });
 
 builder.Services.AddScoped<IValidator<GetEmployeesQuery>, GetEmployeesQueryValidator>();
+builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValidator>();
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
 

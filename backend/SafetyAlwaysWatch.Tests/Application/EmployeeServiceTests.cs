@@ -5,8 +5,9 @@ using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Mappings;
 using SafetyAlwaysWatch.Application.Services;
 using SafetyAlwaysWatch.Domain.Entities;
+using SafetyAlwaysWatch.Domain.Enums;
 using SafetyAlwaysWatch.Domain.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
+using SafetyAlwaysWatch.Application.Interfaces;
 using MockQueryable.Moq;
 using System.Reflection;
 
@@ -19,6 +20,7 @@ public class EmployeeServiceTests
     private Mock<IRepository<DangerZone>> _dangerZoneRepoMock;
     private Mock<IRepository<SystemSetting>> _systemSettingRepoMock;
     private Mock<IRepository<SafetyScoreLedger>> _ledgerRepoMock;
+    private Mock<IPasswordHasher> _passwordHasherMock;
     private IMapper _mapper;
     private EmployeeService _employeeService;
 
@@ -29,6 +31,7 @@ public class EmployeeServiceTests
         _dangerZoneRepoMock = new Mock<IRepository<DangerZone>>();
         _systemSettingRepoMock = new Mock<IRepository<SystemSetting>>();
         _ledgerRepoMock = new Mock<IRepository<SafetyScoreLedger>>();
+        _passwordHasherMock = new Mock<IPasswordHasher>();
 
         var mapperMock = new Mock<IMapper>();
         mapperMock.Setup(m => m.Map<EmployeeDto>(It.IsAny<Employee>()))
@@ -46,6 +49,7 @@ public class EmployeeServiceTests
             _dangerZoneRepoMock.Object,
             _systemSettingRepoMock.Object,
             _ledgerRepoMock.Object,
+            _passwordHasherMock.Object,
             _mapper);
     }
 
@@ -127,7 +131,7 @@ public class EmployeeServiceTests
         zone.AddSupervisor(employee.Id);
         var zones = new List<DangerZone> { zone };
 
-        var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, Guid.NewGuid(), null);
+        var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, LedgerChangeType.Violation, "Violation", Guid.NewGuid(), null);
         var ledgers = new List<SafetyScoreLedger> { ledger };
 
         var employees = new List<Employee> { employee };
@@ -160,5 +164,60 @@ public class EmployeeServiceTests
         // Assert
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.ErrorMessage, Is.EqualTo("Karyawan tidak ditemukan."));
+    }
+
+    [Test]
+    public async Task CreateEmployeeAsync_ShouldFail_WhenEmployeeCodeExists()
+    {
+        // Arrange
+        var existingEmployee = CreateEmployee("EMP01", "Existing", "IT", 100);
+        var employees = new List<Employee> { existingEmployee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        var dto = new CreateEmployeeDto
+        {
+            EmployeeCode = "EMP01",
+            FullName = "New Employee",
+            DepartmentId = Guid.NewGuid()
+        };
+
+        // Act
+        var result = await _employeeService.CreateEmployeeAsync(dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.ErrorMessage, Is.EqualTo("Kode karyawan sudah digunakan."));
+    }
+
+    [Test]
+    public async Task CreateEmployeeAsync_ShouldSucceed_AndCreateLedger()
+    {
+        // Arrange
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        var settings = new List<SystemSetting>
+        {
+            new SystemSetting { Key = "SafetyScore:InitialScore", Value = "100" }
+        };
+        _systemSettingRepoMock.Setup(repo => repo.Query()).Returns(settings.BuildMock());
+        _passwordHasherMock.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed_password");
+
+        var dto = new CreateEmployeeDto
+        {
+            EmployeeCode = "EMP02",
+            FullName = "New Employee",
+            DepartmentId = Guid.NewGuid(),
+            Password = "password123",
+            Role = EmployeeRole.Admin
+        };
+
+        // Act
+        var result = await _employeeService.CreateEmployeeAsync(dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.True);
+        _employeeRepoMock.Verify(x => x.AddAsync(It.Is<Employee>(e => e.EmployeeCode == "EMP02" && e.SafetyCreditScore == 100 && e.Role == EmployeeRole.Admin), It.IsAny<CancellationToken>()), Times.Once);
+        _ledgerRepoMock.Verify(x => x.AddAsync(It.Is<SafetyScoreLedger>(l => l.ChangeType == LedgerChangeType.Initialization && l.ScoreAfter == 100), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
