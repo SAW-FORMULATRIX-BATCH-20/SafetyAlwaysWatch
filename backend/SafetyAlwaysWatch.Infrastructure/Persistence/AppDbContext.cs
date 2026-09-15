@@ -6,9 +6,11 @@ using SafetyAlwaysWatch.Domain.Enums;
 using System.Reflection;
 using System.Linq.Expressions;
 
+using SafetyAlwaysWatch.Domain.Interfaces;
+
 namespace SafetyAlwaysWatch.Infrastructure.Persistence;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IUnitOfWork
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -22,6 +24,30 @@ public class AppDbContext : DbContext
     public DbSet<EmployeeFaceEmbedding> EmployeeFaceEmbeddings { get; set; }
     public DbSet<ViolationCandidateState> ViolationCandidateStates { get; set; }
     public DbSet<ViolationEvent> ViolationEvents { get; set; }
+    public DbSet<SafetyScorePeriodSummary> SafetyScorePeriodSummaries { get; set; }
+    public DbSet<ScoreResetLog> ScoreResetLogs { get; set; }
+
+    public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        await Database.BeginTransactionAsync(cancellationToken);
+    }
+
+    public async Task CommitAsync(CancellationToken cancellationToken = default)
+    {
+        await SaveChangesAsync(cancellationToken);
+        if (Database.CurrentTransaction != null)
+        {
+            await Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
+    }
+
+    public async Task RollbackAsync(CancellationToken cancellationToken = default)
+    {
+        if (Database.CurrentTransaction != null)
+        {
+            await Database.CurrentTransaction.RollbackAsync(cancellationToken);
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

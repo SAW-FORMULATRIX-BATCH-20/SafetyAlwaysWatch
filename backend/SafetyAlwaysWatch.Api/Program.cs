@@ -58,6 +58,9 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
+builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
 builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.DummyFaceRecognitionService>();
 builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
 
@@ -75,6 +78,7 @@ builder.Services.AddScoped<IHazardousZoneService, HazardousZoneService>();
 builder.Services.AddScoped<IValidator<CreateHazardousZoneDto>, CreateHazardousZoneDtoValidator>();
 builder.Services.AddScoped<IValidator<UpdateHazardousZoneDto>, UpdateHazardousZoneDtoValidator>();
 builder.Services.AddScoped<IValidator<GetHazardousZonesQuery>, GetHazardousZonesQueryValidator>();
+builder.Services.AddScoped<IValidator<SafetyAlwaysWatch.Application.DTOs.Requests.ResetScoreRequest>, ResetScoreRequestValidator>();
 
 
 // Configure JWT Authentication
