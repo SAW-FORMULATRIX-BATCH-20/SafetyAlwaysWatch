@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<SafetyScoreLedger> SafetyScoreLedgers { get; set; }
     public DbSet<Department> Departments { get; set; }
     public DbSet<EmployeeFaceEmbedding> EmployeeFaceEmbeddings { get; set; }
+    public DbSet<ViolationCandidateState> ViolationCandidateStates { get; set; }
+    public DbSet<ViolationEvent> ViolationEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +38,15 @@ public class AppDbContext : DbContext
                     .HasQueryFilter(GetIsDeletedRestriction(entityType.ClrType));
             }
         }
+
+        // Seed SystemSettings
+        modelBuilder.Entity<SystemSetting>().HasData(
+            new SystemSetting { Key = "SafetyScore:InitialValue", Value = "100" },
+            new SystemSetting { Key = "SafetyScore:DeductionPerViolation", Value = "5" },
+            new SystemSetting { Key = "Violation:ConfirmThresholdSeconds", Value = "3" },
+            new SystemSetting { Key = "Violation:ClearThresholdSeconds", Value = "5" },
+            new SystemSetting { Key = "Detection:MinConfidenceThreshold", Value = "0.5" }
+        );
 
         // Seed Departments
         modelBuilder.Entity<Department>().HasData(
