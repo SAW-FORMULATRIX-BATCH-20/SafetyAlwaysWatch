@@ -17,6 +17,9 @@ public class Employee : BaseEntity
     public Department Department { get; private set; } = null!;
     public bool HasFaceEnrolled { get; private set; }
 
+    private readonly List<EmployeeFaceEmbedding> _faceEmbeddings = new();
+    public IReadOnlyCollection<EmployeeFaceEmbedding> FaceEmbeddings => _faceEmbeddings.AsReadOnly();
+
     // Authentication & Account credentials (Issue #47)
     public string? Email { get; private set; }
     public string? PasswordHash { get; private set; }
@@ -99,5 +102,15 @@ public class Employee : BaseEntity
     public void SetEmail(string email)
     {
         Email = email;
+    }
+
+    public void AddFaceEmbedding(EmployeeFaceEmbedding embedding)
+    {
+        if (_faceEmbeddings.Count(e => e.IsActive) >= 5)
+        {
+            throw new InvalidOperationException("An employee can have a maximum of 5 active face embeddings.");
+        }
+        _faceEmbeddings.Add(embedding);
+        HasFaceEnrolled = true;
     }
 }

@@ -16,7 +16,7 @@ public class CreateEmployeeDtoValidator : AbstractValidator<CreateEmployeeDto>
 
         RuleFor(x => x.DepartmentId)
             .NotEmpty().WithMessage("ID Departemen tidak boleh kosong.");
-            
+
         When(x => !string.IsNullOrEmpty(x.Email), () =>
         {
             RuleFor(x => x.Email).EmailAddress().WithMessage("Format email tidak valid.");

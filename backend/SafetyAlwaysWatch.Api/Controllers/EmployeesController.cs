@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
+using SafetyAlwaysWatch.Application.DTOs;
 using SafetyAlwaysWatch.Application.Interfaces;
+using System.Security.Claims;
 
 using FluentValidation;
 using SafetyAlwaysWatch.Application.Common;
@@ -20,7 +22,7 @@ public class EmployeesController : ControllerBase
     private readonly IValidator<UpdateEmployeeDto> _updateEmployeeValidator;
 
     public EmployeesController(
-        IEmployeeService employeeService, 
+        IEmployeeService employeeService,
         IValidator<GetEmployeesQuery> getEmployeesValidator,
         IValidator<CreateEmployeeDto> createEmployeeValidator,
         IValidator<UpdateEmployeeDto> updateEmployeeValidator)
@@ -125,6 +127,32 @@ public class EmployeesController : ControllerBase
         if (!result.IsSuccess)
         {
             return NotFound(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Mendaftarkan wajah karyawan baru.
+    /// </summary>
+    [HttpPost("{id:guid}/faces")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> EnrollFace(Guid id, IFormFile image, CancellationToken cancellationToken)
+    {
+        if (image == null || image.Length == 0)
+        {
+            return BadRequest(ServiceResult<EnrollFaceResponseDto>.Failure("Image is required."));
+        }
+
+        var adminIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("id");
+        Guid.TryParse(adminIdClaim, out Guid adminId);
+
+        using var stream = image.OpenReadStream();
+        var result = await _employeeService.EnrollFaceAsync(id, stream, image.ContentType, adminId, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
         }
 
         return Ok(result);
