@@ -10,6 +10,7 @@ public interface IViolationStabilizationService
         double confidence, 
         DateTimeOffset timestamp, 
         Guid? resolvedEmployeeId, 
+        byte[]? frameSnapshot = null,
         CancellationToken cancellationToken = default);
 
     Task HandleLostTrackAsync(string trackId, CancellationToken cancellationToken = default);
