@@ -8,6 +8,7 @@ using SafetyAlwaysWatch.Domain.Entities;
 using SafetyAlwaysWatch.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using MockQueryable.Moq;
+using System.Reflection;
 
 namespace SafetyAlwaysWatch.Tests.Application;
 
@@ -35,7 +36,7 @@ public class EmployeeServiceTests
             {
                 Id = src.Id.ToString(),
                 Name = src.FullName,
-                DepartmentId = src.Department,
+                Department = src.Department?.Name ?? string.Empty,
                 SafetyScore = src.SafetyCreditScore
             });
         _mapper = mapperMock.Object;
@@ -48,6 +49,19 @@ public class EmployeeServiceTests
             _mapper);
     }
 
+    private Employee CreateEmployee(string code, string name, string departmentName, double score)
+    {
+        var deptId = Guid.NewGuid();
+        var dept = new Department(deptId, departmentName);
+        var emp = new Employee(code, name, deptId, score);
+
+        // Use reflection to set Department navigation property
+        var prop = typeof(Employee).GetProperty("Department", BindingFlags.Public | BindingFlags.Instance);
+        prop?.SetValue(emp, dept);
+
+        return emp;
+    }
+
     [Test]
     public async Task GetEmployeesAsync_ReturnsPaginatedList()
     {
@@ -57,8 +71,8 @@ public class EmployeeServiceTests
             new SystemSetting { Key = "SafetyScore:EscalationThreshold", Value = "60" }
         };
 
-        var emp1 = new Employee("EMP01", "John Doe", "IT", 100);
-        var emp2 = new Employee("EMP02", "Jane Smith", "HR", 50);
+        var emp1 = CreateEmployee("EMP01", "John Doe", "IT", 100);
+        var emp2 = CreateEmployee("EMP02", "Jane Smith", "HR", 50);
 
         var employees = new List<Employee> { emp1, emp2 };
         var zones = new List<DangerZone>();
@@ -83,8 +97,8 @@ public class EmployeeServiceTests
     public async Task GetEmployeesAsync_WithSearch_ReturnsFilteredList()
     {
         // Arrange
-        var emp1 = new Employee("EMP01", "John Doe", "IT", 100);
-        var emp2 = new Employee("EMP02", "Jane Smith", "HR", 50);
+        var emp1 = CreateEmployee("EMP01", "John Doe", "IT", 100);
+        var emp2 = CreateEmployee("EMP02", "Jane Smith", "HR", 50);
 
         var employees = new List<Employee> { emp1, emp2 };
 
@@ -107,7 +121,7 @@ public class EmployeeServiceTests
     public async Task GetEmployeeByIdAsync_ValidId_ReturnsEmployeeDto()
     {
         // Arrange
-        var employee = new Employee("EMP01", "John Doe", "IT", 100);
+        var employee = CreateEmployee("EMP01", "John Doe", "IT", 100);
 
         var zone = new DangerZone("Gudang Kimia", null);
         zone.AddSupervisor(employee.Id);
@@ -116,7 +130,8 @@ public class EmployeeServiceTests
         var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, Guid.NewGuid(), null);
         var ledgers = new List<SafetyScoreLedger> { ledger };
 
-        _employeeRepoMock.Setup(repo => repo.GetByIdAsync(employee.Id, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+        var employees = new List<Employee> { employee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
         _dangerZoneRepoMock.Setup(repo => repo.Query()).Returns(zones.BuildMock());
         _ledgerRepoMock.Setup(repo => repo.Query()).Returns(ledgers.BuildMock());
 
@@ -136,7 +151,8 @@ public class EmployeeServiceTests
     {
         // Arrange
         var employeeId = Guid.NewGuid();
-        _employeeRepoMock.Setup(repo => repo.GetByIdAsync(employeeId, It.IsAny<CancellationToken>())).ReturnsAsync((Employee)null!);
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
 
         // Act
         var result = await _employeeService.GetEmployeeByIdAsync(employeeId, CancellationToken.None);
