@@ -220,4 +220,88 @@ public class EmployeeServiceTests
         _employeeRepoMock.Verify(x => x.AddAsync(It.Is<Employee>(e => e.EmployeeCode == "EMP02" && e.SafetyCreditScore == 100 && e.Role == EmployeeRole.Admin), It.IsAny<CancellationToken>()), Times.Once);
         _ledgerRepoMock.Verify(x => x.AddAsync(It.Is<SafetyScoreLedger>(l => l.ChangeType == LedgerChangeType.Initialization && l.ScoreAfter == 100), It.IsAny<CancellationToken>()), Times.Once);
     }
+    [Test]
+    public async Task UpdateEmployeeAsync_ShouldFail_WhenNotFound()
+    {
+        // Arrange
+        var employeeId = Guid.NewGuid();
+        var dto = new UpdateEmployeeDto { FullName = "Update" };
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        // Act
+        var result = await _employeeService.UpdateEmployeeAsync(employeeId, dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.ErrorMessage, Is.EqualTo("Karyawan tidak ditemukan."));
+    }
+
+    [Test]
+    public async Task UpdateEmployeeAsync_ShouldSucceed()
+    {
+        // Arrange
+        var employeeId = Guid.NewGuid();
+        var employee = CreateEmployee("EMP01", "Old Name", "IT", 100);
+        // Force the ID to be what we want by reflection since the constructor generates a new one
+        typeof(Employee).GetProperty("Id")?.SetValue(employee, employeeId);
+        
+        var employees = new List<Employee> { employee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        var newDeptId = Guid.NewGuid();
+        var dto = new UpdateEmployeeDto
+        {
+            FullName = "New Name",
+            DepartmentId = newDeptId,
+            SupervisorId = null,
+            Status = EmployeeStatus.Inactive
+        };
+
+        // Act
+        var result = await _employeeService.UpdateEmployeeAsync(employeeId, dto, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.True);
+        _employeeRepoMock.Verify(x => x.UpdateAsync(It.Is<Employee>(e => 
+            e.Id == employeeId && 
+            e.FullName == "New Name" && 
+            e.DepartmentId == newDeptId && 
+            e.Status == EmployeeStatus.Inactive), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteEmployeeAsync_ShouldFail_WhenNotFound()
+    {
+        // Arrange
+        var employeeId = Guid.NewGuid();
+        var employees = new List<Employee>();
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        // Act
+        var result = await _employeeService.DeleteEmployeeAsync(employeeId, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.ErrorMessage, Is.EqualTo("Karyawan tidak ditemukan."));
+    }
+
+    [Test]
+    public async Task DeleteEmployeeAsync_ShouldSucceed()
+    {
+        // Arrange
+        var employeeId = Guid.NewGuid();
+        var employee = CreateEmployee("EMP01", "To Delete", "IT", 100);
+        typeof(Employee).GetProperty("Id")?.SetValue(employee, employeeId);
+        
+        var employees = new List<Employee> { employee };
+        _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
+
+        // Act
+        var result = await _employeeService.DeleteEmployeeAsync(employeeId, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.IsSuccess, Is.True);
+        _employeeRepoMock.Verify(x => x.DeleteAsync(It.Is<Employee>(e => e.Id == employeeId), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

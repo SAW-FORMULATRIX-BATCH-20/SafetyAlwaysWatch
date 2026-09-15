@@ -182,4 +182,30 @@ public class EmployeeService : IEmployeeService
 
         return ServiceResult<Guid>.Success(employee.Id);
     }
+    public async Task<ServiceResult<bool>> UpdateEmployeeAsync(Guid id, UpdateEmployeeDto dto, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepository.Query().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (employee == null)
+        {
+            return ServiceResult<bool>.Failure("Karyawan tidak ditemukan.");
+        }
+
+        employee.UpdateProfile(dto.FullName, dto.DepartmentId, dto.SupervisorId, dto.Status);
+        await _employeeRepository.UpdateAsync(employee, cancellationToken);
+
+        return ServiceResult<bool>.Success(true);
+    }
+
+    public async Task<ServiceResult<bool>> DeleteEmployeeAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepository.Query().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (employee == null)
+        {
+            return ServiceResult<bool>.Failure("Karyawan tidak ditemukan.");
+        }
+
+        await _employeeRepository.DeleteAsync(employee, cancellationToken);
+
+        return ServiceResult<bool>.Success(true);
+    }
 }
