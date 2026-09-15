@@ -17,6 +17,7 @@ public class ViolationStabilizationServiceTests
     private Mock<IRepository<ViolationEvent>> _eventRepoMock;
     private Mock<IRepository<SystemSetting>> _settingRepoMock;
     private Mock<ISafetyScoringService> _scoringServiceMock;
+    private Mock<ITelegramEscalationService> _telegramServiceMock;
     private ViolationStabilizationService _service;
 
     private List<ViolationCandidateState> _states;
@@ -52,12 +53,14 @@ public class ViolationStabilizationServiceTests
         _settingRepoMock.Setup(r => r.Query()).Returns(settings.AsQueryable().BuildMock());
 
         _scoringServiceMock = new Mock<ISafetyScoringService>();
+        _telegramServiceMock = new Mock<ITelegramEscalationService>();
 
         _service = new ViolationStabilizationService(
             _stateRepoMock.Object,
             _eventRepoMock.Object,
             _settingRepoMock.Object,
-            _scoringServiceMock.Object
+            _scoringServiceMock.Object,
+            _telegramServiceMock.Object
         );
     }
 
@@ -120,6 +123,33 @@ public class ViolationStabilizationServiceTests
         Assert.That(ev.EmployeeId, Is.EqualTo(employeeId));
         
         _scoringServiceMock.Verify(s => s.DeductScoreAsync(employeeId, ev.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task ProcessDetectionAsync_DurationMeetsConfirmThreshold_SetsConfirmed_SendsTelegramEscalation()
+    {
+        var start = DateTimeOffset.UtcNow;
+        var dangerZoneId = Guid.NewGuid();
+        var ppeId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+        byte[] snapshot = new byte[] { 1, 2, 3 };
+
+        _telegramServiceMock
+            .Setup(t => t.SendEscalationAsync(It.IsAny<ViolationEvent>(), snapshot, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, employeeId, null);
+        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), employeeId, snapshot);
+
+        var state = _states.First();
+        Assert.That(state.Status, Is.EqualTo(ViolationStatus.Confirmed));
+        
+        Assert.That(_events.Count, Is.EqualTo(1));
+        var ev = _events.First();
+        
+        _telegramServiceMock.Verify(t => t.SendEscalationAsync(ev, snapshot, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(ev.EvidenceDeliveryStatus, Is.EqualTo(SafetyAlwaysWatch.Domain.Enums.EvidenceDeliveryStatus.Sent));
+        _eventRepoMock.Verify(r => r.UpdateAsync(ev, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
