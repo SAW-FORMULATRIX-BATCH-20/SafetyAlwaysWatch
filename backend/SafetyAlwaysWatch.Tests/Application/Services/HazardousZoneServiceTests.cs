@@ -20,11 +20,11 @@ public class HazardousZoneServiceTests
     public void Setup()
     {
         _mockRepo = new Mock<IRepository<HazardousZone>>();
-        
+
         var mapperMock = new Mock<IMapper>();
         mapperMock.Setup(m => m.Map<HazardousZoneDto>(It.IsAny<HazardousZone>()))
             .Returns((HazardousZone z) => new HazardousZoneDto { Id = z.Id, Name = z.Name });
-        
+
         _mapper = mapperMock.Object;
         _service = new HazardousZoneService(_mockRepo.Object, _mapper);
     }
@@ -54,7 +54,7 @@ public class HazardousZoneServiceTests
         Assert.That(result.IsSuccess, Is.True);
         Assert.That(result.Data, Is.Not.Null);
         Assert.That(result.Data.Name, Is.EqualTo("Zone A"));
-        
+
         _mockRepo.Verify(r => r.AddAsync(It.IsAny<HazardousZone>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.That(capturedZone.RelativeX, Is.EqualTo(0.1));
         Assert.That(capturedZone.RelativeWidth, Is.EqualTo(0.5));
@@ -66,7 +66,7 @@ public class HazardousZoneServiceTests
         // Arrange
         var zoneId = Guid.NewGuid();
         var zone = new HazardousZone("Old Zone", 0.0, 0.0, 0.5, 0.5, null);
-        
+
         _mockRepo.Setup(r => r.GetByIdAsync(zoneId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(zone);
         _mockRepo.Setup(r => r.UpdateAsync(It.IsAny<HazardousZone>(), It.IsAny<CancellationToken>()))

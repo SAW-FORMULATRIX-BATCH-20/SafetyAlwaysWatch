@@ -20,6 +20,7 @@ public class EmployeeServiceTests
     private Mock<IRepository<HazardousZone>> _dangerZoneRepoMock;
     private Mock<IRepository<SystemSetting>> _systemSettingRepoMock;
     private Mock<IRepository<SafetyScoreLedger>> _ledgerRepoMock;
+    private Mock<IFaceRecognitionService> _faceServiceMock;
     private Mock<IPasswordHasher> _passwordHasherMock;
     private IMapper _mapper;
     private EmployeeService _employeeService;
@@ -31,6 +32,7 @@ public class EmployeeServiceTests
         _dangerZoneRepoMock = new Mock<IRepository<HazardousZone>>();
         _systemSettingRepoMock = new Mock<IRepository<SystemSetting>>();
         _ledgerRepoMock = new Mock<IRepository<SafetyScoreLedger>>();
+        _faceServiceMock = new Mock<IFaceRecognitionService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
 
         var mapperMock = new Mock<IMapper>();
@@ -49,6 +51,7 @@ public class EmployeeServiceTests
             _dangerZoneRepoMock.Object,
             _systemSettingRepoMock.Object,
             _ledgerRepoMock.Object,
+            _faceServiceMock.Object,
             _passwordHasherMock.Object,
             _mapper);
     }
@@ -245,7 +248,7 @@ public class EmployeeServiceTests
         var employee = CreateEmployee("EMP01", "Old Name", "IT", 100);
         // Force the ID to be what we want by reflection since the constructor generates a new one
         typeof(Employee).GetProperty("Id")?.SetValue(employee, employeeId);
-        
+
         var employees = new List<Employee> { employee };
         _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
 
@@ -263,10 +266,10 @@ public class EmployeeServiceTests
 
         // Assert
         Assert.That(result.IsSuccess, Is.True);
-        _employeeRepoMock.Verify(x => x.UpdateAsync(It.Is<Employee>(e => 
-            e.Id == employeeId && 
-            e.FullName == "New Name" && 
-            e.DepartmentId == newDeptId && 
+        _employeeRepoMock.Verify(x => x.UpdateAsync(It.Is<Employee>(e =>
+            e.Id == employeeId &&
+            e.FullName == "New Name" &&
+            e.DepartmentId == newDeptId &&
             e.Status == EmployeeStatus.Inactive), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -293,7 +296,7 @@ public class EmployeeServiceTests
         var employeeId = Guid.NewGuid();
         var employee = CreateEmployee("EMP01", "To Delete", "IT", 100);
         typeof(Employee).GetProperty("Id")?.SetValue(employee, employeeId);
-        
+
         var employees = new List<Employee> { employee };
         _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
 

@@ -58,6 +58,7 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.DummyFaceRecognitionService>();
 
 builder.Services.AddAutoMapper(cfg =>
 {

@@ -41,8 +41,8 @@ public class CreateEmployeeDtoValidatorTests
     [Test]
     public void Should_Not_Have_Error_When_Model_Is_Valid()
     {
-        var model = new CreateEmployeeDto 
-        { 
+        var model = new CreateEmployeeDto
+        {
             EmployeeCode = "EMP-001",
             FullName = "John Doe",
             DepartmentId = Guid.NewGuid()

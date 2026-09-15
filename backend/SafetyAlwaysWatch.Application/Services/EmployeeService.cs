@@ -2,8 +2,10 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using SafetyAlwaysWatch.Application.Common;
 using SafetyAlwaysWatch.Application.Common.Models;
+using SafetyAlwaysWatch.Application.DTOs;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Interfaces;
+using System.IO;
 using SafetyAlwaysWatch.Domain.Entities;
 using SafetyAlwaysWatch.Domain.Enums;
 using SafetyAlwaysWatch.Domain.Interfaces;
@@ -16,6 +18,7 @@ public class EmployeeService : IEmployeeService
     private readonly IRepository<HazardousZone> _dangerZoneRepository;
     private readonly IRepository<SystemSetting> _systemSettingRepository;
     private readonly IRepository<SafetyScoreLedger> _safetyScoreLedgerRepository;
+    private readonly IFaceRecognitionService _faceRecognitionService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IMapper _mapper;
 
@@ -24,6 +27,7 @@ public class EmployeeService : IEmployeeService
         IRepository<HazardousZone> dangerZoneRepository,
         IRepository<SystemSetting> systemSettingRepository,
         IRepository<SafetyScoreLedger> safetyScoreLedgerRepository,
+        IFaceRecognitionService faceRecognitionService,
         IPasswordHasher passwordHasher,
         IMapper mapper)
     {
@@ -31,6 +35,7 @@ public class EmployeeService : IEmployeeService
         _dangerZoneRepository = dangerZoneRepository;
         _systemSettingRepository = systemSettingRepository;
         _safetyScoreLedgerRepository = safetyScoreLedgerRepository;
+        _faceRecognitionService = faceRecognitionService;
         _passwordHasher = passwordHasher;
         _mapper = mapper;
     }
@@ -207,5 +212,55 @@ public class EmployeeService : IEmployeeService
         await _employeeRepository.DeleteAsync(employee, cancellationToken);
 
         return ServiceResult<bool>.Success(true);
+    }
+
+    public async Task<ServiceResult<EnrollFaceResponseDto>> EnrollFaceAsync(Guid employeeId, Stream imageStream, string contentType, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        if (contentType != "image/jpeg" && contentType != "image/png")
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("Only JPEG or PNG images are supported.");
+        }
+
+        var employee = await _employeeRepository.Query()
+            .Include(e => e.FaceEmbeddings)
+            .FirstOrDefaultAsync(e => e.Id == employeeId, cancellationToken);
+
+        if (employee == null)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("Employee not found.");
+        }
+
+        var extractionResult = await _faceRecognitionService.ExtractFaceEmbeddingAsync(imageStream);
+        if (extractionResult == null)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("No face detected, multiple faces detected, or image quality too low.");
+        }
+
+        var newEmbedding = new EmployeeFaceEmbedding(
+            employeeId,
+            extractionResult.Value.Embedding,
+            extractionResult.Value.QualityScore
+        );
+
+        // Track who created it if needed
+        newEmbedding.CreatedBy = adminId;
+        newEmbedding.CreatedAt = DateTime.UtcNow;
+
+        try
+        {
+            employee.AddFaceEmbedding(newEmbedding);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure(ex.Message);
+        }
+
+        await _employeeRepository.UpdateAsync(employee, cancellationToken);
+
+        return ServiceResult<EnrollFaceResponseDto>.Success(new EnrollFaceResponseDto
+        {
+            Id = newEmbedding.Id,
+            ActiveSampleCount = employee.FaceEmbeddings.Count(e => e.IsActive)
+        });
     }
 }

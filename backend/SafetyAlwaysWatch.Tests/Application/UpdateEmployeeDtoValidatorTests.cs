@@ -43,8 +43,8 @@ public class UpdateEmployeeDtoValidatorTests
     [Test]
     public void Should_Not_Have_Error_When_Model_Is_Valid()
     {
-        var model = new UpdateEmployeeDto 
-        { 
+        var model = new UpdateEmployeeDto
+        {
             FullName = "John Doe",
             DepartmentId = Guid.NewGuid(),
             SupervisorId = Guid.NewGuid(),
