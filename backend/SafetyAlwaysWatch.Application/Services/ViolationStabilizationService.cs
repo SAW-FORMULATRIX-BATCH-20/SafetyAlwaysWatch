@@ -42,7 +42,7 @@ public class ViolationStabilizationService : IViolationStabilizationService
         CancellationToken cancellationToken = default)
     {
         var settings = await _settingRepository.Query().ToListAsync(cancellationToken);
-        
+
         double minConfidence = ParseSettingDouble(settings, "Detection:MinConfidenceThreshold", 0.5);
 
         if (confidence < minConfidence)
@@ -56,7 +56,7 @@ public class ViolationStabilizationService : IViolationStabilizationService
         var states = await _stateRepository.Query()
             .Where(s => s.TrackId == trackId && s.DangerZoneId == dangerZoneId && s.MissingPpeClassId == missingPpeClassId)
             .ToListAsync(cancellationToken);
-            
+
         var state = states.FirstOrDefault(s => s.Status != ViolationStatus.Cleared);
 
         if (state == null)

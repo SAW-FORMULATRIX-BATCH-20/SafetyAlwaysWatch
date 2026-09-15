@@ -33,7 +33,7 @@ public class TelegramEscalationService : ITelegramEscalationService
         string url = $"https://api.telegram.org/bot{botToken}/sendPhoto";
 
         using var content = new MultipartFormDataContent();
-        
+
         string caption = $"<b>Violation Confirmed!</b>\n" +
                          $"Zone ID: {violationEvent.DangerZoneId}\n" +
                          $"Employee ID: {(violationEvent.EmployeeId.HasValue ? violationEvent.EmployeeId.Value.ToString() : "Unknown")}\n" +
@@ -42,7 +42,7 @@ public class TelegramEscalationService : ITelegramEscalationService
         content.Add(new StringContent(defaultChatId), "chat_id");
         content.Add(new StringContent(caption), "caption");
         content.Add(new StringContent("HTML"), "parse_mode");
-        
+
         var imageContent = new ByteArrayContent(snapshot);
         imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
         content.Add(imageContent, "photo", "snapshot.jpg");

@@ -60,7 +60,7 @@ public class ScoreResetService : IScoreResetService
         try
         {
             await ProcessEmployeeReset(employee, initialScore, adminId, request.ResetReason, request.Note, ScoreResetTriggerType.Manual, cancellationToken);
-            
+
             await _unitOfWork.CommitAsync(cancellationToken);
             return ServiceResult<bool>.Success(true);
         }
@@ -90,7 +90,7 @@ public class ScoreResetService : IScoreResetService
         double initialScore = initialValueSetting != null && double.TryParse(initialValueSetting.Value, out var val) ? val : 100.0;
 
         var employees = await _employeeRepository.GetAllAsync(cancellationToken);
-        
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -101,7 +101,7 @@ public class ScoreResetService : IScoreResetService
                     await ProcessEmployeeReset(employee, initialScore, null, ScoreResetReason.Lainnya, "Scheduled Auto Reset", ScoreResetTriggerType.Scheduled, cancellationToken);
                 }
             }
-            
+
             await _unitOfWork.CommitAsync(cancellationToken);
         }
         catch
@@ -117,19 +117,19 @@ public class ScoreResetService : IScoreResetService
         var lastReset = (await _resetLogRepository.FindAsync(x => x.EmployeeId == employee.Id, cancellationToken))
             .OrderByDescending(x => x.ResetAt)
             .FirstOrDefault();
-        
+
         var periodStart = lastReset?.ResetAt ?? DateTimeOffset.MinValue;
         var periodEnd = DateTimeOffset.UtcNow;
 
         // 2. Aggregate violations
         var violations = await _eventRepository.FindAsync(x => x.EmployeeId == employee.Id && x.DetectedAt >= periodStart && x.DetectedAt <= periodEnd, cancellationToken);
         var totalViolations = violations.Count;
-        
+
         var violationsByClass = violations
             .SelectMany(x => x.MissingPpeClassIds)
             .GroupBy(id => id)
             .ToDictionary(g => g.Key, g => g.Count());
-            
+
         var violationsJson = JsonSerializer.Serialize(violationsByClass);
 
         var scoreBefore = employee.SafetyCreditScore;

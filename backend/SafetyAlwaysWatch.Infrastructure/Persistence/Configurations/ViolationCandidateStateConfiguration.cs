@@ -12,7 +12,7 @@ public class ViolationCandidateStateConfiguration : IEntityTypeConfiguration<Vio
 
         builder.Property(x => x.TrackId).IsRequired().HasMaxLength(100);
         builder.Property(x => x.Status).IsRequired();
-        
+
         builder.HasOne<HazardousZone>()
             .WithMany()
             .HasForeignKey(x => x.DangerZoneId)
@@ -24,7 +24,7 @@ public class ViolationCandidateStateConfiguration : IEntityTypeConfiguration<Vio
             .HasForeignKey(x => x.EmployeeId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
-            
+
         builder.HasOne<ViolationEvent>()
             .WithMany()
             .HasForeignKey(x => x.ViolationEventId)

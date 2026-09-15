@@ -75,7 +75,7 @@ public class ScoreResetServiceTests
 
         // Assert
         Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(100.0, employee.SafetyCreditScore);
+        Assert.That(employee.SafetyCreditScore, Is.EqualTo(100.0));
 
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -91,13 +91,13 @@ public class ScoreResetServiceTests
         // Arrange
         var employee1 = new Employee("EMP001", "John", Guid.NewGuid(), 40.0);
         var employee2 = new Employee("EMP002", "Jane", Guid.NewGuid(), 80.0);
-        
+
         _employeeRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Employee> { employee1, employee2 });
 
         _settingRepoMock.Setup(r => r.FindAsync(It.IsAny<Expression<Func<SystemSetting, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<SystemSetting> 
-            { 
+            .ReturnsAsync(new List<SystemSetting>
+            {
                 new SystemSetting { Key = "SafetyScore:InitialValue", Value = "100" },
                 new SystemSetting { Key = "SafetyScore:AutoResetEnabled", Value = "true" }
             });
@@ -109,8 +109,8 @@ public class ScoreResetServiceTests
         await _service.ExecuteScheduledResetAsync();
 
         // Assert
-        Assert.AreEqual(100.0, employee1.SafetyCreditScore);
-        Assert.AreEqual(100.0, employee2.SafetyCreditScore);
+        Assert.That(employee1.SafetyCreditScore, Is.EqualTo(100.0));
+        Assert.That(employee2.SafetyCreditScore, Is.EqualTo(100.0));
 
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);

@@ -38,7 +38,7 @@ public class SafetyScoringService : ISafetyScoringService
 
         double scoreBefore = employee.SafetyCreditScore;
         double scoreAfter = scoreBefore - deduction;
-        
+
         employee.UpdateScore(scoreAfter);
         await _employeeRepository.UpdateAsync(employee, cancellationToken);
 
@@ -51,7 +51,7 @@ public class SafetyScoringService : ISafetyScoringService
             "Violation detected",
             violationEventId
         );
-        
+
         await _ledgerRepository.AddAsync(ledger, cancellationToken);
 
         return ServiceResult<double>.Success(scoreAfter);

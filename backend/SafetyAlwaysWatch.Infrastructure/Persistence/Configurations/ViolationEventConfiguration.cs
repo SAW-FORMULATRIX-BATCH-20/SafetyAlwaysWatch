@@ -23,7 +23,7 @@ public class ViolationEventConfiguration : IEntityTypeConfiguration<ViolationEve
             .HasForeignKey(x => x.EmployeeId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
-            
+
         // Map collection to JSON column (primitive collections in EF Core 8)
         builder.Property(x => x.MissingPpeClassIds)
             .HasConversion(
