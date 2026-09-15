@@ -4,9 +4,9 @@ using SafetyAlwaysWatch.Domain.Entities;
 
 namespace SafetyAlwaysWatch.Infrastructure.Persistence.Configurations;
 
-public class DangerZoneConfiguration : IEntityTypeConfiguration<DangerZone>
+public class HazardousZoneConfiguration : IEntityTypeConfiguration<HazardousZone>
 {
-    public void Configure(EntityTypeBuilder<DangerZone> builder)
+    public void Configure(EntityTypeBuilder<HazardousZone> builder)
     {
         builder.HasKey(x => x.Id);
 

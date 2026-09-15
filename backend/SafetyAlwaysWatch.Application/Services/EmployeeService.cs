@@ -13,7 +13,7 @@ namespace SafetyAlwaysWatch.Application.Services;
 public class EmployeeService : IEmployeeService
 {
     private readonly IRepository<Employee> _employeeRepository;
-    private readonly IRepository<DangerZone> _dangerZoneRepository;
+    private readonly IRepository<HazardousZone> _dangerZoneRepository;
     private readonly IRepository<SystemSetting> _systemSettingRepository;
     private readonly IRepository<SafetyScoreLedger> _safetyScoreLedgerRepository;
     private readonly IPasswordHasher _passwordHasher;
@@ -21,7 +21,7 @@ public class EmployeeService : IEmployeeService
 
     public EmployeeService(
         IRepository<Employee> employeeRepository,
-        IRepository<DangerZone> dangerZoneRepository,
+        IRepository<HazardousZone> dangerZoneRepository,
         IRepository<SystemSetting> systemSettingRepository,
         IRepository<SafetyScoreLedger> safetyScoreLedgerRepository,
         IPasswordHasher passwordHasher,
@@ -83,7 +83,7 @@ public class EmployeeService : IEmployeeService
         {
             var dto = _mapper.Map<EmployeeDto>(emp);
 
-            // Supervisor Area: finding all DangerZones where this employee is a supervisor
+            // Supervisor Area: finding all HazardousZones where this employee is a supervisor
             var supervisedZones = await _dangerZoneRepository.Query()
                 .Where(z => z.SupervisorIds.Contains(emp.Id))
                 .Select(z => z.Name)

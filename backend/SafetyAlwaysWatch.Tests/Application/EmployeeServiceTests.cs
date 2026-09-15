@@ -17,7 +17,7 @@ namespace SafetyAlwaysWatch.Tests.Application;
 public class EmployeeServiceTests
 {
     private Mock<IRepository<Employee>> _employeeRepoMock;
-    private Mock<IRepository<DangerZone>> _dangerZoneRepoMock;
+    private Mock<IRepository<HazardousZone>> _dangerZoneRepoMock;
     private Mock<IRepository<SystemSetting>> _systemSettingRepoMock;
     private Mock<IRepository<SafetyScoreLedger>> _ledgerRepoMock;
     private Mock<IPasswordHasher> _passwordHasherMock;
@@ -28,7 +28,7 @@ public class EmployeeServiceTests
     public void Setup()
     {
         _employeeRepoMock = new Mock<IRepository<Employee>>();
-        _dangerZoneRepoMock = new Mock<IRepository<DangerZone>>();
+        _dangerZoneRepoMock = new Mock<IRepository<HazardousZone>>();
         _systemSettingRepoMock = new Mock<IRepository<SystemSetting>>();
         _ledgerRepoMock = new Mock<IRepository<SafetyScoreLedger>>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
@@ -79,7 +79,7 @@ public class EmployeeServiceTests
         var emp2 = CreateEmployee("EMP02", "Jane Smith", "HR", 50);
 
         var employees = new List<Employee> { emp1, emp2 };
-        var zones = new List<DangerZone>();
+        var zones = new List<HazardousZone>();
 
         _systemSettingRepoMock.Setup(repo => repo.Query()).Returns(settings.BuildMock());
         _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
@@ -108,7 +108,7 @@ public class EmployeeServiceTests
 
         _systemSettingRepoMock.Setup(repo => repo.Query()).Returns(new List<SystemSetting>().BuildMock());
         _employeeRepoMock.Setup(repo => repo.Query()).Returns(employees.BuildMock());
-        _dangerZoneRepoMock.Setup(repo => repo.Query()).Returns(new List<DangerZone>().BuildMock());
+        _dangerZoneRepoMock.Setup(repo => repo.Query()).Returns(new List<HazardousZone>().BuildMock());
 
         var query = new GetEmployeesQuery { PageNumber = 1, PageSize = 10, Search = "jane" };
 
@@ -127,9 +127,9 @@ public class EmployeeServiceTests
         // Arrange
         var employee = CreateEmployee("EMP01", "John Doe", "IT", 100);
 
-        var zone = new DangerZone("Gudang Kimia", null);
+        var zone = new HazardousZone("Gudang Kimia", 0.0, 0.0, 1.0, 1.0, null);
         zone.AddSupervisor(employee.Id);
-        var zones = new List<DangerZone> { zone };
+        var zones = new List<HazardousZone> { zone };
 
         var ledger = new SafetyScoreLedger(employee.Id, -10, 100, 90, LedgerChangeType.Violation, "Violation", Guid.NewGuid(), null);
         var ledgers = new List<SafetyScoreLedger> { ledger };
