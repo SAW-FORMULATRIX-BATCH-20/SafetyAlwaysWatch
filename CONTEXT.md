@@ -103,3 +103,23 @@ _Avoid_: Admin when the safety responsibility matters
 **Human Resources (HR)**:
 The role responsible for reviewing aggregate compliance trends, escalations, and auditable employee safety history.
 _Avoid_: HRD
+
+**Inference Worker**:
+A separate service that runs AI inference (person detection, tracking, PPE detection, face detection) against camera video feeds and publishes structured detection results to the SAW backend API.
+_Avoid_: Edge Worker when referring to the service contract, AI pipeline
+
+**Identity Resolver**:
+The component that matches a Detected Person's face embedding against enrolled Employee Face Samples and caches the result per track.
+_Avoid_: face matcher, recognition service when referring to the per-track caching component
+
+**Track Identity Cache**:
+A singleton in-memory cache that stores resolved Employee identity per TrackId, retrying while Unknown and caching once matched, with TTL-based eviction.
+_Avoid_: face cache, identity cache without the "track" qualifier
+
+**Ingest Frame**:
+The structured payload sent by the Inference Worker to the SAW backend via REST POST, containing all Detected Persons, their PPE detections, face embeddings, and lost track IDs for one camera frame.
+_Avoid_: raw frame, video frame when referring to the processed detection payload
+
+**Detection Frame Output**:
+The processed payload pushed from the SAW backend to monitoring frontends via SignalR, containing identity-resolved, compliance-evaluated detection results ready for overlay rendering.
+_Avoid_: SignalR event, detection event when the full processed output is intended
