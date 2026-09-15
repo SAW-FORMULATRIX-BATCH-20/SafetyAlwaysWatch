@@ -63,6 +63,10 @@ builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
 builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
 builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.DummyFaceRecognitionService>();
 builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));
+builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
+builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
@@ -138,11 +142,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true) // SignalR requires specific origin logic or SetIsOriginAllowed
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // SignalR requires credentials
     });
 });
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -163,5 +170,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<SafetyAlwaysWatch.Api.Hubs.MonitoringHub>("/hubs/monitoring");
 
 app.Run();
