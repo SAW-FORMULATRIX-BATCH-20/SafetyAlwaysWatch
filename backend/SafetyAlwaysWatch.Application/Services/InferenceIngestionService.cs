@@ -14,19 +14,22 @@ public class InferenceIngestionService : IInferenceIngestionService
     private readonly IViolationStabilizationService _stabilization;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IZoneComplianceEvaluator _zoneEvaluator;
+    private readonly IInferenceResultPublisher _publisher;
 
     public InferenceIngestionService(
         IIdentityResolverService identityResolver,
         ITrackIdentityCache cache,
         IViolationStabilizationService stabilization,
         IUnitOfWork unitOfWork,
-        IZoneComplianceEvaluator zoneEvaluator)
+        IZoneComplianceEvaluator zoneEvaluator,
+        IInferenceResultPublisher publisher)
     {
         _identityResolver = identityResolver;
         _cache = cache;
         _stabilization = stabilization;
         _unitOfWork = unitOfWork;
         _zoneEvaluator = zoneEvaluator;
+        _publisher = publisher;
     }
 
     public async Task<DetectionFrameOutput> ProcessFrameAsync(IngestFrameDto payload, CancellationToken cancellationToken = default)
@@ -73,6 +76,7 @@ public class InferenceIngestionService : IInferenceIngestionService
             await _unitOfWork.CommitAsync(cancellationToken);
 
             var frameOutput = new DetectionFrameOutput(payload.CameraId, payload.Timestamp, outputPersons);
+            await _publisher.PublishAsync(payload.CameraId, frameOutput, cancellationToken);
             return frameOutput;
         }
         catch

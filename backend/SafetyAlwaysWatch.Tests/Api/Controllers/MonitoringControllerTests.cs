@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using Moq;
 using NUnit.Framework;
 using SafetyAlwaysWatch.Api.Controllers;
-using SafetyAlwaysWatch.Api.Hubs;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
 using System;
@@ -17,23 +15,13 @@ namespace SafetyAlwaysWatch.Tests.Api.Controllers;
 public class MonitoringControllerTests
 {
     private Mock<IInferenceIngestionService> _mockIngestionService;
-    private Mock<IHubContext<MonitoringHub>> _mockHubContext;
-    private Mock<IHubClients> _mockClients;
-    private Mock<IClientProxy> _mockClientProxy;
     private MonitoringController _controller;
 
     [SetUp]
     public void Setup()
     {
         _mockIngestionService = new Mock<IInferenceIngestionService>();
-        _mockHubContext = new Mock<IHubContext<MonitoringHub>>();
-        _mockClients = new Mock<IHubClients>();
-        _mockClientProxy = new Mock<IClientProxy>();
-
-        _mockHubContext.Setup(h => h.Clients).Returns(_mockClients.Object);
-        _mockClients.Setup(c => c.Group(It.IsAny<string>())).Returns(_mockClientProxy.Object);
-
-        _controller = new MonitoringController(_mockIngestionService.Object, _mockHubContext.Object);
+        _controller = new MonitoringController(_mockIngestionService.Object);
     }
 
     [Test]
@@ -66,6 +54,5 @@ public class MonitoringControllerTests
         // Assert
         Assert.That(result, Is.InstanceOf<AcceptedResult>());
         _mockIngestionService.Verify(i => i.ProcessFrameAsync(payload, It.IsAny<CancellationToken>()), Times.Once);
-        _mockClientProxy.Verify(c => c.SendCoreAsync("ReceiveDetectionFrame", new object[] { output }, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

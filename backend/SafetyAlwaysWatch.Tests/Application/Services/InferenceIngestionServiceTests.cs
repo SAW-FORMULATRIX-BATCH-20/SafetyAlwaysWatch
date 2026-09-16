@@ -20,6 +20,7 @@ public class InferenceIngestionServiceTests
     private Mock<IViolationStabilizationService> _mockStabilization;
     private Mock<IUnitOfWork> _mockUnitOfWork;
     private Mock<IZoneComplianceEvaluator> _mockZoneEvaluator;
+    private Mock<IInferenceResultPublisher> _mockPublisher;
     private InferenceIngestionService _service;
 
     [SetUp]
@@ -30,13 +31,15 @@ public class InferenceIngestionServiceTests
         _mockStabilization = new Mock<IViolationStabilizationService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockZoneEvaluator = new Mock<IZoneComplianceEvaluator>();
+        _mockPublisher = new Mock<IInferenceResultPublisher>();
 
         _service = new InferenceIngestionService(
             _mockIdentityResolver.Object,
             _mockCache.Object,
             _mockStabilization.Object,
             _mockUnitOfWork.Object,
-            _mockZoneEvaluator.Object
+            _mockZoneEvaluator.Object,
+            _mockPublisher.Object
         );
     }
 
@@ -74,6 +77,7 @@ public class InferenceIngestionServiceTests
         // Assert
         Assert.That(result.Persons.First().IsCompliant, Is.True);
         _mockStabilization.Verify(s => s.ProcessDetectionAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<double>(), It.IsAny<DateTimeOffset>(), It.IsAny<Guid?>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockPublisher.Verify(p => p.PublishAsync("camera1", result, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
