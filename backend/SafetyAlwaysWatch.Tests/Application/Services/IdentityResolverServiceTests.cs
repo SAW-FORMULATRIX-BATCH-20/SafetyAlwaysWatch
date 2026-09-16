@@ -74,7 +74,7 @@ public class IdentityResolverServiceTests
         var faceEmbedding = new byte[] { 1, 2, 3 };
         var matchedId = Guid.NewGuid();
         var employee = new Employee(matchedId, "EMP02", "Matched User", Guid.NewGuid(), 100);
-        
+
         _mockFaceRecognition.Setup(f => f.MatchEmbeddingAsync(faceEmbedding, It.IsAny<CancellationToken>())).ReturnsAsync(matchedId);
         _mockEmployeeRepo.Setup(r => r.GetByIdAsync(matchedId, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
 
@@ -94,7 +94,7 @@ public class IdentityResolverServiceTests
         // Arrange
         var trackId = "track1";
         var faceEmbedding = new byte[] { 1, 2, 3 };
-        
+
         _mockFaceRecognition.Setup(f => f.MatchEmbeddingAsync(faceEmbedding, It.IsAny<CancellationToken>())).ReturnsAsync((Guid?)null);
 
         // Act

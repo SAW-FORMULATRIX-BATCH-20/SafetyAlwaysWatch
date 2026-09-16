@@ -61,7 +61,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
 builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
-builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.DummyFaceRecognitionService>();
+builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.FaceRecognitionService>();
 builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));

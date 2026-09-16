@@ -8,10 +8,10 @@ public class ViolationEvent : BaseEntity
     public Guid Id { get; private set; }
     public Guid? EmployeeId { get; private set; }
     public Guid DangerZoneId { get; private set; }
-    
+
     private readonly List<Guid> _missingPpeClassIds = new();
     public IReadOnlyCollection<Guid> MissingPpeClassIds => _missingPpeClassIds.AsReadOnly();
-    
+
     public DateTimeOffset DetectedAt { get; private set; }
     public EvidenceDeliveryStatus EvidenceDeliveryStatus { get; private set; }
     public double ScoreDeducted { get; private set; }
@@ -21,11 +21,11 @@ public class ViolationEvent : BaseEntity
     private ViolationEvent() { }
 
     public ViolationEvent(
-        Guid? employeeId, 
-        Guid dangerZoneId, 
-        IEnumerable<Guid> missingPpeClassIds, 
-        DateTimeOffset detectedAt, 
-        double scoreDeducted, 
+        Guid? employeeId,
+        Guid dangerZoneId,
+        IEnumerable<Guid> missingPpeClassIds,
+        DateTimeOffset detectedAt,
+        double scoreDeducted,
         Guid? violationCandidateStateId)
     {
         Id = Guid.NewGuid();

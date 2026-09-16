@@ -56,7 +56,7 @@ public class ViolationCandidateState : BaseEntity
             {
                 Status = ViolationStatus.Clearing;
             }
-            
+
             if (LastCompliantAt == null)
             {
                 LastCompliantAt = timestamp;
@@ -90,14 +90,14 @@ public class ViolationCandidateState : BaseEntity
 
     public bool IsReadyForConfirmation(double confirmThresholdSeconds)
     {
-        return Status == ViolationStatus.Candidate && 
+        return Status == ViolationStatus.Candidate &&
                (LastNonCompliantAt - FirstDetectedAt).TotalSeconds >= confirmThresholdSeconds;
     }
 
     public bool IsReadyForClearing(DateTimeOffset currentTimestamp, double clearThresholdSeconds)
     {
-        return Status == ViolationStatus.Clearing && 
-               LastCompliantAt.HasValue && 
+        return Status == ViolationStatus.Clearing &&
+               LastCompliantAt.HasValue &&
                (currentTimestamp - LastCompliantAt.Value).TotalSeconds >= clearThresholdSeconds;
     }
 }
