@@ -68,6 +68,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));
 builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
 builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
+builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
 
 builder.Services.AddAutoMapper(cfg =>
 {

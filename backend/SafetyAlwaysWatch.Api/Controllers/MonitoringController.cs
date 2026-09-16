@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using SafetyAlwaysWatch.Api.Filters;
-using SafetyAlwaysWatch.Api.Hubs;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
 using System.Threading.Tasks;
@@ -13,12 +11,10 @@ namespace SafetyAlwaysWatch.Api.Controllers;
 public class MonitoringController : ControllerBase
 {
     private readonly IInferenceIngestionService _inferenceIngestionService;
-    private readonly IHubContext<MonitoringHub> _hubContext;
 
-    public MonitoringController(IInferenceIngestionService inferenceIngestionService, IHubContext<MonitoringHub> hubContext)
+    public MonitoringController(IInferenceIngestionService inferenceIngestionService)
     {
         _inferenceIngestionService = inferenceIngestionService;
-        _hubContext = hubContext;
     }
 
     [HttpPost("stream/{cameraId}")]
@@ -31,7 +27,6 @@ public class MonitoringController : ControllerBase
         }
 
         var result = await _inferenceIngestionService.ProcessFrameAsync(payload);
-        await _hubContext.Clients.Group($"Camera_{cameraId}").SendAsync("ReceiveDetectionFrame", result);
         return Accepted();
     }
 }
