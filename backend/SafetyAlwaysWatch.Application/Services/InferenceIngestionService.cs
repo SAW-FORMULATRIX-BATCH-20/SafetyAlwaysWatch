@@ -13,17 +13,20 @@ public class InferenceIngestionService : IInferenceIngestionService
     private readonly ITrackIdentityCache _cache;
     private readonly IViolationStabilizationService _stabilization;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IZoneComplianceEvaluator _zoneEvaluator;
 
     public InferenceIngestionService(
         IIdentityResolverService identityResolver,
         ITrackIdentityCache cache,
         IViolationStabilizationService stabilization,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IZoneComplianceEvaluator zoneEvaluator)
     {
         _identityResolver = identityResolver;
         _cache = cache;
         _stabilization = stabilization;
         _unitOfWork = unitOfWork;
+        _zoneEvaluator = zoneEvaluator;
     }
 
     public async Task<DetectionFrameOutput> ProcessFrameAsync(IngestFrameDto payload, CancellationToken cancellationToken = default)
@@ -38,14 +41,33 @@ public class InferenceIngestionService : IInferenceIngestionService
                 if (person.IsTrackLost)
                 {
                     _cache.Remove(person.TrackId);
+                    await _stabilization.HandleLostTrackAsync(person.TrackId, cancellationToken);
+                    
                     outputPersons.Add(new DetectedPersonOutput(
                         person.TrackId, person.BoundingBox, person.Confidence, null, "Lost", null, false, false, new List<PpeItemOutput>(), true));
                 }
                 else
                 {
                     var identity = await _identityResolver.ResolveIdentityAsync(person.TrackId, person.FaceEmbedding, person.SimulatedEmployeeId, cancellationToken);
+                    var zoneCompliance = await _zoneEvaluator.EvaluateAsync(payload.CameraId, person, cancellationToken);
+
+                    if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassId.HasValue)
+                    {
+                        await _stabilization.ProcessDetectionAsync(
+                            person.TrackId,
+                            zoneCompliance.HazardousZoneId.Value,
+                            zoneCompliance.MissingPpeClassId.Value,
+                            zoneCompliance.IsCompliant,
+                            person.Confidence,
+                            payload.Timestamp,
+                            identity.EmployeeId,
+                            null, // frameSnapshot is not implemented yet
+                            cancellationToken
+                        );
+                    }
+
                     outputPersons.Add(new DetectedPersonOutput(
-                        person.TrackId, person.BoundingBox, person.Confidence, identity.EmployeeId, identity.DisplayName, identity.CurrentSafetyScore, identity.IsIdentified, true, new List<PpeItemOutput>(), false));
+                        person.TrackId, person.BoundingBox, person.Confidence, identity.EmployeeId, identity.DisplayName, identity.CurrentSafetyScore, identity.IsIdentified, zoneCompliance.IsCompliant, new List<PpeItemOutput>(), false));
                 }
             }
             await _unitOfWork.CommitAsync(cancellationToken);
