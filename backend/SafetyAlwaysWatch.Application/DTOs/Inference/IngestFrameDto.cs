@@ -2,15 +2,15 @@ namespace SafetyAlwaysWatch.Application.DTOs.Inference;
 
 public record IngestFrameDto(
     string CameraId,
-    DateTime Timestamp,
-    List<DetectedPersonDto> Persons
+    DateTimeOffset Timestamp,
+    List<DetectedPersonDto> Persons,
+    byte[]? FrameJpeg
 );
 
 public record DetectedPersonDto(
     string TrackId,
     BoundingBoxDto BoundingBox,
     double Confidence,
-    Guid? SimulatedEmployeeId,
     byte[]? FaceEmbedding,
     List<PpeDetectionDto> PpeDetections,
     bool IsTrackLost

@@ -39,30 +39,10 @@ public class IdentityResolverServiceTests
         _mockCache.Setup(c => c.Get(trackId)).Returns(expectedResult);
 
         // Act
-        var result = await _service.ResolveIdentityAsync(trackId, null, null);
+        var result = await _service.ResolveIdentityAsync(trackId, null);
 
         // Assert
         Assert.That(result, Is.EqualTo(expectedResult));
-        _mockFaceRecognition.Verify(f => f.MatchEmbeddingAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Test]
-    public async Task ResolveIdentityAsync_WithSimulatedEmployeeId_FetchesEmployeeAndCaches()
-    {
-        // Arrange
-        var trackId = "track1";
-        var simulatedId = Guid.NewGuid();
-        var employee = new Employee(simulatedId, "EMP01", "Simulated User", Guid.NewGuid(), 100);
-        _mockEmployeeRepo.Setup(r => r.GetByIdAsync(simulatedId, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
-
-        // Act
-        var result = await _service.ResolveIdentityAsync(trackId, null, simulatedId);
-
-        // Assert
-        Assert.That(result.EmployeeId, Is.EqualTo(simulatedId));
-        Assert.That(result.DisplayName, Is.EqualTo("Simulated User"));
-        Assert.That(result.IsIdentified, Is.True);
-        _mockCache.Verify(c => c.Set(trackId, result), Times.Once);
         _mockFaceRecognition.Verify(f => f.MatchEmbeddingAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -79,7 +59,7 @@ public class IdentityResolverServiceTests
         _mockEmployeeRepo.Setup(r => r.GetByIdAsync(matchedId, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
 
         // Act
-        var result = await _service.ResolveIdentityAsync(trackId, faceEmbedding, null);
+        var result = await _service.ResolveIdentityAsync(trackId, faceEmbedding);
 
         // Assert
         Assert.That(result.EmployeeId, Is.EqualTo(matchedId));
@@ -98,7 +78,7 @@ public class IdentityResolverServiceTests
         _mockFaceRecognition.Setup(f => f.MatchEmbeddingAsync(faceEmbedding, It.IsAny<CancellationToken>())).ReturnsAsync((Guid?)null);
 
         // Act
-        var result = await _service.ResolveIdentityAsync(trackId, faceEmbedding, null);
+        var result = await _service.ResolveIdentityAsync(trackId, faceEmbedding);
 
         // Assert
         Assert.That(result.EmployeeId, Is.Null);

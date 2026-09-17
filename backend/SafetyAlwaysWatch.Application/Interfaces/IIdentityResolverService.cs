@@ -9,5 +9,5 @@ public record IdentityResult(
 
 public interface IIdentityResolverService
 {
-    Task<IdentityResult> ResolveIdentityAsync(string trackId, byte[]? faceEmbedding, Guid? simulatedEmployeeId, CancellationToken cancellationToken = default);
+    Task<IdentityResult> ResolveIdentityAsync(string trackId, byte[]? faceEmbedding, CancellationToken cancellationToken = default);
 }
