@@ -65,6 +65,7 @@ public class InferenceIngestionService : IInferenceIngestionService
                     if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassId.HasValue)
                     {
                         await _stabilization.ProcessDetectionAsync(
+                            payload.CameraId,
                             person.TrackId,
                             zoneCompliance.HazardousZoneId.Value,
                             zoneCompliance.MissingPpeClassId.Value,
@@ -72,7 +73,6 @@ public class InferenceIngestionService : IInferenceIngestionService
                             person.Confidence,
                             payload.Timestamp,
                             identity.EmployeeId,
-                            payload.FrameJpeg ?? _snapshotBuffer.GetSnapshot(payload.CameraId),
                             cancellationToken
                         );
                     }

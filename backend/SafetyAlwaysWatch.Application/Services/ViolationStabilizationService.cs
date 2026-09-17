@@ -15,22 +15,26 @@ public class ViolationStabilizationService : IViolationStabilizationService
     private readonly IRepository<SystemSetting> _settingRepository;
     private readonly ISafetyScoringService _scoringService;
     private readonly ITelegramEscalationService _telegramEscalationService;
+    private readonly IFrameSnapshotBuffer _snapshotBuffer;
 
     public ViolationStabilizationService(
         IRepository<ViolationCandidateState> stateRepository,
         IRepository<ViolationEvent> eventRepository,
         IRepository<SystemSetting> settingRepository,
         ISafetyScoringService scoringService,
-        ITelegramEscalationService telegramEscalationService)
+        ITelegramEscalationService telegramEscalationService,
+        IFrameSnapshotBuffer snapshotBuffer)
     {
         _stateRepository = stateRepository;
         _eventRepository = eventRepository;
         _settingRepository = settingRepository;
         _scoringService = scoringService;
         _telegramEscalationService = telegramEscalationService;
+        _snapshotBuffer = snapshotBuffer;
     }
 
     public async Task ProcessDetectionAsync(
+        string cameraId,
         string trackId,
         Guid dangerZoneId,
         Guid missingPpeClassId,
@@ -38,7 +42,6 @@ public class ViolationStabilizationService : IViolationStabilizationService
         double confidence,
         DateTimeOffset timestamp,
         Guid? resolvedEmployeeId,
-        byte[]? frameSnapshot = null,
         CancellationToken cancellationToken = default)
     {
         var settings = await _settingRepository.Query().ToListAsync(cancellationToken);
@@ -94,6 +97,7 @@ public class ViolationStabilizationService : IViolationStabilizationService
                     await _scoringService.DeductScoreAsync(resolvedEmployeeId.Value, violationEvent.Id, cancellationToken);
                 }
 
+                var frameSnapshot = _snapshotBuffer.GetSnapshot(cameraId);
                 if (frameSnapshot != null)
                 {
                     bool isSent = await _telegramEscalationService.SendEscalationAsync(violationEvent, frameSnapshot, cancellationToken);
