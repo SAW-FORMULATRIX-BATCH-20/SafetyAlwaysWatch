@@ -10,7 +10,6 @@ public record DetectedPersonDto(
     string TrackId,
     BoundingBoxDto BoundingBox,
     double Confidence,
-    Guid? SimulatedEmployeeId,
     byte[]? FaceEmbedding,
     List<PpeDetectionDto> PpeDetections,
     bool IsTrackLost

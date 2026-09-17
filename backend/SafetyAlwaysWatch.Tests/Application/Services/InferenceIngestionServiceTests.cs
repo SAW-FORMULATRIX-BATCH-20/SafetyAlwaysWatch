@@ -54,7 +54,7 @@ public class InferenceIngestionServiceTests
 
         // Assert
         Assert.That(result.Persons, Is.Empty);
-        _mockIdentityResolver.Verify(i => i.ResolveIdentityAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockIdentityResolver.Verify(i => i.ResolveIdentityAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockZoneEvaluator.Verify(z => z.EvaluateAsync(It.IsAny<string>(), It.IsAny<DetectedPersonDto>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -62,10 +62,10 @@ public class InferenceIngestionServiceTests
     public async Task ProcessFrameAsync_SingleDetectionNotInZone_NoViolationProcessing()
     {
         // Arrange
-        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, new List<PpeDetectionDto>(), false);
         var payload = new IngestFrameDto("camera1", DateTime.UtcNow, new List<DetectedPersonDto> { personDto });
 
-        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, null, It.IsAny<CancellationToken>()))
+        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdentityResult(null, "Unknown", null, false));
         
         _mockZoneEvaluator.Setup(z => z.EvaluateAsync("camera1", personDto, It.IsAny<CancellationToken>()))
@@ -84,11 +84,11 @@ public class InferenceIngestionServiceTests
     public async Task ProcessFrameAsync_SingleDetectionInZoneMissingPpe_CallsStabilization()
     {
         // Arrange
-        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, new List<PpeDetectionDto>(), false);
         var payload = new IngestFrameDto("camera1", DateTime.UtcNow, new List<DetectedPersonDto> { personDto });
 
         var identityResult = new IdentityResult(Guid.NewGuid(), "John Doe", 100, true);
-        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, null, It.IsAny<CancellationToken>()))
+        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(identityResult);
         
         var zoneId = Guid.NewGuid();
@@ -115,7 +115,7 @@ public class InferenceIngestionServiceTests
             DateTime.UtcNow,
             new List<DetectedPersonDto>
             {
-                new DetectedPersonDto("track1", new BoundingBoxDto(0,0,0,0), 0.9, null, null, new List<PpeDetectionDto>(), true)
+                new DetectedPersonDto("track1", new BoundingBoxDto(0,0,0,0), 0.9, null, new List<PpeDetectionDto>(), true)
             }
         );
 
@@ -131,10 +131,10 @@ public class InferenceIngestionServiceTests
     public void ProcessFrameAsync_WhenExceptionOccurs_RollsBackTransaction()
     {
         // Arrange
-        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var personDto = new DetectedPersonDto("track1", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, new List<PpeDetectionDto>(), false);
         var payload = new IngestFrameDto("camera1", DateTime.UtcNow, new List<DetectedPersonDto> { personDto });
 
-        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+        _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database connection failed"));
 
         // Act & Assert

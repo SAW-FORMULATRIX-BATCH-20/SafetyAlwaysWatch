@@ -22,7 +22,7 @@ public class IdentityResolverService : IIdentityResolverService
         _employeeRepository = employeeRepository;
     }
 
-    public async Task<IdentityResult> ResolveIdentityAsync(string trackId, byte[]? faceEmbedding, Guid? simulatedEmployeeId, CancellationToken cancellationToken = default)
+    public async Task<IdentityResult> ResolveIdentityAsync(string trackId, byte[]? faceEmbedding, CancellationToken cancellationToken = default)
     {
         var cached = _cache.Get(trackId);
         if (cached != null)
@@ -30,16 +30,6 @@ public class IdentityResolverService : IIdentityResolverService
             return cached;
         }
 
-        if (simulatedEmployeeId.HasValue)
-        {
-            var employee = await _employeeRepository.GetByIdAsync(simulatedEmployeeId.Value, cancellationToken);
-            if (employee != null)
-            {
-                var result = new IdentityResult(employee.Id, employee.FullName, (int)employee.SafetyCreditScore, true);
-                _cache.Set(trackId, result);
-                return result;
-            }
-        }
 
         if (faceEmbedding != null && faceEmbedding.Length > 0)
         {

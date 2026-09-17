@@ -51,7 +51,7 @@ public class InferenceIngestionService : IInferenceIngestionService
                 }
                 else
                 {
-                    var identity = await _identityResolver.ResolveIdentityAsync(person.TrackId, person.FaceEmbedding, person.SimulatedEmployeeId, cancellationToken);
+                    var identity = await _identityResolver.ResolveIdentityAsync(person.TrackId, person.FaceEmbedding, cancellationToken);
                     var zoneCompliance = await _zoneEvaluator.EvaluateAsync(payload.CameraId, person, cancellationToken);
 
                     if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassId.HasValue)
