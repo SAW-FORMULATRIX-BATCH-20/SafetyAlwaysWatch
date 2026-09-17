@@ -63,7 +63,7 @@ public class MockInferenceSimulatorService : BackgroundService
 
         var payload = new IngestFrameDto(
             CameraId: "sim_cam_1",
-            Timestamp: DateTime.UtcNow,
+            Timestamp: DateTimeOffset.UtcNow,
             Persons: new List<DetectedPersonDto>
             {
                 // Compliant person (with a mock employee id)
@@ -71,7 +71,6 @@ public class MockInferenceSimulatorService : BackgroundService
                     TrackId: "sim_compliant",
                     BoundingBox: new BoundingBoxDto(10, 10, 50, 50),
                     Confidence: 0.95,
-                    SimulatedEmployeeId: Guid.NewGuid(),
                     FaceEmbedding: null,
                     PpeDetections: new List<PpeDetectionDto>
                     {
@@ -84,12 +83,12 @@ public class MockInferenceSimulatorService : BackgroundService
                     TrackId: "sim_violator",
                     BoundingBox: new BoundingBoxDto(100, 100, 50, 50),
                     Confidence: 0.85,
-                    SimulatedEmployeeId: null,
                     FaceEmbedding: null,
                     PpeDetections: new List<PpeDetectionDto>(),
                     IsTrackLost: false
                 )
-            }
+            },
+            FrameJpeg: null
         );
 
         await ingestionService.ProcessFrameAsync(payload, cancellationToken);
