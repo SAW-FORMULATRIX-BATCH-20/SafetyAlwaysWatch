@@ -11,7 +11,7 @@ public class PpeDetector : OnnxModelWrapper
     public IEnumerable<Detection> Detect(float[] cropData, int width, int height)
     {
         if (Session == null) throw new System.InvalidOperationException("Model not loaded");
-        
+
         // TODO: Implement actual tensor construction, Session.Run(), and output parsing
 
         return new List<Detection>();

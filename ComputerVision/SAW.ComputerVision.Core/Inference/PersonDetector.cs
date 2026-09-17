@@ -11,7 +11,7 @@ public class PersonDetector : OnnxModelWrapper
     public IEnumerable<Detection> Detect(float[] frameData, int width, int height)
     {
         if (Session == null) throw new System.InvalidOperationException("Model not loaded");
-        
+
         // TODO: Implement actual tensor construction, Session.Run(), and output parsing
         // Example: 
         // var tensor = new Microsoft.ML.OnnxRuntime.Tensors.DenseTensor<float>(frameData, new[] { 1, 3, height, width });

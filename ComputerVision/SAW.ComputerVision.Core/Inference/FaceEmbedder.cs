@@ -11,7 +11,7 @@ public class FaceEmbedder : OnnxModelWrapper
     public float[] GetEmbedding(float[] faceCropData, int width, int height)
     {
         if (Session == null) throw new System.InvalidOperationException("Model not loaded");
-        
+
         // TODO: Implement actual tensor construction, Session.Run(), and output parsing
 
         return Array.Empty<float>();
