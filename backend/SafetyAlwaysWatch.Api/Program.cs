@@ -14,8 +14,13 @@ using Serilog;
 using FluentValidation;
 using SafetyAlwaysWatch.Application.Services;
 using SafetyAlwaysWatch.Application.Validators;
+using SafetyAlwaysWatch.Application.Validators.Employees;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
+using SafetyAlwaysWatch.Application.DTOs.Auth;
+using SafetyAlwaysWatch.Infrastructure.Security;
 using System.Reflection;
+using SafetyAlwaysWatch.Application.DTOs.HazardousZones;
+using SafetyAlwaysWatch.Application.Validators.HazardousZones;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,11 +55,39 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
+builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
+builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.FaceRecognitionService>();
+builder.Services.AddScoped<IZoneComplianceEvaluator, SafetyAlwaysWatch.Application.Services.ZoneComplianceEvaluator>();
+builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));
+builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
+builder.Services.Configure<SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBufferSettings>(builder.Configuration.GetSection("FrameSnapshotBufferSettings"));
+builder.Services.AddSingleton<IFrameSnapshotBuffer, SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBuffer>();
+builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
+builder.Services.AddScoped<IViolationStabilizationService, SafetyAlwaysWatch.Application.Services.ViolationStabilizationService>();
+builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
+
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddMaps(typeof(SafetyAlwaysWatch.Application.Mappings.EmployeeProfile).Assembly);
 });
+
 builder.Services.AddScoped<IValidator<GetEmployeesQuery>, GetEmployeesQueryValidator>();
+builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValidator>();
+builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
+builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
+builder.Services.AddScoped<IValidator<UpdateEmployeeDto>, UpdateEmployeeDtoValidator>();
+builder.Services.AddScoped<IHazardousZoneService, HazardousZoneService>();
+builder.Services.AddScoped<IValidator<CreateHazardousZoneDto>, CreateHazardousZoneDtoValidator>();
+builder.Services.AddScoped<IValidator<UpdateHazardousZoneDto>, UpdateHazardousZoneDtoValidator>();
+builder.Services.AddScoped<IValidator<GetHazardousZonesQuery>, GetHazardousZonesQueryValidator>();
+builder.Services.AddScoped<IValidator<SafetyAlwaysWatch.Application.DTOs.Requests.ResetScoreRequest>, ResetScoreRequestValidator>();
 
 
 // Configure JWT Authentication
@@ -114,11 +147,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true) // SignalR requires specific origin logic or SetIsOriginAllowed
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // SignalR requires credentials
     });
 });
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -139,5 +175,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<SafetyAlwaysWatch.Api.Hubs.MonitoringHub>("/hubs/monitoring");
 
 app.Run();

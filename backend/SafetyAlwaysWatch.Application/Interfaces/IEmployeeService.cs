@@ -1,11 +1,16 @@
 using SafetyAlwaysWatch.Application.Common;
 using SafetyAlwaysWatch.Application.Common.Models;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
-
+using SafetyAlwaysWatch.Application.DTOs;
+using System.IO;
 namespace SafetyAlwaysWatch.Application.Interfaces;
 
 public interface IEmployeeService
 {
     Task<ServiceResult<PaginatedList<EmployeeDto>>> GetEmployeesAsync(GetEmployeesQuery query, CancellationToken cancellationToken = default);
     Task<ServiceResult<EmployeeDto>> GetEmployeeByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ServiceResult<Guid>> CreateEmployeeAsync(CreateEmployeeDto dto, CancellationToken cancellationToken = default);
+    Task<ServiceResult<bool>> UpdateEmployeeAsync(Guid id, UpdateEmployeeDto dto, CancellationToken cancellationToken = default);
+    Task<ServiceResult<bool>> DeleteEmployeeAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ServiceResult<EnrollFaceResponseDto>> EnrollFaceAsync(Guid employeeId, Stream imageStream, string contentType, Guid adminId, CancellationToken cancellationToken = default);
 }

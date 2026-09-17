@@ -2,9 +2,12 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using SafetyAlwaysWatch.Application.Common;
 using SafetyAlwaysWatch.Application.Common.Models;
+using SafetyAlwaysWatch.Application.DTOs;
 using SafetyAlwaysWatch.Application.DTOs.Employees;
 using SafetyAlwaysWatch.Application.Interfaces;
+using System.IO;
 using SafetyAlwaysWatch.Domain.Entities;
+using SafetyAlwaysWatch.Domain.Enums;
 using SafetyAlwaysWatch.Domain.Interfaces;
 
 namespace SafetyAlwaysWatch.Application.Services;
@@ -12,22 +15,28 @@ namespace SafetyAlwaysWatch.Application.Services;
 public class EmployeeService : IEmployeeService
 {
     private readonly IRepository<Employee> _employeeRepository;
-    private readonly IRepository<DangerZone> _dangerZoneRepository;
+    private readonly IRepository<HazardousZone> _dangerZoneRepository;
     private readonly IRepository<SystemSetting> _systemSettingRepository;
     private readonly IRepository<SafetyScoreLedger> _safetyScoreLedgerRepository;
+    private readonly IFaceRecognitionService _faceRecognitionService;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IMapper _mapper;
 
     public EmployeeService(
         IRepository<Employee> employeeRepository,
-        IRepository<DangerZone> dangerZoneRepository,
+        IRepository<HazardousZone> dangerZoneRepository,
         IRepository<SystemSetting> systemSettingRepository,
         IRepository<SafetyScoreLedger> safetyScoreLedgerRepository,
+        IFaceRecognitionService faceRecognitionService,
+        IPasswordHasher passwordHasher,
         IMapper mapper)
     {
         _employeeRepository = employeeRepository;
         _dangerZoneRepository = dangerZoneRepository;
         _systemSettingRepository = systemSettingRepository;
         _safetyScoreLedgerRepository = safetyScoreLedgerRepository;
+        _faceRecognitionService = faceRecognitionService;
+        _passwordHasher = passwordHasher;
         _mapper = mapper;
     }
 
@@ -37,7 +46,7 @@ public class EmployeeService : IEmployeeService
         var escalationThresholdSetting = settings.FirstOrDefault(x => x.Key == "SafetyScore:EscalationThreshold");
         double escalationThreshold = escalationThresholdSetting != null ? double.Parse(escalationThresholdSetting.Value) : 60;
 
-        var dbQuery = _employeeRepository.Query();
+        var dbQuery = _employeeRepository.Query().Include(x => x.Department).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -47,7 +56,7 @@ public class EmployeeService : IEmployeeService
 
         if (!string.IsNullOrWhiteSpace(query.Department))
         {
-            dbQuery = dbQuery.Where(x => x.Department == query.Department);
+            dbQuery = dbQuery.Where(x => x.Department.Name == query.Department);
         }
 
         if (!string.IsNullOrWhiteSpace(query.SafetyStatus))
@@ -79,13 +88,13 @@ public class EmployeeService : IEmployeeService
         {
             var dto = _mapper.Map<EmployeeDto>(emp);
 
-            // Supervisor Area: finding all DangerZones where this employee is a supervisor
+            // Supervisor Area: finding all HazardousZones where this employee is a supervisor
             var supervisedZones = await _dangerZoneRepository.Query()
                 .Where(z => z.SupervisorIds.Contains(emp.Id))
                 .Select(z => z.Name)
                 .ToListAsync(cancellationToken);
 
-            dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department;
+            dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department.Name;
             employeeDtos.Add(dto);
         }
 
@@ -100,7 +109,7 @@ public class EmployeeService : IEmployeeService
 
     public async Task<ServiceResult<EmployeeDto>> GetEmployeeByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var emp = await _employeeRepository.GetByIdAsync(id, cancellationToken);
+        var emp = await _employeeRepository.Query().Include(x => x.Department).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (emp == null)
         {
             return ServiceResult<EmployeeDto>.Failure("Karyawan tidak ditemukan.");
@@ -113,7 +122,7 @@ public class EmployeeService : IEmployeeService
             .Select(z => z.Name)
             .ToListAsync(cancellationToken);
 
-        dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department;
+        dto.SupervisorArea = supervisedZones.Any() ? string.Join(", ", supervisedZones) : emp.Department?.Name ?? string.Empty;
 
         var ledgers = await _safetyScoreLedgerRepository.Query()
             .Where(x => x.EmployeeId == emp.Id)
@@ -136,5 +145,122 @@ public class EmployeeService : IEmployeeService
         };
 
         return ServiceResult<EmployeeDto>.Success(dto);
+    }
+
+    public async Task<ServiceResult<Guid>> CreateEmployeeAsync(CreateEmployeeDto dto, CancellationToken cancellationToken = default)
+    {
+        var existingEmployee = await _employeeRepository.Query()
+            .FirstOrDefaultAsync(x => x.EmployeeCode == dto.EmployeeCode, cancellationToken);
+
+        if (existingEmployee != null)
+        {
+            return ServiceResult<Guid>.Failure("Kode karyawan sudah digunakan.");
+        }
+
+        var settings = await _systemSettingRepository.Query().ToListAsync(cancellationToken);
+        var initialScoreSetting = settings.FirstOrDefault(x => x.Key == "SafetyScore:InitialScore");
+        double initialScore = initialScoreSetting != null ? double.Parse(initialScoreSetting.Value) : 100;
+
+        var employee = new Employee(dto.EmployeeCode, dto.FullName, dto.DepartmentId, initialScore);
+
+        if (dto.Role.HasValue)
+        {
+            var hash = !string.IsNullOrWhiteSpace(dto.Password) ? _passwordHasher.HashPassword(dto.Password) : string.Empty;
+            employee.SetCredentials(hash, dto.Role.Value, requiresPasswordChange: true, email: dto.Email);
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            employee.SetEmail(dto.Email);
+        }
+
+        await _employeeRepository.AddAsync(employee, cancellationToken);
+
+        var ledger = new SafetyScoreLedger(
+            employee.Id,
+            initialScore,
+            0,
+            initialScore,
+            LedgerChangeType.Initialization,
+            "Initial score assignment"
+        );
+        await _safetyScoreLedgerRepository.AddAsync(ledger, cancellationToken);
+
+        return ServiceResult<Guid>.Success(employee.Id);
+    }
+    public async Task<ServiceResult<bool>> UpdateEmployeeAsync(Guid id, UpdateEmployeeDto dto, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepository.Query().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (employee == null)
+        {
+            return ServiceResult<bool>.Failure("Karyawan tidak ditemukan.");
+        }
+
+        employee.UpdateProfile(dto.FullName, dto.DepartmentId, dto.SupervisorId, dto.Status);
+        await _employeeRepository.UpdateAsync(employee, cancellationToken);
+
+        return ServiceResult<bool>.Success(true);
+    }
+
+    public async Task<ServiceResult<bool>> DeleteEmployeeAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepository.Query().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (employee == null)
+        {
+            return ServiceResult<bool>.Failure("Karyawan tidak ditemukan.");
+        }
+
+        await _employeeRepository.DeleteAsync(employee, cancellationToken);
+
+        return ServiceResult<bool>.Success(true);
+    }
+
+    public async Task<ServiceResult<EnrollFaceResponseDto>> EnrollFaceAsync(Guid employeeId, Stream imageStream, string contentType, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        if (contentType != "image/jpeg" && contentType != "image/png")
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("Only JPEG or PNG images are supported.");
+        }
+
+        var employee = await _employeeRepository.Query()
+            .Include(e => e.FaceEmbeddings)
+            .FirstOrDefaultAsync(e => e.Id == employeeId, cancellationToken);
+
+        if (employee == null)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("Employee not found.");
+        }
+
+        var extractionResult = await _faceRecognitionService.ExtractFaceEmbeddingAsync(imageStream);
+        if (extractionResult == null)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure("No face detected, multiple faces detected, or image quality too low.");
+        }
+
+        var newEmbedding = new EmployeeFaceEmbedding(
+            employeeId,
+            extractionResult.Value.Embedding,
+            extractionResult.Value.QualityScore
+        );
+
+        // Track who created it if needed
+        newEmbedding.CreatedBy = adminId;
+        newEmbedding.CreatedAt = DateTime.UtcNow;
+
+        try
+        {
+            employee.AddFaceEmbedding(newEmbedding);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ServiceResult<EnrollFaceResponseDto>.Failure(ex.Message);
+        }
+
+        await _employeeRepository.UpdateAsync(employee, cancellationToken);
+
+        return ServiceResult<EnrollFaceResponseDto>.Success(new EnrollFaceResponseDto
+        {
+            Id = newEmbedding.Id,
+            ActiveSampleCount = employee.FaceEmbeddings.Count(e => e.IsActive)
+        });
     }
 }

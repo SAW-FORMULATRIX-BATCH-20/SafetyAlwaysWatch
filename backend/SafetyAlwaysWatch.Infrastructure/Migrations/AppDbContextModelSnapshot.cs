@@ -23,7 +23,191 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.DangerZone", b =>
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Departments");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            IsDeleted = false,
+                            Name = "Produksi"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            IsDeleted = false,
+                            Name = "Gudang"
+                        },
+                        new
+                        {
+                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
+                            IsDeleted = false,
+                            Name = "IT"
+                        });
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.Employee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("HasFaceEnrolled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<bool>("RequiresPasswordChange")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<double>("SafetyCreditScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SupervisorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.ToTable("Employees");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                            DepartmentId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            Email = "admin@saw.local",
+                            EmployeeCode = "ADM-001",
+                            FullName = "Admin SAW",
+                            HasFaceEnrolled = false,
+                            IsDeleted = false,
+                            PasswordHash = "ZwSkDi51ttJOzuV3FCIMhw==.HHGErah3ZRjpwAi3AoHjL+2aqn3cZH0W0agtD+WkMI4=",
+                            RequiresPasswordChange = false,
+                            Role = "Admin",
+                            SafetyCreditScore = 100.0,
+                            Status = 1
+                        });
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.EmployeeFaceEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<double?>("QualityScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("EmployeeFaceEmbeddings");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.HazardousZone", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -49,6 +233,22 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<double>("RelativeHeight")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("RelativeWidth")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("RelativeX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("RelativeY")
+                        .HasColumnType("double precision");
+
+                    b.Property<List<Guid>>("RequiredPpeClassIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
                     b.Property<List<Guid>>("SupervisorIds")
                         .IsRequired()
                         .HasColumnType("uuid[]");
@@ -61,63 +261,7 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DangerZones");
-                });
-
-            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.Employee", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Department")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("EmployeeCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<bool>("HasFaceEnrolled")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<double>("SafetyCreditScore")
-                        .HasColumnType("double precision");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("SupervisorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmployeeCode")
-                        .IsUnique();
-
-                    b.ToTable("Employees");
+                    b.ToTable("HazardousZones");
                 });
 
             modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.SafetyScoreLedger", b =>
@@ -129,11 +273,19 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.Property<double>("ChangeAmount")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("uuid");
@@ -171,6 +323,109 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.ToTable("SafetyScoreLedgers");
                 });
 
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.SafetyScorePeriodSummary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("FinalScoreBeforeReset")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("PeriodStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TotalViolations")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TriggerType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ViolationsByPpeClassJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("SafetyScorePeriodSummaries");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ScoreResetLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RelatedPeriodSummaryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ResetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResetBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResetReason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TriggerType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("RelatedPeriodSummaryId");
+
+                    b.ToTable("ScoreResetLogs");
+                });
+
             modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -200,6 +455,242 @@ namespace SafetyAlwaysWatch.Infrastructure.Migrations
                     b.HasKey("Key");
 
                     b.ToTable("SystemSettings");
+
+                    b.HasData(
+                        new
+                        {
+                            Key = "SafetyScore:InitialValue",
+                            IsDeleted = false,
+                            Value = "100"
+                        },
+                        new
+                        {
+                            Key = "SafetyScore:DeductionPerViolation",
+                            IsDeleted = false,
+                            Value = "5"
+                        },
+                        new
+                        {
+                            Key = "Violation:ConfirmThresholdSeconds",
+                            IsDeleted = false,
+                            Value = "3"
+                        },
+                        new
+                        {
+                            Key = "Violation:ClearThresholdSeconds",
+                            IsDeleted = false,
+                            Value = "5"
+                        },
+                        new
+                        {
+                            Key = "Detection:MinConfidenceThreshold",
+                            IsDeleted = false,
+                            Value = "0.5"
+                        });
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ViolationCandidateState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DangerZoneId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("FirstDetectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastCompliantAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastNonCompliantAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MissingPpeClassId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TrackId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ViolationEventId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DangerZoneId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ViolationEventId");
+
+                    b.ToTable("ViolationCandidateStates");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ViolationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DangerZoneId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("DetectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EvidenceDeliveryStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MissingPpeClassIds")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("MissingPpeClassIdsJson");
+
+                    b.Property<double>("ScoreDeducted")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ViolationCandidateStateId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DangerZoneId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("ViolationEvents");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.Employee", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.EmployeeFaceEmbedding", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Employee", "Employee")
+                        .WithMany("FaceEmbeddings")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.SafetyScorePeriodSummary", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ScoreResetLog", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.SafetyScorePeriodSummary", null)
+                        .WithMany()
+                        .HasForeignKey("RelatedPeriodSummaryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ViolationCandidateState", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.HazardousZone", null)
+                        .WithMany()
+                        .HasForeignKey("DangerZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.ViolationEvent", null)
+                        .WithMany()
+                        .HasForeignKey("ViolationEventId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.ViolationEvent", b =>
+                {
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.HazardousZone", null)
+                        .WithMany()
+                        .HasForeignKey("DangerZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SafetyAlwaysWatch.Domain.Entities.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SafetyAlwaysWatch.Domain.Entities.Employee", b =>
+                {
+                    b.Navigation("FaceEmbeddings");
                 });
 #pragma warning restore 612, 618
         }

@@ -103,3 +103,39 @@ _Avoid_: Admin when the safety responsibility matters
 **Human Resources (HR)**:
 The role responsible for reviewing aggregate compliance trends, escalations, and auditable employee safety history.
 _Avoid_: HRD
+
+**Inference Worker**:
+A separate .NET Worker Service (`ComputerVision/`) that reads RTSP camera streams, runs four ONNX models (person detection, PPE detection, face detection, face embedding) and an IOU Tracker on CPU at ~2 FPS, then POSTs structured Ingest Frame payloads to the SAW backend via HTTP with API key auth.
+_Avoid_: Edge Worker when referring to the service contract, AI pipeline, CV Service in domain discussions
+
+**CV Service**:
+Implementation-level name for the Inference Worker solution and its projects (`SAW.ComputerVision.Core`, `SAW.ComputerVision.Worker`). Use "Inference Worker" in domain discussions.
+_Avoid_: Inference Worker when referring to the codebase or deployment unit
+
+**Frame Snapshot Buffer**:
+A backend-side in-memory cache (keyed by Camera Source ID with TTL) that stores the most recent JPEG frame sent periodically by the Inference Worker, used as violation evidence when a Violation Episode is confirmed.
+_Avoid_: snapshot store, image cache, evidence buffer
+
+**Spatial PPE Association**:
+The process of matching PPE item detections to Detected Persons by bounding-box overlap after both are detected independently on the full frame.
+_Avoid_: PPE matching, PPE-person linking
+
+**IOU Tracker**:
+A frame-to-frame object tracker that maintains Detected Person identity (TrackId) across consecutive frames by matching bounding boxes with the highest Intersection-over-Union overlap.
+_Avoid_: object tracker without specifying the algorithm, SORT, DeepSORT
+
+**Identity Resolver**:
+The component that matches a Detected Person's face embedding against enrolled Employee Face Samples and caches the result per track.
+_Avoid_: face matcher, recognition service when referring to the per-track caching component
+
+**Track Identity Cache**:
+A singleton in-memory cache that stores resolved Employee identity per TrackId, retrying while Unknown and caching once matched, with TTL-based eviction.
+_Avoid_: face cache, identity cache without the "track" qualifier
+
+**Ingest Frame**:
+The structured payload sent by the Inference Worker to the SAW backend via REST POST, containing all Detected Persons, their PPE detections, face embeddings, and lost track IDs for one camera frame.
+_Avoid_: raw frame, video frame when referring to the processed detection payload
+
+**Detection Frame Output**:
+The processed payload pushed from the SAW backend to monitoring frontends via SignalR, containing identity-resolved, compliance-evaluated detection results ready for overlay rendering.
+_Avoid_: SignalR event, detection event when the full processed output is intended
