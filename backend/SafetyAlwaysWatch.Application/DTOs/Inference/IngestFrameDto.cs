@@ -2,8 +2,9 @@ namespace SafetyAlwaysWatch.Application.DTOs.Inference;
 
 public record IngestFrameDto(
     string CameraId,
-    DateTime Timestamp,
-    List<DetectedPersonDto> Persons
+    DateTimeOffset Timestamp,
+    List<DetectedPersonDto> Persons,
+    byte[]? FrameJpeg = null
 );
 
 public record DetectedPersonDto(

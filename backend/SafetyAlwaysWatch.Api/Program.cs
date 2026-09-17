@@ -68,6 +68,8 @@ builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.I
 builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
 builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
 builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
+builder.Services.AddSingleton<IFrameSnapshotBuffer, SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBuffer>();
+builder.Services.AddScoped<IZoneComplianceEvaluator, SafetyAlwaysWatch.Infrastructure.Services.ZoneComplianceEvaluator>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
