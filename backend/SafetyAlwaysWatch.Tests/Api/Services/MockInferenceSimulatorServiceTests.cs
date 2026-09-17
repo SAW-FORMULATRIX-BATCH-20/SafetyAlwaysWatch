@@ -19,7 +19,7 @@ public class MockInferenceSimulatorServiceTests
     private Mock<IInferenceIngestionService> _mockIngestionService;
     private Mock<IMockSimulationControl> _mockControl;
     private Mock<ILogger<MockInferenceSimulatorService>> _mockLogger;
-    
+
     private MockInferenceSimulatorService _service;
 
     [SetUp]
@@ -66,7 +66,7 @@ public class MockInferenceSimulatorServiceTests
     {
         // Arrange
         _mockControl.Setup(c => c.IsRunning).Returns(true);
-        var cts = new CancellationTokenSource(); 
+        var cts = new CancellationTokenSource();
 
         // Act
         await _service.StartAsync(cts.Token);

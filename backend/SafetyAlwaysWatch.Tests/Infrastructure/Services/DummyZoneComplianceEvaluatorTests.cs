@@ -22,7 +22,7 @@ public class DummyZoneComplianceEvaluatorTests
     public async Task EvaluateAsync_WhenTrackIdIsSimViolator_ReturnsNonCompliant()
     {
         // Arrange
-        var person = new DetectedPersonDto("sim_violator", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var person = new DetectedPersonDto("sim_violator", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, new List<PpeDetectionDto>(), false);
 
         // Act
         var result = await _evaluator.EvaluateAsync("cam1", person);
@@ -38,7 +38,7 @@ public class DummyZoneComplianceEvaluatorTests
     public async Task EvaluateAsync_WhenTrackIdIsNotSimViolator_ReturnsCompliant()
     {
         // Arrange
-        var person = new DetectedPersonDto("sim_compliant", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var person = new DetectedPersonDto("sim_compliant", new BoundingBoxDto(0, 0, 0, 0), 0.9, null, new List<PpeDetectionDto>(), false);
 
         // Act
         var result = await _evaluator.EvaluateAsync("cam1", person);
