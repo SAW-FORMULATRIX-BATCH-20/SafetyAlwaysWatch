@@ -2,7 +2,9 @@ import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
 import { ApplicationRouter } from "./application/ApplicationRouter";
 import type { PersonaRole } from "./application/personas";
+import { QueryProvider } from "./providers/QueryProvider";
 import { createMockSawService, type SawApplicationCapabilities } from "./services/saw-service";
+import { useAuthStore } from "./stores/useAuthStore";
 
 type AppProps = {
   initialEntries?: string[];
@@ -17,9 +19,22 @@ const defaultService = createMockSawService();
  * while their behavior remains behind feature capability interfaces.
  */
 export function App({ initialEntries, initialPersona, service = defaultService }: AppProps) {
-  if (initialEntries) {
-    return <MemoryRouter initialEntries={initialEntries}><ApplicationRouter initialPersona={initialPersona} service={service} /></MemoryRouter>;
+  if (initialPersona && useAuthStore.getState().role !== initialPersona) {
+    useAuthStore.getState().setRole(initialPersona);
+  } else if (!initialPersona && initialEntries && useAuthStore.getState().role !== undefined) {
+    useAuthStore.getState().logout();
   }
 
-  return <BrowserRouter><ApplicationRouter initialPersona={initialPersona} service={service} /></BrowserRouter>;
+  const router = initialEntries ? (
+    <MemoryRouter initialEntries={initialEntries}>
+      <ApplicationRouter initialPersona={initialPersona} />
+    </MemoryRouter>
+  ) : (
+    <BrowserRouter>
+      <ApplicationRouter initialPersona={initialPersona} />
+    </BrowserRouter>
+  );
+
+  return <QueryProvider service={service}>{router}</QueryProvider>;
 }
+
