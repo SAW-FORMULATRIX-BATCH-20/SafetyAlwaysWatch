@@ -1,31 +1,38 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using SafetyAlwaysWatch.Application.Interfaces;
 using System;
 
 namespace SafetyAlwaysWatch.Infrastructure.Services;
 
+public class FrameSnapshotBufferSettings
+{
+    public int TtlSeconds { get; set; } = 30;
+}
+
 public class FrameSnapshotBuffer : IFrameSnapshotBuffer
 {
     private readonly IMemoryCache _cache;
-    private readonly TimeSpan _ttl = TimeSpan.FromSeconds(30);
+    private readonly FrameSnapshotBufferSettings _settings;
 
-    public FrameSnapshotBuffer(IMemoryCache cache)
+    public FrameSnapshotBuffer(IMemoryCache cache, IOptions<FrameSnapshotBufferSettings> settings)
     {
         _cache = cache;
+        _settings = settings.Value;
     }
 
-    public void Store(string cameraId, byte[] jpeg)
+    public void StoreSnapshot(string key, byte[] snapshot)
     {
-        var key = GetCacheKey(cameraId);
-        _cache.Set(key, jpeg, _ttl);
+        var options = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_settings.TtlSeconds)
+        };
+        _cache.Set($"Snapshot_{key}", snapshot, options);
     }
 
-    public byte[]? GetLatest(string cameraId)
+    public byte[]? GetSnapshot(string key)
     {
-        var key = GetCacheKey(cameraId);
-        _cache.TryGetValue(key, out byte[]? jpeg);
-        return jpeg;
+        _cache.TryGetValue($"Snapshot_{key}", out byte[]? snapshot);
+        return snapshot;
     }
-
-    private string GetCacheKey(string cameraId) => $"snapshot:{cameraId}";
 }

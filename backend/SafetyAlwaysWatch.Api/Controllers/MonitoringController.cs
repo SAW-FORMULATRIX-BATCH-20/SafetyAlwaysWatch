@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using SafetyAlwaysWatch.Api.Filters;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
-using SafetyAlwaysWatch.Api.Services;
 using System.Threading.Tasks;
 
 namespace SafetyAlwaysWatch.Api.Controllers;
@@ -12,7 +11,6 @@ namespace SafetyAlwaysWatch.Api.Controllers;
 public class MonitoringController : ControllerBase
 {
     private readonly IInferenceIngestionService _inferenceIngestionService;
-
     public MonitoringController(IInferenceIngestionService inferenceIngestionService)
     {
         _inferenceIngestionService = inferenceIngestionService;
@@ -30,4 +28,6 @@ public class MonitoringController : ControllerBase
         var result = await _inferenceIngestionService.ProcessFrameAsync(payload);
         return Accepted();
     }
+
+
 }

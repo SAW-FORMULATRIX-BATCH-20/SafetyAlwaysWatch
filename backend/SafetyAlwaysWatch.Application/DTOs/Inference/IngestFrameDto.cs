@@ -4,7 +4,7 @@ public record IngestFrameDto(
     string CameraId,
     DateTimeOffset Timestamp,
     List<DetectedPersonDto> Persons,
-    byte[]? FrameJpeg = null
+    byte[]? FrameJpeg
 );
 
 public record DetectedPersonDto(

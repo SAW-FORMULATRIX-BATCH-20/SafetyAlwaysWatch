@@ -46,7 +46,6 @@ public class IdentityResolverServiceTests
         _mockFaceRecognition.Verify(f => f.MatchEmbeddingAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-
     [Test]
     public async Task ResolveIdentityAsync_WithEmbedding_MatchesFaceAndCaches()
     {

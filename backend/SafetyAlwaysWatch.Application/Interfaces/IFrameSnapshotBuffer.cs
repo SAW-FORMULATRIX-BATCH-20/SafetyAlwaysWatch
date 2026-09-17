@@ -1,7 +1,9 @@
+using System;
+
 namespace SafetyAlwaysWatch.Application.Interfaces;
 
 public interface IFrameSnapshotBuffer
 {
-    void Store(string cameraId, byte[] jpeg);
-    byte[]? GetLatest(string cameraId);
+    void StoreSnapshot(string key, byte[] snapshot);
+    byte[]? GetSnapshot(string key);
 }

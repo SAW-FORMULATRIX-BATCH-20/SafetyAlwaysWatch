@@ -37,14 +37,14 @@ public class InferenceIngestionService : IInferenceIngestionService
 
     public async Task<DetectionFrameOutput> ProcessFrameAsync(IngestFrameDto payload, CancellationToken cancellationToken = default)
     {
-        if (payload.FrameJpeg != null)
-        {
-            _snapshotBuffer.Store(payload.CameraId, payload.FrameJpeg);
-        }
-
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (payload.FrameJpeg != null)
+            {
+                _snapshotBuffer.StoreSnapshot(payload.CameraId, payload.FrameJpeg);
+            }
+
             var outputPersons = new List<DetectedPersonOutput>();
 
             foreach (var person in payload.Persons)
@@ -53,7 +53,7 @@ public class InferenceIngestionService : IInferenceIngestionService
                 {
                     _cache.Remove(person.TrackId);
                     await _stabilization.HandleLostTrackAsync(person.TrackId, cancellationToken);
-                    
+
                     outputPersons.Add(new DetectedPersonOutput(
                         person.TrackId, person.BoundingBox, person.Confidence, null, "Lost", null, false, false, new List<PpeItemOutput>(), true));
                 }
@@ -62,20 +62,19 @@ public class InferenceIngestionService : IInferenceIngestionService
                     var identity = await _identityResolver.ResolveIdentityAsync(person.TrackId, person.FaceEmbedding, cancellationToken);
                     var zoneCompliance = await _zoneEvaluator.EvaluateAsync(payload.CameraId, person, cancellationToken);
 
-                    if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassIds.Count > 0)
+                    if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassIds != null)
                     {
-                        var snapshot = _snapshotBuffer.GetLatest(payload.CameraId);
-                        foreach (var missingId in zoneCompliance.MissingPpeClassIds)
+                        foreach (var missingPpeClassId in zoneCompliance.MissingPpeClassIds)
                         {
                             await _stabilization.ProcessDetectionAsync(
+                                payload.CameraId,
                                 person.TrackId,
                                 zoneCompliance.HazardousZoneId.Value,
-                                missingId,
+                                missingPpeClassId,
                                 zoneCompliance.IsCompliant,
                                 person.Confidence,
                                 payload.Timestamp,
                                 identity.EmployeeId,
-                                snapshot,
                                 cancellationToken
                             );
                         }

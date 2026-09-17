@@ -1,6 +1,5 @@
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,5 +17,5 @@ public record ZoneComplianceResult(
     bool IsInZone,
     Guid? HazardousZoneId,
     bool IsCompliant,
-    List<Guid> MissingPpeClassIds
+    List<Guid>? MissingPpeClassIds
 );

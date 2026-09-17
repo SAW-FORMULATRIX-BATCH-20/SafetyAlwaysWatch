@@ -4,7 +4,7 @@ using NUnit.Framework;
 using SafetyAlwaysWatch.Api.Controllers;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
-using SafetyAlwaysWatch.Api.Services;
+using SafetyAlwaysWatch.Application.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -17,7 +17,6 @@ public class MonitoringControllerTests
 {
     private Mock<IInferenceIngestionService> _mockIngestionService;
     private MonitoringController _controller;
-
     [SetUp]
     public void Setup()
     {
@@ -29,7 +28,7 @@ public class MonitoringControllerTests
     public async Task Stream_WhenCameraIdMismatch_ReturnsBadRequest()
     {
         // Arrange
-        var payload = new IngestFrameDto("camera2", DateTime.UtcNow, new List<DetectedPersonDto>());
+        var payload = new IngestFrameDto("camera2", DateTimeOffset.UtcNow, new List<DetectedPersonDto>(), null);
 
         // Act
         var result = await _controller.Stream("camera1", payload);
@@ -43,7 +42,7 @@ public class MonitoringControllerTests
     public async Task Stream_WhenValidPayload_ProcessesFrameAndBroadcastsAndReturnsAccepted()
     {
         // Arrange
-        var payload = new IngestFrameDto("camera1", DateTime.UtcNow, new List<DetectedPersonDto>());
+        var payload = new IngestFrameDto("camera1", DateTimeOffset.UtcNow, new List<DetectedPersonDto>(), null);
         var output = new DetectionFrameOutput("camera1", payload.Timestamp, new List<DetectedPersonOutput>());
 
         _mockIngestionService.Setup(i => i.ProcessFrameAsync(payload, It.IsAny<CancellationToken>()))
@@ -56,5 +55,6 @@ public class MonitoringControllerTests
         Assert.That(result, Is.InstanceOf<AcceptedResult>());
         _mockIngestionService.Verify(i => i.ProcessFrameAsync(payload, It.IsAny<CancellationToken>()), Times.Once);
     }
+
 
 }

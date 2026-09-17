@@ -30,7 +30,6 @@ public class IdentityResolverService : IIdentityResolverService
             return cached;
         }
 
-
         if (faceEmbedding != null && faceEmbedding.Length > 0)
         {
             var matchedId = await _faceRecognitionService.MatchEmbeddingAsync(faceEmbedding, cancellationToken);
