@@ -4,7 +4,7 @@ using NUnit.Framework;
 using SafetyAlwaysWatch.Api.Controllers;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
-using SafetyAlwaysWatch.Api.Services;
+using SafetyAlwaysWatch.Application.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -16,15 +16,12 @@ namespace SafetyAlwaysWatch.Tests.Api.Controllers;
 public class MonitoringControllerTests
 {
     private Mock<IInferenceIngestionService> _mockIngestionService;
-    private Mock<IMockSimulationControl> _mockSimulationControl;
     private MonitoringController _controller;
-
     [SetUp]
     public void Setup()
     {
         _mockIngestionService = new Mock<IInferenceIngestionService>();
-        _mockSimulationControl = new Mock<IMockSimulationControl>();
-        _controller = new MonitoringController(_mockIngestionService.Object, _mockSimulationControl.Object);
+        _controller = new MonitoringController(_mockIngestionService.Object);
     }
 
     [Test]
@@ -59,25 +56,5 @@ public class MonitoringControllerTests
         _mockIngestionService.Verify(i => i.ProcessFrameAsync(payload, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Test]
-    public void SimulateStart_CallsStartOnControlAndReturnsOk()
-    {
-        // Act
-        var result = _controller.SimulateStart();
 
-        // Assert
-        Assert.That(result, Is.InstanceOf<OkObjectResult>());
-        _mockSimulationControl.Verify(c => c.Start(), Times.Once);
-    }
-
-    [Test]
-    public void SimulateStop_CallsStopOnControlAndReturnsOk()
-    {
-        // Act
-        var result = _controller.SimulateStop();
-
-        // Assert
-        Assert.That(result, Is.InstanceOf<OkObjectResult>());
-        _mockSimulationControl.Verify(c => c.Stop(), Times.Once);
-    }
 }
