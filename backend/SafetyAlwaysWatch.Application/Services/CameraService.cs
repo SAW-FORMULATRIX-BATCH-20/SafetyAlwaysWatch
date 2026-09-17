@@ -45,4 +45,29 @@ public class CameraService : ICameraService
         
         return _mapper.Map<CameraDto>(camera);
     }
+
+    public async Task<CameraDto?> UpdateCameraAsync(Guid id, UpdateCameraDto dto, CancellationToken cancellationToken = default)
+    {
+        var camera = await _cameraRepository.GetByIdAsync(id, cancellationToken);
+        if (camera == null) return null;
+
+        camera.UpdateDetails(dto.Name, dto.Location, dto.StreamUrl);
+        camera.UpdateStatus(dto.Status);
+
+        await _cameraRepository.UpdateAsync(camera, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
+
+        return _mapper.Map<CameraDto>(camera);
+    }
+
+    public async Task<bool> DeleteCameraAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var camera = await _cameraRepository.GetByIdAsync(id, cancellationToken);
+        if (camera == null) return false;
+
+        await _cameraRepository.DeleteAsync(camera, cancellationToken);
+        await _unitOfWork.CommitAsync(cancellationToken);
+
+        return true;
+    }
 }

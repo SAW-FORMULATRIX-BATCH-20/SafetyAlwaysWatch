@@ -27,7 +27,7 @@ public class ZoneComplianceEvaluatorTests
     [Test]
     public async Task EvaluateAsync_InvalidCameraId_ReturnsNotCompliantNotInZone()
     {
-        var result = await _evaluator.EvaluateAsync("invalid-guid", new DetectedPersonDto("t1", new BoundingBoxDto(0,0,0,0), 0.9, null, null, new List<PpeDetectionDto>(), false));
+        var result = await _evaluator.EvaluateAsync("invalid-guid", new DetectedPersonDto("t1", new BoundingBoxDto(0,0,0,0), 0.9, null, new List<PpeDetectionDto>(), false));
         Assert.That(result.IsInZone, Is.False);
         Assert.That(result.IsCompliant, Is.True);
     }
@@ -38,7 +38,7 @@ public class ZoneComplianceEvaluatorTests
         _mockRepo.Setup(r => r.FindAsync(It.IsAny<Expression<Func<HazardousZone, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<HazardousZone>());
 
-        var result = await _evaluator.EvaluateAsync(Guid.NewGuid().ToString(), new DetectedPersonDto("t1", new BoundingBoxDto(0,0,0,0), 0.9, null, null, new List<PpeDetectionDto>(), false));
+        var result = await _evaluator.EvaluateAsync(Guid.NewGuid().ToString(), new DetectedPersonDto("t1", new BoundingBoxDto(0,0,0,0), 0.9, null, new List<PpeDetectionDto>(), false));
         Assert.That(result.IsInZone, Is.False);
         Assert.That(result.IsCompliant, Is.True);
     }
@@ -51,7 +51,7 @@ public class ZoneComplianceEvaluatorTests
             .ReturnsAsync(new List<HazardousZone> { zone });
 
         // Person at 0.5, 0.5 (outside 0.1-0.3)
-        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.5, 0.5, 0.1, 0.1), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.5, 0.5, 0.1, 0.1), 0.9, null, new List<PpeDetectionDto>(), false);
         
         var result = await _evaluator.EvaluateAsync(zone.CameraSourceId.ToString()!, person);
         Assert.That(result.IsInZone, Is.False);
@@ -65,7 +65,7 @@ public class ZoneComplianceEvaluatorTests
             .ReturnsAsync(new List<HazardousZone> { zone });
 
         // Person inside zone
-        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, new List<PpeDetectionDto>(), false);
         
         var result = await _evaluator.EvaluateAsync(zone.CameraSourceId.ToString()!, person);
         Assert.That(result.IsInZone, Is.True);
@@ -84,7 +84,7 @@ public class ZoneComplianceEvaluatorTests
             .ReturnsAsync(new List<HazardousZone> { zone });
 
         // Person inside zone, no PPE detected
-        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, null, new List<PpeDetectionDto>(), false);
+        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, new List<PpeDetectionDto>(), false);
         
         var result = await _evaluator.EvaluateAsync(zone.CameraSourceId.ToString()!, person);
         Assert.That(result.IsInZone, Is.True);
@@ -103,7 +103,7 @@ public class ZoneComplianceEvaluatorTests
             .ReturnsAsync(new List<HazardousZone> { zone });
 
         // Person inside zone, has Helm Keselamatan (class index 0)
-        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, null, new List<PpeDetectionDto>
+        var person = new DetectedPersonDto("t1", new BoundingBoxDto(0.2, 0.2, 0.1, 0.1), 0.9, null, new List<PpeDetectionDto>
         {
             new PpeDetectionDto(0, new BoundingBoxDto(0.2, 0.2, 0.05, 0.05), 0.95)
         }, false);

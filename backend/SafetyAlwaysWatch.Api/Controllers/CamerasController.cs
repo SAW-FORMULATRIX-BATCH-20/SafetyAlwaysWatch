@@ -36,4 +36,31 @@ public class CamerasController : ControllerBase
         if (camera == null) return NotFound();
         return Ok(camera);
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateCamera(Guid id, [FromBody] UpdateCameraDto dto, CancellationToken cancellationToken)
+    {
+        if (id != dto.Id) return BadRequest("Camera ID in URL does not match ID in body.");
+
+        var updatedCamera = await _cameraService.UpdateCameraAsync(id, dto, cancellationToken);
+        if (updatedCamera == null) return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCamera(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _cameraService.DeleteCameraAsync(id, cancellationToken);
+            if (!result) return NotFound();
+
+            return NoContent();
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            return BadRequest("Kamera tidak bisa dihapus karena masih digunakan oleh satu atau lebih zona berbahaya.");
+        }
+    }
 }
