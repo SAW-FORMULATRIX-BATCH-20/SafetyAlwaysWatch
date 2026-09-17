@@ -16,5 +16,10 @@ public class HazardousZoneConfiguration : IEntityTypeConfiguration<HazardousZone
 
         // Map primitive collection as JSON array (EF Core 8+ on PG)
         builder.PrimitiveCollection(x => x.SupervisorIds);
+
+        builder.HasOne<Camera>()
+            .WithMany()
+            .HasForeignKey(x => x.CameraSourceId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
