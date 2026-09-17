@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace SAW.ComputerVision.Core.Inference;
 
-public class PpeDetector : OnnxModelWrapper
+public class PpeDetector : OnnxModelWrapper, IPpeDetector
 {
     public PpeDetector(string modelPath) : base(modelPath) { }
 

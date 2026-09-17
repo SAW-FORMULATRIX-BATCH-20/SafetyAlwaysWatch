@@ -4,7 +4,7 @@ using System;
 
 namespace SAW.ComputerVision.Core.Inference;
 
-public class FaceEmbedder : OnnxModelWrapper
+public class FaceEmbedder : OnnxModelWrapper, IFaceEmbedder
 {
     public FaceEmbedder(string modelPath) : base(modelPath) { }
 

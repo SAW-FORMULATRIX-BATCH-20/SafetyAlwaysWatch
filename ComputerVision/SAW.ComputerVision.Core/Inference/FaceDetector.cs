@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace SAW.ComputerVision.Core.Inference;
 
-public class FaceDetector : OnnxModelWrapper
+public class FaceDetector : OnnxModelWrapper, IFaceDetector
 {
     public FaceDetector(string modelPath) : base(modelPath) { }
 

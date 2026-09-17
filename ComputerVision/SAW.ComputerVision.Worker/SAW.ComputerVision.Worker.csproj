@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-SAW.ComputerVision.Worker-03b57697-cce5-4843-a496-5b3cb1fdc78e</UserSecretsId>
+    <UserSecretsId>dotnet-SAW.ComputerVision.Worker-596cc2c6-00f0-48dc-a345-7b725c440a6d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
