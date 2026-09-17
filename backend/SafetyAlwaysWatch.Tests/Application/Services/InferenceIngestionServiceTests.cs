@@ -79,7 +79,7 @@ public class InferenceIngestionServiceTests
 
         // Assert
         Assert.That(result.Persons.First().IsCompliant, Is.True);
-        _mockStabilization.Verify(s => s.ProcessDetectionAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<double>(), It.IsAny<DateTimeOffset>(), It.IsAny<Guid?>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockStabilization.Verify(s => s.ProcessDetectionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<double>(), It.IsAny<DateTimeOffset>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPublisher.Verify(p => p.PublishAsync("camera1", result, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -105,7 +105,7 @@ public class InferenceIngestionServiceTests
         // Assert
         Assert.That(result.Persons.First().IsCompliant, Is.False);
         _mockStabilization.Verify(s => s.ProcessDetectionAsync(
-            "track1", zoneId, missingPpeId, false, 0.9, payload.Timestamp, identityResult.EmployeeId, It.IsAny<byte[]>(), It.IsAny<CancellationToken>()
+            "camera1", "track1", zoneId, missingPpeId, false, 0.9, payload.Timestamp, identityResult.EmployeeId, It.IsAny<CancellationToken>()
         ), Times.Once);
     }
 
