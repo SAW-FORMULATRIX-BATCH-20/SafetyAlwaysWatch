@@ -3,11 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   Building2,
-  ChevronDown,
   ChevronLeft,
+  Eye,
+  EyeOff,
   Hash,
+  Lock,
+  Mail,
   ShieldCheck,
-  UserCheck,
   UserPlus,
   UserRound,
 } from "lucide-react";
@@ -30,6 +32,7 @@ function validate(input: EmployeeRegistrationInput): FormErrors {
   const employeeCode = input.employeeCode.trim();
   const fullName = input.fullName.trim();
   const department = input.department.trim();
+  const email = input.email?.trim();
   return {
     ...(!/^[A-Za-z0-9-]{1,50}$/.test(employeeCode)
       ? { employeeCode: "Employee code must contain 1–50 ASCII letters, digits, or hyphens." }
@@ -40,13 +43,15 @@ function validate(input: EmployeeRegistrationInput): FormErrors {
     ...(!department || department.length > 100
       ? { department: "Department is required and must contain at most 100 characters." }
       : {}),
+    ...(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ? { email: "Please enter a valid email address." }
+      : {}),
   };
 }
 
 function capabilityMessage(reason: unknown) {
   if (reason instanceof EmployeeCapabilityError) {
     if (reason.code === "employee_code_conflict") return "An Employee with this Employee code already exists.";
-    if (reason.code === "employee_not_found") return "The selected direct supervisor is no longer available.";
     return "Correct the highlighted Employee registration fields and try again.";
   }
   return "Employee registration could not be completed. Try again.";
@@ -61,7 +66,10 @@ function EmployeeRegistrationContent({ service }: { service?: EmployeeDirectoryC
     employeeCode: "",
     fullName: "",
     department: "",
+    email: "",
+    password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [notice, setNotice] = useState<string>();
 
@@ -87,7 +95,14 @@ function EmployeeRegistrationContent({ service }: { service?: EmployeeDirectoryC
     }
     setNotice(undefined);
     try {
-      const employee = await createMutation.mutateAsync(input);
+      const submissionInput: EmployeeRegistrationInput = {
+        employeeCode: input.employeeCode.trim(),
+        fullName: input.fullName.trim(),
+        department: input.department.trim(),
+        ...(input.email?.trim() ? { email: input.email.trim() } : {}),
+        ...(input.password ? { password: input.password } : {}),
+      };
+      const employee = await createMutation.mutateAsync(submissionInput);
       navigate(`/employees/${employee.id}`, {
         replace: true,
         state: { notice: `Employee ${employee.employeeCode ?? employee.id} was created.` },
@@ -97,8 +112,6 @@ function EmployeeRegistrationContent({ service }: { service?: EmployeeDirectoryC
     }
   };
 
-  const activeSupervisors =
-    directory?.employees.filter((employee) => employee.status !== "inactive") ?? [];
   const departments = [
     ...new Set(directory?.employees.map((employee) => employee.departmentId) ?? []),
   ].sort();
@@ -142,6 +155,7 @@ function EmployeeRegistrationContent({ service }: { service?: EmployeeDirectoryC
 
       <form
         className="mt-6 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs"
+        noValidate
         onSubmit={(event) => void submit(event)}
       >
         <div className="border-b border-slate-100 bg-gradient-to-r from-amber-500/10 via-amber-100/30 to-amber-50/10 px-5 sm:px-6 py-4">
@@ -215,70 +229,117 @@ function EmployeeRegistrationContent({ service }: { service?: EmployeeDirectoryC
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            {/* Department */}
+          {/* Department */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-800">
+              <span className="flex items-center gap-1.5">
+                <Building2 aria-hidden="true" className="size-3.5 text-amber-600" />
+                Department
+              </span>
+              <input
+                aria-describedby={errors.department ? "department-error" : undefined}
+                aria-invalid={Boolean(errors.department)}
+                aria-label="Department"
+                className={`mt-1.5 block h-10 w-full rounded-lg border bg-slate-50/40 px-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 ${
+                  errors.department
+                    ? "border-red-400 bg-red-50/20 focus:border-red-500 focus:ring-red-500/20"
+                    : "border-slate-300 focus:border-amber-500 focus:ring-amber-500/20"
+                }`}
+                list="employee-departments"
+                maxLength={100}
+                onChange={(event) => update("department", event.target.value)}
+                placeholder="Choose or enter department..."
+                value={input.department}
+              />
+              <datalist id="employee-departments">
+                {departments.map((department) => (
+                  <option key={department} value={department} />
+                ))}
+              </datalist>
+            </label>
+            {errors.department && (
+              <p id="department-error" className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-700">
+                <AlertCircle aria-hidden="true" className="size-3.5 shrink-0" />
+                <span>{errors.department}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:gap-5 sm:grid-cols-2">
+            {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-slate-800">
                 <span className="flex items-center gap-1.5">
-                  <Building2 aria-hidden="true" className="size-3.5 text-amber-600" />
-                  Department
+                  <Mail aria-hidden="true" className="size-3.5 text-amber-600" />
+                  Email (optional)
                 </span>
                 <input
-                  aria-describedby={errors.department ? "department-error" : undefined}
-                  aria-invalid={Boolean(errors.department)}
-                  aria-label="Department"
+                  aria-describedby={errors.email ? "email-error" : undefined}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-label="Email"
                   className={`mt-1.5 block h-10 w-full rounded-lg border bg-slate-50/40 px-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 ${
-                    errors.department
+                    errors.email
                       ? "border-red-400 bg-red-50/20 focus:border-red-500 focus:ring-red-500/20"
                       : "border-slate-300 focus:border-amber-500 focus:ring-amber-500/20"
                   }`}
-                  list="employee-departments"
-                  maxLength={100}
-                  onChange={(event) => update("department", event.target.value)}
-                  placeholder="Choose or enter department..."
-                  value={input.department}
+                  maxLength={150}
+                  onChange={(event) => update("email", event.target.value)}
+                  placeholder="e.g. employee@company.com"
+                  type="email"
+                  value={input.email ?? ""}
                 />
-                <datalist id="employee-departments">
-                  {departments.map((department) => (
-                    <option key={department} value={department} />
-                  ))}
-                </datalist>
               </label>
-              {errors.department && (
-                <p id="department-error" className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-700">
+              {errors.email && (
+                <p id="email-error" className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-700">
                   <AlertCircle aria-hidden="true" className="size-3.5 shrink-0" />
-                  <span>{errors.department}</span>
+                  <span>{errors.email}</span>
                 </p>
               )}
             </div>
 
-            {/* Direct supervisor */}
+            {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-slate-800">
                 <span className="flex items-center gap-1.5">
-                  <UserCheck aria-hidden="true" className="size-3.5 text-amber-600" />
-                  Direct supervisor (optional)
+                  <Lock aria-hidden="true" className="size-3.5 text-amber-600" />
+                  Password (optional)
                 </span>
                 <div className="relative mt-1.5">
-                  <select
-                    aria-label="Direct supervisor"
-                    className="block h-10 w-full appearance-none rounded-lg border border-slate-300 bg-slate-50/40 pl-3 pr-9 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                    onChange={(event) => update("supervisorId", event.target.value || undefined)}
-                    value={input.supervisorId ?? ""}
-                  >
-                    <option value="">No direct supervisor</option>
-                    {activeSupervisors.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name ?? employee.id} · {employee.employeeCode ?? employee.id}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                  <input
+                    aria-describedby={errors.password ? "password-error" : undefined}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-label="Password"
+                    className={`block h-10 w-full rounded-lg border bg-slate-50/40 pl-3 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 ${
+                      errors.password
+                        ? "border-red-400 bg-red-50/20 focus:border-red-500 focus:ring-red-500/20"
+                        : "border-slate-300 focus:border-amber-500 focus:ring-amber-500/20"
+                    }`}
+                    maxLength={100}
+                    onChange={(event) => update("password", event.target.value)}
+                    placeholder="Enter password (optional)..."
+                    type={showPassword ? "text" : "password"}
+                    value={input.password ?? ""}
                   />
+                  <button
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    type="button"
+                  >
+                    {showPassword ? (
+                      <EyeOff aria-hidden="true" className="size-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="size-4" />
+                    )}
+                  </button>
                 </div>
               </label>
+              {errors.password && (
+                <p id="password-error" className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-700">
+                  <AlertCircle aria-hidden="true" className="size-3.5 shrink-0" />
+                  <span>{errors.password}</span>
+                </p>
+              )}
             </div>
           </div>
 

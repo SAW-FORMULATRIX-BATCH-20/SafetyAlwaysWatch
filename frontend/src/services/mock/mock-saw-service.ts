@@ -290,6 +290,7 @@ export function createMockSawService({
         name,
         departmentId,
         ...(input.supervisorId ? { supervisorId: input.supervisorId } : {}),
+        ...(input.email?.trim() ? { email: input.email.trim() } : {}),
         status: "active",
         safetyScore:
           data.safetySettings?.initialScore ?? defaultSafetySettings.initialScore,

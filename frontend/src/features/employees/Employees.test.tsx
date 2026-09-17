@@ -27,7 +27,9 @@ describe("Employees", () => {
     await user.type(screen.getByRole("textbox", { name: "Employee code" }), " emp-013 ");
     await user.type(screen.getByRole("textbox", { name: "Full name" }), " Avery Tan ");
     await user.type(screen.getByRole("combobox", { name: "Department" }), " Quality Assurance ");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Direct supervisor" }), "EMP-01");
+    expect(screen.queryByRole("combobox", { name: "Direct supervisor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Email" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create Employee" }));
 
     const detail = await screen.findByRole("region", { name: "Employee details" });
@@ -258,4 +260,45 @@ describe("Employees", () => {
       screen.getByRole("listitem", { name: "Employee Maintenance 01" }),
     ).toBeInTheDocument();
   });
+
+  it("handles optional email and password with validation and visibility toggle", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/employees/new"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    const emailInput = await screen.findByRole("textbox", { name: "Email" });
+    const passwordInput = screen.getByLabelText("Password");
+    const toggleButton = screen.getByRole("button", { name: "Show password" });
+
+    // Test password toggle
+    expect(passwordInput).toHaveAttribute("type", "password");
+    await user.click(toggleButton);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    // Test invalid email validation
+    await user.type(screen.getByRole("textbox", { name: "Employee code" }), "EMP-999");
+    await user.type(screen.getByRole("textbox", { name: "Full name" }), "Test User");
+    await user.type(screen.getByRole("combobox", { name: "Department" }), "Security");
+    await user.type(emailInput, "not-an-email");
+    await user.click(screen.getByRole("button", { name: "Create Employee" }));
+
+    expect(await screen.findByText("Please enter a valid email address.")).toBeInTheDocument();
+
+    // Fix email and add password
+    await user.clear(emailInput);
+    await user.type(emailInput, "test.user@company.com");
+    await user.type(passwordInput, "secret123");
+    await user.click(screen.getByRole("button", { name: "Create Employee" }));
+
+    expect(await screen.findByRole("region", { name: "Employee details" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Employee EMP-999 was created");
+  });
 });
+

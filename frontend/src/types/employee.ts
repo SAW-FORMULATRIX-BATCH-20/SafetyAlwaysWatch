@@ -18,6 +18,7 @@ export type Employee = {
     violationCount: number;
     resetCount: number;
   };
+  email?: string;
 };
 
 export type EmployeeScope = "all" | { type: "supervisor-area"; area: string };
@@ -32,6 +33,8 @@ export type EmployeeRegistrationInput = {
   fullName: string;
   department: string;
   supervisorId?: string;
+  email?: string;
+  password?: string;
 };
 
 export type DemoValidationOutcome =
