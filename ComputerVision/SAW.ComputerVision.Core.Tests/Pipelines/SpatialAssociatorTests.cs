@@ -14,10 +14,10 @@ public class SpatialAssociatorTests
     {
         // Arrange
         var associator = new SpatialAssociator { IoaThreshold = 0.5 };
-        
+
         var person1 = new Detection(new BoundingBox(10, 10, 100, 200), 0.9, 0); // Person
         var person2 = new Detection(new BoundingBox(200, 200, 100, 200), 0.9, 0); // Person
-        
+
         var ppe1 = new Detection(new BoundingBox(20, 20, 30, 30), 0.8, 1); // Inside person1
         var ppe2 = new Detection(new BoundingBox(210, 210, 30, 30), 0.8, 1); // Inside person2
         var ppeOutside = new Detection(new BoundingBox(500, 500, 30, 30), 0.8, 1); // Outside
@@ -40,13 +40,13 @@ public class SpatialAssociatorTests
     {
         // Arrange
         var associator = new SpatialAssociator { IoaThreshold = 0.1 };
-        
+
         // Two persons overlapping significantly
-        var person1 = new Detection(new BoundingBox(10, 10, 100, 200), 0.9, 0); 
-        var person2 = new Detection(new BoundingBox(50, 10, 100, 200), 0.9, 0); 
-        
+        var person1 = new Detection(new BoundingBox(10, 10, 100, 200), 0.9, 0);
+        var person2 = new Detection(new BoundingBox(50, 10, 100, 200), 0.9, 0);
+
         // PPE is mostly in person2
-        var ppe = new Detection(new BoundingBox(110, 50, 30, 30), 0.8, 1); 
+        var ppe = new Detection(new BoundingBox(110, 50, 30, 30), 0.8, 1);
 
         var persons = new List<Detection> { person1, person2 };
         var ppes = new List<Detection> { ppe };

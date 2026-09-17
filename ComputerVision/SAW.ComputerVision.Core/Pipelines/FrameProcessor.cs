@@ -54,10 +54,10 @@ public class FrameProcessor
         {
             // Only process newly matched/active tracks (HitStreak > 0)
             // or we could process all. Usually we process all active tracks to maintain state.
-            
+
             // Find the person detection matching this track's current box, if any
             var matchedPerson = persons.FirstOrDefault(p => p.Box.CalculateIou(track.CurrentBox) > 0.9);
-            
+
             var processedPerson = new ProcessedPerson
             {
                 TrackId = track.Id,
@@ -87,7 +87,7 @@ public class FrameProcessor
         }
 
         output.Persons = processedPersons;
-        
+
         // Return track IDs of tracks that were just dropped (not directly supported by IouTracker without modifying it to return dropped tracks, 
         // but we can compute it if we keep previous tracks state, or we can leave it empty for now)
         // IouTracker handles its own tracks, LostTrackIds would be tracks that were removed this frame.
