@@ -62,19 +62,22 @@ public class InferenceIngestionService : IInferenceIngestionService
                     var identity = await _identityResolver.ResolveIdentityAsync(person.TrackId, person.FaceEmbedding, cancellationToken);
                     var zoneCompliance = await _zoneEvaluator.EvaluateAsync(payload.CameraId, person, cancellationToken);
 
-                    if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassId.HasValue)
+                    if (zoneCompliance.IsInZone && !zoneCompliance.IsCompliant && zoneCompliance.HazardousZoneId.HasValue && zoneCompliance.MissingPpeClassIds != null)
                     {
-                        await _stabilization.ProcessDetectionAsync(
-                            payload.CameraId,
-                            person.TrackId,
-                            zoneCompliance.HazardousZoneId.Value,
-                            zoneCompliance.MissingPpeClassId.Value,
-                            zoneCompliance.IsCompliant,
-                            person.Confidence,
-                            payload.Timestamp,
-                            identity.EmployeeId,
-                            cancellationToken
-                        );
+                        foreach (var missingPpeClassId in zoneCompliance.MissingPpeClassIds)
+                        {
+                            await _stabilization.ProcessDetectionAsync(
+                                payload.CameraId,
+                                person.TrackId,
+                                zoneCompliance.HazardousZoneId.Value,
+                                missingPpeClassId,
+                                zoneCompliance.IsCompliant,
+                                person.Confidence,
+                                payload.Timestamp,
+                                identity.EmployeeId,
+                                cancellationToken
+                            );
+                        }
                     }
 
                     outputPersons.Add(new DetectedPersonOutput(

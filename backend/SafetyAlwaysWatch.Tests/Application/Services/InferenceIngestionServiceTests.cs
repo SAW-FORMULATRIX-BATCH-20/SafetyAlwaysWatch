@@ -97,7 +97,7 @@ public class InferenceIngestionServiceTests
         var zoneId = Guid.NewGuid();
         var missingPpeId = Guid.NewGuid();
         _mockZoneEvaluator.Setup(z => z.EvaluateAsync("camera1", personDto, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ZoneComplianceResult(true, zoneId, false, missingPpeId));
+            .ReturnsAsync(new ZoneComplianceResult(true, zoneId, false, new List<Guid> { missingPpeId }));
 
         // Act
         var result = await _service.ProcessFrameAsync(payload);
