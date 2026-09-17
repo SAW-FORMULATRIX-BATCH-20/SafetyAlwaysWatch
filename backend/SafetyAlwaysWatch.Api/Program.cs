@@ -84,10 +84,12 @@ builder.Services.AddScoped<IValidator<CreateEmployeeDto>, CreateEmployeeDtoValid
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequestDto>, ChangePasswordRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateEmployeeDto>, UpdateEmployeeDtoValidator>();
+builder.Services.AddScoped<ICameraService, CameraService>();
 builder.Services.AddScoped<IHazardousZoneService, HazardousZoneService>();
 builder.Services.AddScoped<IValidator<CreateHazardousZoneDto>, CreateHazardousZoneDtoValidator>();
 builder.Services.AddScoped<IValidator<UpdateHazardousZoneDto>, UpdateHazardousZoneDtoValidator>();
 builder.Services.AddScoped<IValidator<GetHazardousZonesQuery>, GetHazardousZonesQueryValidator>();
+builder.Services.AddScoped<IValidator<SafetyAlwaysWatch.Application.DTOs.Cameras.CreateCameraDto>, SafetyAlwaysWatch.Application.Validators.Cameras.CreateCameraDtoValidator>();
 builder.Services.AddScoped<IValidator<SafetyAlwaysWatch.Application.DTOs.Requests.ResetScoreRequest>, ResetScoreRequestValidator>();
 
 
