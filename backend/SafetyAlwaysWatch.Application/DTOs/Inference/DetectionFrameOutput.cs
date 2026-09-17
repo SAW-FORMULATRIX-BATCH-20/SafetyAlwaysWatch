@@ -2,7 +2,7 @@ namespace SafetyAlwaysWatch.Application.DTOs.Inference;
 
 public record DetectionFrameOutput(
     string CameraId,
-    DateTime Timestamp,
+    DateTimeOffset Timestamp,
     List<DetectedPersonOutput> Persons
 );
 

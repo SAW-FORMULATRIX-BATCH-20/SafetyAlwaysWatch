@@ -61,15 +61,16 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
 builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
-builder.Services.AddSingleton<IMockSimulationControl, MockSimulationControl>();
-builder.Services.AddHostedService<MockInferenceSimulatorService>();
 builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.FaceRecognitionService>();
 builder.Services.AddScoped<IZoneComplianceEvaluator, SafetyAlwaysWatch.Application.Services.ZoneComplianceEvaluator>();
 builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));
 builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
+builder.Services.Configure<SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBufferSettings>(builder.Configuration.GetSection("FrameSnapshotBufferSettings"));
+builder.Services.AddSingleton<IFrameSnapshotBuffer, SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBuffer>();
 builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
+builder.Services.AddScoped<IViolationStabilizationService, SafetyAlwaysWatch.Application.Services.ViolationStabilizationService>();
 builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
 
 builder.Services.AddAutoMapper(cfg =>

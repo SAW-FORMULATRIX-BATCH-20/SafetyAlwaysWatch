@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using SafetyAlwaysWatch.Api.Filters;
 using SafetyAlwaysWatch.Application.DTOs.Inference;
 using SafetyAlwaysWatch.Application.Interfaces;
-using SafetyAlwaysWatch.Api.Services;
 using System.Threading.Tasks;
 
 namespace SafetyAlwaysWatch.Api.Controllers;
@@ -12,12 +11,9 @@ namespace SafetyAlwaysWatch.Api.Controllers;
 public class MonitoringController : ControllerBase
 {
     private readonly IInferenceIngestionService _inferenceIngestionService;
-    private readonly IMockSimulationControl _simulationControl;
-
-    public MonitoringController(IInferenceIngestionService inferenceIngestionService, IMockSimulationControl simulationControl)
+    public MonitoringController(IInferenceIngestionService inferenceIngestionService)
     {
         _inferenceIngestionService = inferenceIngestionService;
-        _simulationControl = simulationControl;
     }
 
     [HttpPost("stream/{cameraId}")]
@@ -33,17 +29,5 @@ public class MonitoringController : ControllerBase
         return Accepted();
     }
 
-    [HttpPost("simulate/start")]
-    public IActionResult SimulateStart()
-    {
-        _simulationControl.Start();
-        return Ok("Simulation started");
-    }
 
-    [HttpPost("simulate/stop")]
-    public IActionResult SimulateStop()
-    {
-        _simulationControl.Stop();
-        return Ok("Simulation stopped");
-    }
 }

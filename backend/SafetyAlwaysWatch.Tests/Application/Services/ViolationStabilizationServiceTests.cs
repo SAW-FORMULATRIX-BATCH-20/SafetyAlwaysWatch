@@ -18,6 +18,7 @@ public class ViolationStabilizationServiceTests
     private Mock<IRepository<SystemSetting>> _settingRepoMock;
     private Mock<ISafetyScoringService> _scoringServiceMock;
     private Mock<ITelegramEscalationService> _telegramServiceMock;
+    private Mock<IFrameSnapshotBuffer> _snapshotBufferMock;
     private ViolationStabilizationService _service;
 
     private List<ViolationCandidateState> _states;
@@ -54,20 +55,22 @@ public class ViolationStabilizationServiceTests
 
         _scoringServiceMock = new Mock<ISafetyScoringService>();
         _telegramServiceMock = new Mock<ITelegramEscalationService>();
+        _snapshotBufferMock = new Mock<IFrameSnapshotBuffer>();
 
         _service = new ViolationStabilizationService(
             _stateRepoMock.Object,
             _eventRepoMock.Object,
             _settingRepoMock.Object,
             _scoringServiceMock.Object,
-            _telegramServiceMock.Object
+            _telegramServiceMock.Object,
+            _snapshotBufferMock.Object
         );
     }
 
     [Test]
     public async Task ProcessDetectionAsync_LowConfidence_Ignored()
     {
-        await _service.ProcessDetectionAsync("T1", Guid.NewGuid(), Guid.NewGuid(), false, 0.4, DateTimeOffset.UtcNow, null);
+        await _service.ProcessDetectionAsync("C1", "T1", Guid.NewGuid(), Guid.NewGuid(), false, 0.4, DateTimeOffset.UtcNow, null);
 
         Assert.That(_states.Count, Is.EqualTo(0));
     }
@@ -79,7 +82,7 @@ public class ViolationStabilizationServiceTests
         var dangerZoneId = Guid.NewGuid();
         var missingPpeClassId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, missingPpeClassId, false, 0.8, timestamp, null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, missingPpeClassId, false, 0.8, timestamp, null);
 
         Assert.That(_states.Count, Is.EqualTo(1));
         var state = _states.First();
@@ -94,8 +97,8 @@ public class ViolationStabilizationServiceTests
         var dangerZoneId = Guid.NewGuid();
         var ppeId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(2), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(2), null);
 
         Assert.That(_states.Count, Is.EqualTo(1));
         var state = _states.First();
@@ -111,8 +114,8 @@ public class ViolationStabilizationServiceTests
         var ppeId = Guid.NewGuid();
         var employeeId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, employeeId);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), employeeId);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, employeeId);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), employeeId);
 
         var state = _states.First();
         Assert.That(state.Status, Is.EqualTo(ViolationStatus.Confirmed));
@@ -138,8 +141,10 @@ public class ViolationStabilizationServiceTests
             .Setup(t => t.SendEscalationAsync(It.IsAny<ViolationEvent>(), snapshot, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, employeeId, null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), employeeId, snapshot);
+        _snapshotBufferMock.Setup(b => b.GetSnapshot("C1")).Returns(snapshot);
+
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, employeeId);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), employeeId);
 
         var state = _states.First();
         Assert.That(state.Status, Is.EqualTo(ViolationStatus.Confirmed));
@@ -159,10 +164,10 @@ public class ViolationStabilizationServiceTests
         var dangerZoneId = Guid.NewGuid();
         var ppeId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
 
         var state = _states.First();
         Assert.That(state.Status, Is.EqualTo(ViolationStatus.Clearing));
@@ -176,11 +181,11 @@ public class ViolationStabilizationServiceTests
         var dangerZoneId = Guid.NewGuid();
         var ppeId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(9), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(9), null);
 
         var state = _states.First();
         Assert.That(state.Status, Is.EqualTo(ViolationStatus.Cleared));
@@ -194,13 +199,13 @@ public class ViolationStabilizationServiceTests
         var dangerZoneId = Guid.NewGuid();
         var ppeId = Guid.NewGuid();
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start, null);
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start, null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(3), null);
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, true, 0.8, start.AddSeconds(4), null);
         Assert.That(_states.First().Status, Is.EqualTo(ViolationStatus.Clearing));
 
-        await _service.ProcessDetectionAsync("T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(5), null);
+        await _service.ProcessDetectionAsync("C1", "T1", dangerZoneId, ppeId, false, 0.8, start.AddSeconds(5), null);
 
         var state = _states.First();
         Assert.That(state.Status, Is.EqualTo(ViolationStatus.Confirmed));
@@ -213,7 +218,7 @@ public class ViolationStabilizationServiceTests
     public async Task HandleLostTrackAsync_CandidateState_DeletesCandidate()
     {
         var start = DateTimeOffset.UtcNow;
-        await _service.ProcessDetectionAsync("T1", Guid.NewGuid(), Guid.NewGuid(), false, 0.8, start, null);
+        await _service.ProcessDetectionAsync("C1", "T1", Guid.NewGuid(), Guid.NewGuid(), false, 0.8, start, null);
 
         Assert.That(_states.Count, Is.EqualTo(1));
 
