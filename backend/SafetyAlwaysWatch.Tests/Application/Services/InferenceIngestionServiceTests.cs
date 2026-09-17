@@ -21,6 +21,7 @@ public class InferenceIngestionServiceTests
     private Mock<IUnitOfWork> _mockUnitOfWork;
     private Mock<IZoneComplianceEvaluator> _mockZoneEvaluator;
     private Mock<IInferenceResultPublisher> _mockPublisher;
+    private Mock<IFrameSnapshotBuffer> _mockSnapshotBuffer;
     private InferenceIngestionService _service;
 
     [SetUp]
@@ -32,6 +33,7 @@ public class InferenceIngestionServiceTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockZoneEvaluator = new Mock<IZoneComplianceEvaluator>();
         _mockPublisher = new Mock<IInferenceResultPublisher>();
+        _mockSnapshotBuffer = new Mock<IFrameSnapshotBuffer>();
 
         _service = new InferenceIngestionService(
             _mockIdentityResolver.Object,
@@ -39,7 +41,8 @@ public class InferenceIngestionServiceTests
             _mockStabilization.Object,
             _mockUnitOfWork.Object,
             _mockZoneEvaluator.Object,
-            _mockPublisher.Object
+            _mockPublisher.Object,
+            _mockSnapshotBuffer.Object
         );
     }
 
@@ -102,8 +105,22 @@ public class InferenceIngestionServiceTests
         // Assert
         Assert.That(result.Persons.First().IsCompliant, Is.False);
         _mockStabilization.Verify(s => s.ProcessDetectionAsync(
-            "track1", zoneId, missingPpeId, false, 0.9, payload.Timestamp, identityResult.EmployeeId, null, It.IsAny<CancellationToken>()
+            "track1", zoneId, missingPpeId, false, 0.9, payload.Timestamp, identityResult.EmployeeId, It.IsAny<byte[]>(), It.IsAny<CancellationToken>()
         ), Times.Once);
+    }
+
+    [Test]
+    public async Task ProcessFrameAsync_WithFrameJpeg_StoresInSnapshotBuffer()
+    {
+        // Arrange
+        var jpegBytes = new byte[] { 1, 2, 3 };
+        var payload = new IngestFrameDto("camera1", DateTimeOffset.UtcNow, new List<DetectedPersonDto>(), jpegBytes);
+
+        // Act
+        await _service.ProcessFrameAsync(payload);
+
+        // Assert
+        _mockSnapshotBuffer.Verify(b => b.StoreSnapshot("camera1", jpegBytes), Times.Once);
     }
 
     [Test]

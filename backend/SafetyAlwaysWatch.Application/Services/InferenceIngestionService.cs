@@ -15,6 +15,7 @@ public class InferenceIngestionService : IInferenceIngestionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IZoneComplianceEvaluator _zoneEvaluator;
     private readonly IInferenceResultPublisher _publisher;
+    private readonly IFrameSnapshotBuffer _snapshotBuffer;
 
     public InferenceIngestionService(
         IIdentityResolverService identityResolver,
@@ -22,7 +23,8 @@ public class InferenceIngestionService : IInferenceIngestionService
         IViolationStabilizationService stabilization,
         IUnitOfWork unitOfWork,
         IZoneComplianceEvaluator zoneEvaluator,
-        IInferenceResultPublisher publisher)
+        IInferenceResultPublisher publisher,
+        IFrameSnapshotBuffer snapshotBuffer)
     {
         _identityResolver = identityResolver;
         _cache = cache;
@@ -30,6 +32,7 @@ public class InferenceIngestionService : IInferenceIngestionService
         _unitOfWork = unitOfWork;
         _zoneEvaluator = zoneEvaluator;
         _publisher = publisher;
+        _snapshotBuffer = snapshotBuffer;
     }
 
     public async Task<DetectionFrameOutput> ProcessFrameAsync(IngestFrameDto payload, CancellationToken cancellationToken = default)
@@ -37,6 +40,11 @@ public class InferenceIngestionService : IInferenceIngestionService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (payload.FrameJpeg != null)
+            {
+                _snapshotBuffer.StoreSnapshot(payload.CameraId, payload.FrameJpeg);
+            }
+
             var outputPersons = new List<DetectedPersonOutput>();
 
             foreach (var person in payload.Persons)
@@ -64,7 +72,7 @@ public class InferenceIngestionService : IInferenceIngestionService
                             person.Confidence,
                             payload.Timestamp,
                             identity.EmployeeId,
-                            null, // frameSnapshot is not implemented yet
+                            payload.FrameJpeg ?? _snapshotBuffer.GetSnapshot(payload.CameraId),
                             cancellationToken
                         );
                     }

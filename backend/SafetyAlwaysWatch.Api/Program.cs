@@ -69,6 +69,8 @@ builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Inf
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ITrackIdentityCache>(sp => new SafetyAlwaysWatch.Infrastructure.Services.TrackIdentityCache(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), TimeSpan.FromMinutes(5)));
 builder.Services.AddScoped<IIdentityResolverService, SafetyAlwaysWatch.Application.Services.IdentityResolverService>();
+builder.Services.Configure<SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBufferSettings>(builder.Configuration.GetSection("FrameSnapshotBufferSettings"));
+builder.Services.AddSingleton<IFrameSnapshotBuffer, SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBuffer>();
 builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
 builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
 
