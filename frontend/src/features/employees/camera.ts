@@ -11,8 +11,11 @@ export interface BrowserCameraAdapter {
 export type CameraFailureCode = "camera_permission_denied" | "camera_unavailable" | "camera_unsupported";
 
 export class CameraCaptureError extends Error {
-  constructor(public readonly code: CameraFailureCode) {
+  readonly code: CameraFailureCode;
+
+  constructor(code: CameraFailureCode) {
     super(code);
+    this.code = code;
     this.name = "CameraCaptureError";
   }
 }

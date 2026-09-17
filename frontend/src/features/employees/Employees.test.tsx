@@ -1,11 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "../../App";
 import { createMockSawService } from "../../services/saw-service";
+import { useAuthStore } from "../../stores/useAuthStore";
+import { useEmployeeStore } from "../../stores/useEmployeeStore";
 
 describe("Employees", () => {
+  beforeEach(() => {
+    useEmployeeStore.getState().clearFilters();
+    useAuthStore.getState().logout();
+  });
   it("lets an Admin/Safety Officer register an Employee and view the dedicated detail route", async () => {
     const user = userEvent.setup();
 
@@ -54,14 +60,14 @@ describe("Employees", () => {
 
     render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="admin"
         service={createMockSawService({ storage: null })}
       />,
     );
 
     expect(
-      await screen.findByText("Showing 1–5 of 12 Employees"),
+      await screen.findByText("Showing 1–6 of 12 Employees"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Employees" }),
@@ -69,9 +75,6 @@ describe("Employees", () => {
     expect(
       screen.getByRole("listitem", { name: "Employee Maintenance 01" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("listitem", { name: "Employee Warehouse 01" }),
-    ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("img", { name: "Safety Score status safe" }).length,
     ).toBeGreaterThan(0);
@@ -82,21 +85,16 @@ describe("Employees", () => {
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
     expect(
-      screen.getByText("Showing 6–10 of 12 Employees"),
+      screen.getByText("Showing 7–12 of 12 Employees"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("listitem", { name: "Employee Maintenance 01" }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next page" }));
-    expect(
-      screen.getByText("Showing 11–12 of 12 Employees"),
-    ).toBeInTheDocument();
     expect(
       screen.getAllByRole("img", { name: "Safety Score status critical" })
         .length,
     ).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Previous page" }));
     await user.click(screen.getByRole("button", { name: "Previous page" }));
     await user.type(
       screen.getByRole("textbox", { name: "Search Employees" }),
@@ -139,14 +137,14 @@ describe("Employees", () => {
 
     render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="admin"
         service={createMockSawService({ storage: null })}
       />,
     );
 
     expect(
-      await screen.findByText("Showing 1–5 of 12 Employees"),
+      await screen.findByText("Showing 1–6 of 12 Employees"),
     ).toBeInTheDocument();
     await user.type(
       screen.getByRole("textbox", { name: "Search Employees" }),
@@ -170,7 +168,7 @@ describe("Employees", () => {
   it("limits an Area Supervisor to assigned Employees and keeps HR access read-only", async () => {
     render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="supervisor"
         service={createMockSawService({ storage: null })}
       />,
@@ -191,14 +189,14 @@ describe("Employees", () => {
     const user = userEvent.setup();
     render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="hrd"
         service={createMockSawService({ storage: null })}
       />,
     );
 
     expect(
-      await screen.findByText("Showing 1–5 of 12 Employees"),
+      await screen.findByText("Showing 1–6 of 12 Employees"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("listitem", { name: "Employee Maintenance 01" }),
@@ -233,7 +231,7 @@ describe("Employees", () => {
     const user = userEvent.setup();
     const emptyRender = render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="admin"
         service={createMockSawService({ scenario: "empty", storage: null })}
       />,
@@ -243,7 +241,7 @@ describe("Employees", () => {
 
     render(
       <App
-        initialEntries={["/karyawan"]}
+        initialEntries={["/employees"]}
         initialPersona="admin"
         service={createMockSawService({ storage: null })}
       />,

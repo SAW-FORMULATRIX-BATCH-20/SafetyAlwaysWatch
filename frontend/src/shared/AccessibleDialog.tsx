@@ -26,7 +26,10 @@ export function AccessibleDialog({
       return;
     }
     if (event.key !== "Tab") return;
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])") ?? [])];
+    const elements = dialogRef.current?.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])"
+    );
+    const focusable = elements ? Array.from(elements) : [];
     const first = focusable[0];
     const last = focusable.at(-1);
     if (!first || !last) return;
@@ -39,5 +42,11 @@ export function AccessibleDialog({
     }
   };
 
-  return <section aria-label={label} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5" onKeyDown={handleKeyDown} ref={dialogRef} role="dialog">{children}</section>;
+  const handleBackdropClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (event.target === event.currentTarget) {
+      onDismiss();
+    }
+  };
+
+  return <section aria-label={label} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 sm:p-6 overflow-y-auto" onClick={handleBackdropClick} onKeyDown={handleKeyDown} ref={dialogRef} role="dialog">{children}</section>;
 }

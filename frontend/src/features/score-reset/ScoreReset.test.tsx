@@ -163,4 +163,60 @@ describe("Score Reset", () => {
 
     expect(await screen.findByText("Employee Directory could not be loaded.")).toBeInTheDocument();
   });
+
+  it("filters employees by search query and score filter chips", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/score-reset"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Score Reset" });
+
+    const searchInput = screen.getByRole("textbox", {
+      name: "Filter employee list",
+    });
+    await user.type(searchInput, "EMP-01");
+
+    const combobox = screen.getByRole("combobox", {
+      name: "Employee to reset",
+    });
+    expect(combobox).toHaveTextContent("EMP-01");
+
+    await user.click(
+      screen.getByRole("button", { name: "Clear employee search" }),
+    );
+    expect(searchInput).toHaveValue("");
+
+    const needsResetChip = screen.getByRole("button", {
+      name: /Needs Reset/i,
+    });
+    await user.click(needsResetChip);
+    expect(combobox).toHaveTextContent("EMP-01");
+  });
+
+  it("dismisses error toast when dismiss button is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        initialEntries={["/score-reset"]}
+        initialPersona="admin"
+        service={createMockSawService({ storage: null })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Score Reset" });
+    await user.click(
+      screen.getByRole("button", { name: "Review Score Reset" }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Select an Employee to reset.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Dismiss error" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
