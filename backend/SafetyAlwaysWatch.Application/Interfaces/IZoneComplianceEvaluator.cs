@@ -17,5 +17,5 @@ public record ZoneComplianceResult(
     bool IsInZone,
     Guid? HazardousZoneId,
     bool IsCompliant,
-    Guid? MissingPpeClassId
+    List<Guid>? MissingPpeClassIds
 );
