@@ -71,6 +71,7 @@ builder.Services.Configure<SafetyAlwaysWatch.Infrastructure.Services.FrameSnapsh
 builder.Services.AddSingleton<IFrameSnapshotBuffer, SafetyAlwaysWatch.Infrastructure.Services.FrameSnapshotBuffer>();
 builder.Services.AddScoped<IInferenceIngestionService, SafetyAlwaysWatch.Application.Services.InferenceIngestionService>();
 builder.Services.AddScoped<IViolationStabilizationService, SafetyAlwaysWatch.Application.Services.ViolationStabilizationService>();
+builder.Services.AddScoped<ISafetyScoringService, SafetyAlwaysWatch.Application.Services.SafetyScoringService>();
 builder.Services.AddScoped<IInferenceResultPublisher, SafetyAlwaysWatch.Api.Services.SignalRInferenceResultPublisher>();
 
 builder.Services.AddAutoMapper(cfg =>
