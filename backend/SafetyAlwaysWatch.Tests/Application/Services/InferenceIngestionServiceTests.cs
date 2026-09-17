@@ -67,7 +67,7 @@ public class InferenceIngestionServiceTests
 
         _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdentityResult(null, "Unknown", null, false));
-        
+
         _mockZoneEvaluator.Setup(z => z.EvaluateAsync("camera1", personDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ZoneComplianceResult(false, null, true, null));
 
@@ -90,7 +90,7 @@ public class InferenceIngestionServiceTests
         var identityResult = new IdentityResult(Guid.NewGuid(), "John Doe", 100, true);
         _mockIdentityResolver.Setup(i => i.ResolveIdentityAsync("track1", null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(identityResult);
-        
+
         var zoneId = Guid.NewGuid();
         var missingPpeId = Guid.NewGuid();
         _mockZoneEvaluator.Setup(z => z.EvaluateAsync("camera1", personDto, It.IsAny<CancellationToken>()))

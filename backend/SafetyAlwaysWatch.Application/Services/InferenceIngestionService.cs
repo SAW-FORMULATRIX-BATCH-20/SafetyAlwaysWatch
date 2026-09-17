@@ -45,7 +45,7 @@ public class InferenceIngestionService : IInferenceIngestionService
                 {
                     _cache.Remove(person.TrackId);
                     await _stabilization.HandleLostTrackAsync(person.TrackId, cancellationToken);
-                    
+
                     outputPersons.Add(new DetectedPersonOutput(
                         person.TrackId, person.BoundingBox, person.Confidence, null, "Lost", null, false, false, new List<PpeItemOutput>(), true));
                 }

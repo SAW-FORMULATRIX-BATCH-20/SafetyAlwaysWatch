@@ -61,8 +61,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 builder.Services.AddScoped<IScoreResetService, ScoreResetService>();
 builder.Services.AddHostedService<SafetyAlwaysWatch.Api.Services.ScoreResetBackgroundService>();
-builder.Services.AddSingleton<IMockSimulationControl, MockSimulationControl>();
-builder.Services.AddHostedService<MockInferenceSimulatorService>();
 builder.Services.AddScoped<IFaceRecognitionService, SafetyAlwaysWatch.Infrastructure.Services.FaceRecognitionService>();
 builder.Services.AddScoped<IZoneComplianceEvaluator, SafetyAlwaysWatch.Infrastructure.Services.DummyZoneComplianceEvaluator>();
 builder.Services.AddHttpClient<ITelegramEscalationService, SafetyAlwaysWatch.Infrastructure.Services.TelegramEscalationService>();
