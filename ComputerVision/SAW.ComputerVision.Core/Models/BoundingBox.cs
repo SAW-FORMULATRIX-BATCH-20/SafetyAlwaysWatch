@@ -34,4 +34,18 @@ public readonly struct BoundingBox
         var iou = interArea / (boxAArea + boxBArea - interArea);
         return iou;
     }
+
+    public double CalculateIoa(BoundingBox container)
+    {
+        var xA = Math.Max(X, container.X);
+        var yA = Math.Max(Y, container.Y);
+        var xB = Math.Min(X + Width, container.X + container.Width);
+        var yB = Math.Min(Y + Height, container.Y + container.Height);
+
+        var interArea = Math.Max(0, xB - xA) * Math.Max(0, yB - yA);
+
+        if (interArea == 0) return 0;
+
+        return interArea / Area;
+    }
 }
